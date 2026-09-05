@@ -10,7 +10,7 @@ export interface StaffRecord {
   id: string;
   auth_user_id: string;
   full_name: string;
-  role: string;
+  system_role: string;
   branch_id: string | null;
   is_active: boolean;
 }

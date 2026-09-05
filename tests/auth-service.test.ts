@@ -5,6 +5,7 @@ import {
   resolveStaffAndBranchContext,
   signOutUser,
   AuthDenialError,
+  ContextLoadError,
   InvalidCredentialsError,
   NetworkOrConfigError,
 } from '../src/lib/auth-service';
@@ -53,7 +54,7 @@ function createMockSupabaseClient(overrides: {
                   id: 'staff-1',
                   auth_user_id: 'usr-123',
                   full_name: 'Jane Doe',
-                  role: 'crm',
+                  system_role: 'crm',
                   branch_id: 'branch-1',
                   is_active: true,
                   branches: { name: 'Makati Branch' },
@@ -142,7 +143,7 @@ describe('Authentication Service', () => {
       ).rejects.toThrow(InvalidCredentialsError);
     });
 
-    it('throws NetworkOrConfigError when network request fails', async () => {
+    it('throws NetworkOrConfigError when signIn network request fails', async () => {
       const mockClient = {
         auth: {
           signInWithPassword: vi
@@ -152,6 +153,19 @@ describe('Authentication Service', () => {
           signOut: vi.fn(),
         },
       } as unknown as SupabaseClient;
+
+      await expect(
+        authenticateWithPassword('staff@example.com', 'pass', mockClient),
+      ).rejects.toThrow(NetworkOrConfigError);
+    });
+
+    it('throws NetworkOrConfigError when getUser fails or returns error', async () => {
+      const mockClient = createMockSupabaseClient({
+        getUserResponse: {
+          data: { user: null },
+          error: { message: 'Auth session missing or network failure' },
+        },
+      });
 
       await expect(
         authenticateWithPassword('staff@example.com', 'pass', mockClient),
@@ -169,14 +183,14 @@ describe('Authentication Service', () => {
       created_at: '2026-01-01',
     };
 
-    it('resolves full AuthContext for active staff with authorized role and branch', async () => {
+    it('resolves full AuthContext for active staff with authoritative system_role and branch', async () => {
       const mockClient = createMockSupabaseClient({
         staffResponse: {
           data: {
             id: 'staff-42',
             auth_user_id: 'usr-123',
             full_name: 'Jane Doe',
-            role: 'csr',
+            system_role: 'csr',
             branch_id: 'branch-101',
             is_active: true,
             branches: { name: 'BGC Flagship' },
@@ -198,7 +212,98 @@ describe('Authentication Service', () => {
       expect(context.isCrmEligible).toBe(true);
     });
 
-    it('denies access if staff record is not found', async () => {
+    it('contract-drift test: succeeds using system_role when role property is omitted from staff record', async () => {
+      const selectSpy = vi.fn();
+      const mockClient = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === 'staff') {
+            return {
+              select: selectSpy.mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: {
+                      id: 'staff-drift-check',
+                      auth_user_id: 'usr-123',
+                      full_name: 'Drift Test User',
+                      system_role: 'manager',
+                      // Intentionally NO `role` field
+                      branch_id: 'branch-drift',
+                      is_active: true,
+                      branches: { name: 'Main HQ' },
+                    },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { name: 'Main HQ' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }),
+      } as unknown as SupabaseClient;
+
+      const context = await resolveStaffAndBranchContext(mockUser, mockClient);
+
+      // Verify that query selected system_role and NOT role
+      expect(selectSpy).toHaveBeenCalledWith(
+        'id, auth_user_id, full_name, system_role, branch_id, is_active, branches(name)',
+      );
+      expect(context.canonicalRole).toBe('manager');
+      expect(context.rawRole).toBe('manager');
+      expect(context.isCrmEligible).toBe(true);
+    });
+
+    it('throws ContextLoadError (NOT AuthDenialError) when staff database query fails', async () => {
+      const mockClient = createMockSupabaseClient({
+        staffResponse: {
+          data: null,
+          error: { message: 'PostgREST connection timeout', code: 'PGRST000' },
+        },
+      });
+
+      await expect(
+        resolveStaffAndBranchContext(mockUser, mockClient),
+      ).rejects.toThrow(ContextLoadError);
+
+      await expect(
+        resolveStaffAndBranchContext(mockUser, mockClient),
+      ).rejects.not.toThrow(AuthDenialError);
+    });
+
+    it('throws ContextLoadError when fallback branch query fails', async () => {
+      const mockClient = createMockSupabaseClient({
+        staffResponse: {
+          data: {
+            id: 'staff-42',
+            auth_user_id: 'usr-123',
+            full_name: 'Jane Doe',
+            system_role: 'manager',
+            branch_id: 'branch-101',
+            is_active: true,
+            branches: null, // triggers fallback branch query
+          },
+          error: null,
+        },
+        branchResponse: {
+          data: null,
+          error: { message: 'Database lookup error on branches table' },
+        },
+      });
+
+      await expect(
+        resolveStaffAndBranchContext(mockUser, mockClient),
+      ).rejects.toThrow(ContextLoadError);
+    });
+
+    it('denies access (AuthDenialError) if staff record is not found', async () => {
       const mockClient = createMockSupabaseClient({
         staffResponse: { data: null, error: null },
       });
@@ -215,7 +320,7 @@ describe('Authentication Service', () => {
             id: 'staff-42',
             auth_user_id: 'usr-123',
             full_name: 'Jane Doe',
-            role: 'crm',
+            system_role: 'crm',
             branch_id: 'branch-101',
             is_active: false,
           },
@@ -228,14 +333,14 @@ describe('Authentication Service', () => {
       ).rejects.toThrow(/inactive/);
     });
 
-    it('denies access if staff role is not CRM-eligible', async () => {
+    it('denies access if staff system_role is not CRM-eligible', async () => {
       const mockClient = createMockSupabaseClient({
         staffResponse: {
           data: {
             id: 'staff-42',
             auth_user_id: 'usr-123',
             full_name: 'Jane Doe',
-            role: 'therapist',
+            system_role: 'therapist',
             branch_id: 'branch-101',
             is_active: true,
             branches: { name: 'BGC Flagship' },
@@ -256,7 +361,7 @@ describe('Authentication Service', () => {
             id: 'staff-42',
             auth_user_id: 'usr-123',
             full_name: 'Jane Doe',
-            role: 'manager',
+            system_role: 'manager',
             branch_id: null,
             is_active: true,
           },
@@ -271,10 +376,20 @@ describe('Authentication Service', () => {
   });
 
   describe('signOutUser', () => {
-    it('calls client auth signOut', async () => {
+    it('calls client auth signOut with { scope: "local" }', async () => {
       const mockClient = createMockSupabaseClient({});
       await signOutUser(mockClient);
-      expect(mockClient.auth.signOut).toHaveBeenCalled();
+      expect(mockClient.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    });
+
+    it('throws error and does not swallow failure when signOut fails', async () => {
+      const mockClient = createMockSupabaseClient({
+        signOutError: { message: 'Network error during sign-out' },
+      });
+
+      await expect(signOutUser(mockClient)).rejects.toThrow(
+        'Network error during sign-out',
+      );
     });
   });
 });

@@ -6,6 +6,7 @@ import {
   resolveStaffAndBranchContext,
   signOutUser,
   AuthDenialError,
+  ContextLoadError,
   InvalidCredentialsError,
   NetworkOrConfigError,
 } from './lib/auth-service';
@@ -21,12 +22,14 @@ export function App() {
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   const configured = isSupabaseConfigured();
 
   const handleLogin = async (email: string, pass: string) => {
     setErrorMessage(null);
     setDenialDetails(null);
+    setSignOutError(null);
     setStatus('authenticating');
 
     try {
@@ -47,7 +50,8 @@ export function App() {
         setStatus('denied');
       } else if (
         err instanceof InvalidCredentialsError ||
-        err instanceof NetworkOrConfigError
+        err instanceof NetworkOrConfigError ||
+        err instanceof ContextLoadError
       ) {
         setErrorMessage(err.message);
         setStatus('idle');
@@ -64,13 +68,22 @@ export function App() {
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
+    setSignOutError(null);
     try {
       await signOutUser();
-    } finally {
       setAuthContext(null);
       setDenialDetails(null);
       setErrorMessage(null);
+      setSignOutError(null);
       setStatus('idle');
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Failed to sign out. Please check your connection and try again.';
+      setSignOutError(msg);
+      // Retain active context on failure for retry
+    } finally {
       setIsSigningOut(false);
     }
   };
@@ -81,6 +94,7 @@ export function App() {
         authContext={authContext}
         onSignOut={handleSignOut}
         isSigningOut={isSigningOut}
+        signOutError={signOutError}
       />
     );
   }
@@ -91,6 +105,7 @@ export function App() {
         denial={denialDetails}
         onSignOut={handleSignOut}
         isSigningOut={isSigningOut}
+        signOutError={signOutError}
       />
     );
   }

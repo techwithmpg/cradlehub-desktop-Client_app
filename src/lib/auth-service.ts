@@ -23,9 +23,21 @@ export class AuthDenialError extends Error {
   }
 }
 
+export class ContextLoadError extends Error {
+  readonly isContextLoad = true;
+  constructor(
+    message = 'We could not load your authorized workspace context. Please check your connection and try again.',
+  ) {
+    super(message);
+    this.name = 'ContextLoadError';
+  }
+}
+
 export class NetworkOrConfigError extends Error {
   readonly isNetworkOrConfig = true;
-  constructor(message: string) {
+  constructor(
+    message = 'Unable to connect to authentication service. Please check your network connection.',
+  ) {
     super(message);
     this.name = 'NetworkOrConfigError';
   }
@@ -33,7 +45,7 @@ export class NetworkOrConfigError extends Error {
 
 export class InvalidCredentialsError extends Error {
   readonly isInvalidCredentials = true;
-  constructor(message = 'Invalid login credentials') {
+  constructor(message = 'Invalid email or password.') {
     super(message);
     this.name = 'InvalidCredentialsError';
   }
@@ -73,7 +85,7 @@ export async function authenticateWithPassword(
         'Unable to connect to authentication service. Please check your network connection.',
       );
     }
-    throw new InvalidCredentialsError('Invalid login credentials');
+    throw new InvalidCredentialsError('Invalid email or password.');
   }
 
   const { data, error } = result;
@@ -88,7 +100,7 @@ export async function authenticateWithPassword(
       errorMsg.includes('invalid grant') ||
       error.status === 400
     ) {
-      throw new InvalidCredentialsError('Invalid login credentials');
+      throw new InvalidCredentialsError('Invalid email or password.');
     }
 
     if (
@@ -102,20 +114,58 @@ export async function authenticateWithPassword(
       );
     }
 
-    throw new Error(
-      error.message || 'Authentication failed. Please try again.',
+    throw new NetworkOrConfigError(
+      error.message ||
+        'Unable to connect to authentication service. Please check your network connection.',
     );
   }
 
   if (!data.user) {
-    throw new InvalidCredentialsError('Invalid login credentials');
+    throw new InvalidCredentialsError('Invalid email or password.');
   }
 
   // Authoritatively validate user identity
-  const { data: userData, error: userError } = await client.auth.getUser();
-  if (userError || !userData.user) {
+  let userResult;
+  try {
+    userResult = await client.auth.getUser();
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (
+      message.includes('fetch') ||
+      message.includes('Network') ||
+      message.includes('Failed to fetch') ||
+      message.includes('network')
+    ) {
+      throw new NetworkOrConfigError(
+        'Unable to connect to authentication service. Please check your network connection.',
+      );
+    }
+    throw new NetworkOrConfigError(
+      'Failed to validate user identity with auth service.',
+    );
+  }
+
+  const { data: userData, error: userError } = userResult;
+  if (userError) {
+    const userErrMsg = userError.message.toLowerCase();
+    if (
+      userErrMsg.includes('fetch') ||
+      userErrMsg.includes('network') ||
+      userErrMsg.includes('connection') ||
+      userErrMsg.includes('timeout')
+    ) {
+      throw new NetworkOrConfigError(
+        'Unable to connect to authentication service. Please check your network connection.',
+      );
+    }
     throw new InvalidCredentialsError(
-      'Failed to validate authenticated user identity.',
+      'Authenticated user session is invalid or expired.',
+    );
+  }
+
+  if (!userData.user) {
+    throw new InvalidCredentialsError(
+      'Authenticated user session could not be established.',
     );
   }
 
@@ -124,7 +174,8 @@ export async function authenticateWithPassword(
 
 /**
  * Resolves authoritative staff record and branch context for an authenticated user.
- * Fails closed if any condition is unmet.
+ * Distinguishes context loading errors from authorization denials.
+ * Fails closed for any unauthorized or missing context.
  */
 export async function resolveStaffAndBranchContext(
   user: User,
@@ -133,26 +184,31 @@ export async function resolveStaffAndBranchContext(
   const client = customClient ?? getSupabaseClient();
   const userEmail = user.email || '';
 
-  // 1. Query staff row for the authenticated auth_user_id
-  const { data: staffData, error: staffError } = await client
-    .from('staff')
-    .select(
-      'id, auth_user_id, full_name, role, branch_id, is_active, branches(name)',
-    )
-    .eq('auth_user_id', user.id)
-    .maybeSingle();
-
-  if (staffError) {
-    throw new AuthDenialError(
-      'Failed to verify staff record due to database or permission error.',
-      {
-        email: userEmail,
-        userId: user.id,
-      },
+  // 1. Query staff row for the authenticated auth_user_id using authoritative system_role
+  let staffResult;
+  try {
+    staffResult = await client
+      .from('staff')
+      .select(
+        'id, auth_user_id, full_name, system_role, branch_id, is_active, branches(name)',
+      )
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+  } catch {
+    throw new ContextLoadError(
+      'We could not load your authorized workspace context. Please check your connection and try again.',
     );
   }
 
-  // 2. Check if staff row exists
+  const { data: staffData, error: staffError } = staffResult;
+
+  if (staffError) {
+    throw new ContextLoadError(
+      'We could not load your authorized workspace context. Please check your connection and try again.',
+    );
+  }
+
+  // 2. Check if staff row exists (Denial if no staff profile)
   if (!staffData) {
     throw new AuthDenialError(
       'No staff profile associated with this authenticated account.',
@@ -163,29 +219,29 @@ export async function resolveStaffAndBranchContext(
     );
   }
 
-  // 3. Verify staff account is active
+  // 3. Verify staff account is active (Denial if inactive)
   if (!staffData.is_active) {
     throw new AuthDenialError(
       'Your staff account is marked inactive. Contact an administrator.',
       {
         email: userEmail,
         userId: user.id,
-        rawRole: staffData.role,
+        rawRole: staffData.system_role,
       },
     );
   }
 
-  // 4. Canonicalize role and verify CRM eligibility
-  const canonicalRole = canonicalizeRole(staffData.role);
+  // 4. Canonicalize authoritative system_role and verify CRM eligibility
+  const canonicalRole = canonicalizeRole(staffData.system_role);
   const isCrmEligible = isRoleEligibleForCrm(canonicalRole);
 
   if (!isCrmEligible) {
     throw new AuthDenialError(
-      `Your account role (${staffData.role || 'unassigned'}) is not authorized for CRM workspace access.`,
+      `Your account role (${staffData.system_role || 'unassigned'}) is not authorized for CRM workspace access.`,
       {
         email: userEmail,
         userId: user.id,
-        rawRole: staffData.role,
+        rawRole: staffData.system_role,
       },
     );
   }
@@ -195,7 +251,7 @@ export async function resolveStaffAndBranchContext(
     throw new AuthDenialError('No branch is assigned to your staff profile.', {
       email: userEmail,
       userId: user.id,
-      rawRole: staffData.role,
+      rawRole: staffData.system_role,
     });
   }
 
@@ -216,13 +272,28 @@ export async function resolveStaffAndBranchContext(
   }
 
   if (!branchName && staffData.branch_id) {
-    const { data: branchData, error: branchError } = await client
-      .from('branches')
-      .select('name')
-      .eq('id', staffData.branch_id)
-      .maybeSingle();
+    let branchResult;
+    try {
+      branchResult = await client
+        .from('branches')
+        .select('name')
+        .eq('id', staffData.branch_id)
+        .maybeSingle();
+    } catch {
+      throw new ContextLoadError(
+        'We could not load your authorized branch details. Please check your connection and try again.',
+      );
+    }
 
-    if (!branchError && branchData?.name) {
+    const { data: branchData, error: branchError } = branchResult;
+
+    if (branchError) {
+      throw new ContextLoadError(
+        'We could not load your authorized branch details. Please check your connection and try again.',
+      );
+    }
+
+    if (branchData?.name) {
       branchName = branchData.name;
     }
   }
@@ -233,7 +304,7 @@ export async function resolveStaffAndBranchContext(
       {
         email: userEmail,
         userId: user.id,
-        rawRole: staffData.role,
+        rawRole: staffData.system_role,
       },
     );
   }
@@ -244,7 +315,7 @@ export async function resolveStaffAndBranchContext(
     staffId: staffData.id,
     fullName: staffData.full_name?.trim() || userEmail || 'Staff Member',
     canonicalRole,
-    rawRole: staffData.role,
+    rawRole: staffData.system_role,
     branchId: staffData.branch_id,
     branchName,
     isCrmEligible: true,
@@ -252,15 +323,15 @@ export async function resolveStaffAndBranchContext(
 }
 
 /**
- * Signs out from Supabase Auth and clears session.
+ * Signs out from Supabase Auth for the local desktop session only.
+ * Does not swallow errors.
  */
 export async function signOutUser(
   customClient?: SupabaseClient,
 ): Promise<void> {
   const client = customClient ?? getSupabaseClient();
-  try {
-    await client.auth.signOut();
-  } catch {
-    // Gracefully handle sign-out errors
+  const { error } = await client.auth.signOut({ scope: 'local' });
+  if (error) {
+    throw new Error(error.message || 'Failed to sign out. Please try again.');
   }
 }

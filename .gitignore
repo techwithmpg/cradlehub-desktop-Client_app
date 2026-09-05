@@ -10,4 +10,6 @@ src-tauri/gen/
 .idea/
 .vscode/
 coverage/
+.agents/
+skills-lock.json
 !.env.example

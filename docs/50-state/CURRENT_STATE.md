@@ -5,16 +5,17 @@ Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell i
 Branch: `stage/01-auth-branch-shell`. BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
 Fetched HOSTED_SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43`; hosted tracked source remains read-only and clean.
 
-Stage 01 implementation is complete on `stage/01-auth-branch-shell`:
+First independent review returned CHANGES REQUIRED. The required corrections have been implemented on the same `stage/01-auth-branch-shell` branch:
 
-- Real Supabase email/password authentication via `@supabase/supabase-js` (2.115.0).
-- In-memory session management (`persistSession: false`, no localStorage/sessionStorage/SQLite).
-- RLS-governed staff and branch context resolution with fail-closed authorization.
-- Canonical desktop shell with dark green sidebar, restrained gold accents, compact operational workspace.
-- Exactly 8 authorized navigation modules (Today, Bookings, Attendance, Customers, Schedule, Home Service, Staff, Settings) with truthful unavailable destination states.
-- Real Sign Out clearing authenticated state and returning to login.
-- Narrowed Tauri CSP allowing only the exact public Supabase project origin.
-- 30 automated unit and boundary tests passing with full test coverage of boundaries and auth flows.
+- Authoritative field `staff.system_role` (NOT `role`) used in staff queries, types, and role canonicalization, matching the hosted CradleHub authority contract.
+- Focused contract-drift tests verifying that `system_role` is queried and required.
+- Sign-out constrained to local desktop scope via `supabase.auth.signOut({ scope: 'local' })` to avoid terminating sessions on other devices.
+- Non-swallowed sign-out failure with truthful retryable error presentation and context retention.
+- Enabled in-memory token auto-refresh (`autoRefreshToken: true`, `persistSession: false`, `detectSessionInUrl: false`).
+- Truthful error taxonomy distinguishing Invalid Credentials (`InvalidCredentialsError`), Network/Auth Service failure (`NetworkOrConfigError`), Context Load / Query failure (`ContextLoadError`), and proven Authorization Denial (`AuthDenialError`).
+- Removed unsupported `"RLS Verified"` runtime claim; replaced with neutral, truthful `"In-memory session"`.
+- 43 automated unit and boundary tests passing across 4 test suites.
 
-Status remains **ACTIVE / UNACCEPTED** pending independent GitHub review and owner runtime verification.
-Product modules, hosted changes, schema/RLS changes, merge to main, and Stage 02 remain unauthorized.
+Status remains **ACTIVE / UNACCEPTED**.
+Next action: Independent GitHub re-review, followed by owner native runtime verification if re-review is acceptable.
+Product modules, hosted changes, schema/RLS mutations, merge to main, and Stage 02 remain unauthorized.

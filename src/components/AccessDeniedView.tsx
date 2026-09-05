@@ -1,16 +1,18 @@
-import { ShieldAlert, LogOut, UserX } from 'lucide-react';
+import { ShieldAlert, LogOut, UserX, AlertCircle } from 'lucide-react';
 import type { DenialDetails } from '../types/auth';
 
 interface AccessDeniedViewProps {
   denial: DenialDetails;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
+  signOutError?: string | null;
 }
 
 export function AccessDeniedView({
   denial,
   onSignOut,
   isSigningOut,
+  signOutError,
 }: AccessDeniedViewProps) {
   return (
     <div className="denied-container" data-testid="access-denied-view">
@@ -63,6 +65,21 @@ export function AccessDeniedView({
               permissions.
             </span>
           </div>
+
+          {signOutError && (
+            <div
+              className="login-error-banner"
+              role="alert"
+              data-testid="denied-signout-error"
+            >
+              <AlertCircle
+                size={18}
+                className="login-error-icon"
+                aria-hidden="true"
+              />
+              <span className="login-error-text">{signOutError}</span>
+            </div>
+          )}
         </section>
 
         <footer className="denied-footer">

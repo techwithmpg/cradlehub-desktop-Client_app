@@ -1,8 +1,8 @@
 import type { CanonicalRole } from '../types/auth';
 
 /**
- * Canonicalizes a raw staff role string into an authoritative CanonicalRole.
- * Follows the hosted Cradlehub role canonicalization rules:
+ * Canonicalizes an authoritative staff system_role string into an authoritative CanonicalRole.
+ * Follows the hosted Cradlehub system_role canonicalization rules:
  * - 'crm', 'csr', 'csr_head', 'csr_staff' -> 'crm' (Front Desk)
  * - 'owner' -> 'owner'
  * - 'manager' -> 'manager'
@@ -11,11 +11,11 @@ import type { CanonicalRole } from '../types/auth';
  * - all other roles -> 'unknown'
  */
 export function canonicalizeRole(
-  rawRole: string | null | undefined,
+  systemRole: string | null | undefined,
 ): CanonicalRole {
-  if (!rawRole) return 'unknown';
+  if (!systemRole) return 'unknown';
 
-  const normalized = rawRole.trim().toLowerCase();
+  const normalized = systemRole.trim().toLowerCase();
 
   switch (normalized) {
     case 'crm':
@@ -53,7 +53,10 @@ export function isRoleEligibleForCrm(role: CanonicalRole): boolean {
 /**
  * Returns a user-friendly label for a canonical role.
  */
-export function formatRoleLabel(role: CanonicalRole, rawRole?: string): string {
+export function formatRoleLabel(
+  role: CanonicalRole,
+  rawSystemRole?: string,
+): string {
   switch (role) {
     case 'crm':
       return 'Front Desk (CRM)';
@@ -67,6 +70,6 @@ export function formatRoleLabel(role: CanonicalRole, rawRole?: string): string {
       return 'Store Manager';
     case 'unknown':
     default:
-      return rawRole ? `Staff (${rawRole})` : 'Unknown Role';
+      return rawSystemRole ? `Staff (${rawSystemRole})` : 'Unknown Role';
   }
 }

@@ -4,6 +4,7 @@ import {
   LogOut,
   Info,
   ShieldCheck,
+  AlertCircle,
   CalendarDays,
   BookmarkCheck,
   UserCheck,
@@ -22,6 +23,7 @@ interface CanonicalShellProps {
   authContext: AuthContext;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
+  signOutError?: string | null;
 }
 
 const ICON_MAP: Record<NavModuleId, LucideIcon> = {
@@ -39,6 +41,7 @@ export function CanonicalShell({
   authContext,
   onSignOut,
   isSigningOut,
+  signOutError,
 }: CanonicalShellProps) {
   const [activeModule, setActiveModule] = useState<NavModuleId>('today');
 
@@ -204,6 +207,22 @@ export function CanonicalShell({
           </div>
         </header>
 
+        {/* Sign Out Error Notification if failed */}
+        {signOutError && (
+          <div
+            className="signout-error-banner"
+            role="alert"
+            data-testid="shell-signout-error"
+          >
+            <AlertCircle
+              size={16}
+              className="text-red-600"
+              aria-hidden="true"
+            />
+            <span>{signOutError}</span>
+          </div>
+        )}
+
         {/* Operational Workspace Body */}
         <main id="main-content" className="workspace-content" tabIndex={-1}>
           <div
@@ -257,7 +276,12 @@ export function CanonicalShell({
                   <span className="summary-card-value text-emerald-800">
                     In-Memory Active
                   </span>
-                  <span className="summary-card-meta">RLS Verified</span>
+                  <span
+                    className="summary-card-meta"
+                    data-testid="in-memory-session-badge"
+                  >
+                    In-memory session
+                  </span>
                 </div>
               </div>
             </div>

@@ -45,6 +45,45 @@ describe('Stage 01 authority and security boundaries', () => {
     expect(combinedSources).not.toMatch(/console\.log\([^)]*token/i);
   });
 
+  it('contains no unsupported runtime claims (RLS Verified, Production Verified, Live Verified, Sync Verified)', () => {
+    function scanDir(dir: string): string[] {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      let files: string[] = [];
+      for (const entry of entries) {
+        const fullPath = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          files = files.concat(scanDir(fullPath));
+        } else if (/\.tsx?$/.test(entry.name)) {
+          files.push(fullPath);
+        }
+      }
+      return files;
+    }
+
+    const sourceFiles = scanDir('src');
+    const combinedSources = sourceFiles
+      .map((f) => readFileSync(f, 'utf8'))
+      .join('\n');
+
+    expect(combinedSources).not.toMatch(/RLS Verified/i);
+    expect(combinedSources).not.toMatch(/Production Verified/i);
+    expect(combinedSources).not.toMatch(/Live Verified/i);
+    expect(combinedSources).not.toMatch(/Sync Verified/i);
+  });
+
+  it('configures in-memory session with autoRefreshToken enabled and URL session detection disabled', () => {
+    const supabaseSrc = readFileSync('src/lib/supabase.ts', 'utf8');
+    expect(supabaseSrc).toMatch(/persistSession:\s*false/);
+    expect(supabaseSrc).toMatch(/autoRefreshToken:\s*true/);
+    expect(supabaseSrc).toMatch(/detectSessionInUrl:\s*false/);
+  });
+
+  it('preserves names-only .env.example without secrets', () => {
+    const envExample = readFileSync('.env.example', 'utf8');
+    expect(envExample).toMatch(/^VITE_SUPABASE_URL=\r?\n/m);
+    expect(envExample).toMatch(/^VITE_SUPABASE_ANON_KEY=\r?\n?$/m);
+  });
+
   it('contains exactly the eight authorized navigation items and excludes dormant modules', () => {
     const navIds = AUTHORIZED_NAV_ITEMS.map((item) => item.id);
     expect(navIds).toHaveLength(8);

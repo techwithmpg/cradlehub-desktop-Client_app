@@ -57,13 +57,13 @@ describe('Stage 01 UI Components', () => {
         <LoginView
           onLogin={vi.fn()}
           isLoading={false}
-          errorMessage="Invalid login credentials"
+          errorMessage="Invalid email or password."
           isConfigured={true}
         />,
       );
 
       const alert = screen.getByRole('alert');
-      expect(alert.textContent).toContain('Invalid login credentials');
+      expect(alert.textContent).toContain('Invalid email or password.');
     });
 
     it('disables input and shows loading indicator while submitting', () => {
@@ -129,6 +129,7 @@ describe('Stage 01 UI Components', () => {
           denial={mockDenial}
           onSignOut={vi.fn()}
           isSigningOut={false}
+          signOutError={null}
         />,
       );
 
@@ -143,6 +144,21 @@ describe('Stage 01 UI Components', () => {
       ).toBeDefined();
     });
 
+    it('renders sign-out error banner if sign-out fails', () => {
+      render(
+        <AccessDeniedView
+          denial={mockDenial}
+          onSignOut={vi.fn()}
+          isSigningOut={false}
+          signOutError="Sign-out network error. Please retry."
+        />,
+      );
+
+      expect(screen.getByTestId('denied-signout-error').textContent).toContain(
+        'Sign-out network error. Please retry.',
+      );
+    });
+
     it('calls onSignOut when clicking Sign Out button', async () => {
       const handleSignOut = vi.fn().mockResolvedValue(undefined);
       const user = userEvent.setup();
@@ -152,6 +168,7 @@ describe('Stage 01 UI Components', () => {
           denial={mockDenial}
           onSignOut={handleSignOut}
           isSigningOut={false}
+          signOutError={null}
         />,
       );
 
@@ -179,6 +196,7 @@ describe('Stage 01 UI Components', () => {
           authContext={mockAuthContext}
           onSignOut={vi.fn()}
           isSigningOut={false}
+          signOutError={null}
         />,
       );
 
@@ -209,6 +227,37 @@ describe('Stage 01 UI Components', () => {
       }
     });
 
+    it('renders truthful in-memory session badge and does not claim RLS Verified', () => {
+      render(
+        <CanonicalShell
+          authContext={mockAuthContext}
+          onSignOut={vi.fn()}
+          isSigningOut={false}
+          signOutError={null}
+        />,
+      );
+
+      expect(
+        screen.getByTestId('in-memory-session-badge').textContent,
+      ).toContain('In-memory session');
+      expect(screen.queryByText(/RLS Verified/i)).toBeNull();
+    });
+
+    it('renders sign-out error banner if sign-out fails in shell', () => {
+      render(
+        <CanonicalShell
+          authContext={mockAuthContext}
+          onSignOut={vi.fn()}
+          isSigningOut={false}
+          signOutError="Sign-out network timeout"
+        />,
+      );
+
+      expect(screen.getByTestId('shell-signout-error').textContent).toContain(
+        'Sign-out network timeout',
+      );
+    });
+
     it('switches active module and shows truthful unavailable state', async () => {
       const user = userEvent.setup();
       render(
@@ -216,6 +265,7 @@ describe('Stage 01 UI Components', () => {
           authContext={mockAuthContext}
           onSignOut={vi.fn()}
           isSigningOut={false}
+          signOutError={null}
         />,
       );
 
@@ -260,6 +310,7 @@ describe('Stage 01 UI Components', () => {
           authContext={mockAuthContext}
           onSignOut={handleSignOut}
           isSigningOut={false}
+          signOutError={null}
         />,
       );
 
@@ -334,6 +385,66 @@ describe('Stage 01 UI Components', () => {
       });
     });
 
+    it('retains CanonicalShell and displays truthful retryable error if sign-out fails', async () => {
+      const mockUser = {
+        id: 'usr-1',
+        email: 'user@example.com',
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: '2026-01-01',
+      };
+      const mockContext: AuthContext = {
+        userId: 'usr-1',
+        email: 'user@example.com',
+        staffId: 'staff-1',
+        fullName: 'Alex Reyes',
+        canonicalRole: 'manager',
+        rawRole: 'manager',
+        branchId: 'b-1',
+        branchName: 'Cebu Branch',
+        isCrmEligible: true,
+      };
+
+      vi.spyOn(authService, 'authenticateWithPassword').mockResolvedValue(
+        mockUser,
+      );
+      vi.spyOn(authService, 'resolveStaffAndBranchContext').mockResolvedValue(
+        mockContext,
+      );
+      vi.spyOn(authService, 'signOutUser').mockRejectedValue(
+        new Error('Failed to reach authentication server for sign-out'),
+      );
+
+      render(<App />);
+
+      fireEvent.change(screen.getByTestId('email-input'), {
+        target: { value: 'user@example.com' },
+      });
+      fireEvent.change(screen.getByTestId('password-input'), {
+        target: { value: 'password123' },
+      });
+      fireEvent.click(screen.getByTestId('submit-button'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('canonical-shell')).toBeDefined();
+      });
+
+      // Click Sign Out which will fail
+      fireEvent.click(screen.getByTestId('signout-button'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('shell-signout-error')).toBeDefined();
+      });
+
+      expect(screen.getByTestId('shell-signout-error').textContent).toContain(
+        'Failed to reach authentication server for sign-out',
+      );
+      // User must remain on protected CanonicalShell, not falsely returned to LoginView
+      expect(screen.getByTestId('canonical-shell')).toBeDefined();
+      expect(screen.queryByTestId('login-view')).toBeNull();
+    });
+
     it('transitions to AccessDeniedView if context resolution denies access, and returns to login on sign-out', async () => {
       const mockUser = {
         id: 'usr-2',
@@ -382,6 +493,46 @@ describe('Stage 01 UI Components', () => {
       await waitFor(() => {
         expect(screen.getByTestId('login-view')).toBeDefined();
       });
+    });
+
+    it('displays ContextLoadError truthfully on LoginView when context loading fails', async () => {
+      const mockUser = {
+        id: 'usr-3',
+        email: 'error@example.com',
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: '2026-01-01',
+      };
+
+      vi.spyOn(authService, 'authenticateWithPassword').mockResolvedValue(
+        mockUser,
+      );
+      vi.spyOn(authService, 'resolveStaffAndBranchContext').mockRejectedValue(
+        new authService.ContextLoadError(
+          'Database query timeout while loading staff profile.',
+        ),
+      );
+
+      render(<App />);
+
+      fireEvent.change(screen.getByTestId('email-input'), {
+        target: { value: 'error@example.com' },
+      });
+      fireEvent.change(screen.getByTestId('password-input'), {
+        target: { value: 'password123' },
+      });
+      fireEvent.click(screen.getByTestId('submit-button'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeDefined();
+      });
+
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Database query timeout while loading staff profile.',
+      );
+      expect(screen.getByTestId('login-view')).toBeDefined();
+      expect(screen.queryByTestId('access-denied-view')).toBeNull();
     });
   });
 });
