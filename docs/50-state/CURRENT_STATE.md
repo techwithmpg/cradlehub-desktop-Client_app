@@ -1,10 +1,11 @@
 # Current State
 
-Stage 00 = **OWNER CONFIRMED / ACCEPTED PENDING MERGE**.
-The owner explicitly confirmed Stage 00 after independent GitHub review and visual inspection of the actual Windows runtime on 2026-09-05.
-Branch: `stage/00-initialization`. Reviewed HEAD: `9ecbbce6343ce2d6208dedceb7b51230c6f2181f`.
-Stage 00 has not been merged. Main remains the pre-merge accepted identity/governance baseline `280e4afd5e304c00b7d98f2c1106a016ca484076`.
-The hosted source reference remains `feda4600f37e93084fdb672bd0c2612e9872bb43`; this is repository evidence only.
-See `evidence/stage-00-initialization.md` for OWNER-PROVIDED MANUAL RUNTIME EVIDENCE, acceptance provenance and verification limits.
-Stage 01 and all product modules remain unauthorized. No automatic merge is authorized.
-No historical desktop acceptance transfers.
+Stage 00 = **ACCEPTED / MERGED**. Stage 00 is closed.
+Current branch: `main`, now containing the accepted Stage 00 implementation.
+Accepted stage HEAD: `0526bf50ff50a748191dec04a76116cddb649c5d` on the preserved `stage/00-initialization` branch.
+Pre-merge main / BASE_SHA: `280e4afd5e304c00b7d98f2c1106a016ca484076`.
+Authorized merge commit: `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`.
+The owner confirmed the Stage 00 Windows initialization runtime on 2026-09-05 after independent GitHub review, then separately authorized this merge.
+See `evidence/stage-00-initialization.md` for owner evidence, merge/check records and unchanged verification limits.
+Hosted source reference remains `feda4600f37e93084fdb672bd0c2612e9872bb43`; no hosted or production behavior was newly verified.
+Stage 01, authentication, branch context, shell work and every product module remain **NOT AUTHORIZED**. The next action requires new explicit owner authorization. No historical desktop acceptance transfers.

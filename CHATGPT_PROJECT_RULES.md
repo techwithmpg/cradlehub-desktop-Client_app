@@ -368,4 +368,4 @@ Stop and ask for/record a decision when:
 
 ## 20. Current stage truth
 
-Stage 00 is OWNER CONFIRMED / ACCEPTED PENDING MERGE on stage/00-initialization. The owner explicitly confirmed the reviewed Stage 00 HEAD 9ecbbce6343ce2d6208dedceb7b51230c6f2181f after independent GitHub review and owner runtime inspection on 2026-09-05. Main remains the pre-merge identity baseline 280e4afd5e304c00b7d98f2c1106a016ca484076; Stage 00 is not merged. Consult docs/50-state for acceptance evidence and review of this documentation update. Merge, Stage 01 and product modules remain unauthorized.
+Stage 00 is ACCEPTED / MERGED and closed on main. The owner-confirmed stage HEAD 0526bf50ff50a748191dec04a76116cddb649c5d was merged through separately authorized merge commit b16593d6d1ea873b5d4d10eac99d21cbb400e9a6, with pre-merge main 280e4afd5e304c00b7d98f2c1106a016ca484076. Consult docs/50-state for owner evidence, merge verification and closure. The stage branch is preserved. Stage 01, authentication, branch context, canonical shell work and all product modules remain NOT AUTHORIZED. The next action requires new explicit owner authorization.

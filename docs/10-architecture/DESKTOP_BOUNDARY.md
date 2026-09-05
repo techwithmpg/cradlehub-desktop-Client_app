@@ -1,6 +1,6 @@
 # Stage 00 desktop boundary
 
-Status: Stage 00 is OWNER CONFIRMED / ACCEPTED PENDING MERGE. This implementation-boundary document is not a separately accepted ADR. No merge or future native capability is authorized.
+Status: Stage 00 is ACCEPTED / MERGED on main through `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`. This implementation-boundary document is not a separately accepted ADR. No future native capability or Stage 01 work is authorized.
 
 One Windows Tauri 2 application hosts one static Vite/React/TypeScript renderer. Rust only starts the native runtime. React only renders initialization and unavailable authentication/connection states. No module navigation, forms, data client, business records, auth transport, command handlers, plugins, durable store, worker, polling, or synchronization is introduced.
 

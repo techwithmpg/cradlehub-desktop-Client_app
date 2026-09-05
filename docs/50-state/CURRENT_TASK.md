@@ -1,11 +1,12 @@
 # Current Task
 
-Stage 00 — Owner Acceptance Recording.
-Status: **OWNER CONFIRMED / ACCEPTED PENDING MERGE**.
-Branch: `stage/00-initialization`.
-BASE_SHA: `280e4afd5e304c00b7d98f2c1106a016ca484076`.
-Prior reviewed HEAD: `9ecbbce6343ce2d6208dedceb7b51230c6f2181f`.
+Stage 00 — Authorized Merge and Closure.
+Status: **ACCEPTED / MERGED — CLOSED**.
+Branch: `main`.
+Accepted Stage 00 HEAD: `0526bf50ff50a748191dec04a76116cddb649c5d`.
+Pre-merge main / BASE_SHA: `280e4afd5e304c00b7d98f2c1106a016ca484076`.
+Merge commit: `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`.
 
-This documentation-only update records the owner's explicit confirmation and manual runtime evidence. It is submitted for verification of the acceptance record only.
-The only remaining Stage 00 action is: **OWNER-AUTHORIZED MERGE — NOT YET AUTHORIZED**.
-Do not merge automatically, create another branch, change runtime/configuration/dependencies, or begin Stage 01, authentication, the CRM shell or any product module.
+The owner-authorized Stage 00 merge is complete. Only post-merge documentation and the requested verification/push belong to this closure task; no runtime changes are authorized.
+After the closure is pushed and reported, stop. There is no authorized follow-on implementation task.
+Stage 01, another stage branch, authentication, branch context, canonical shell work and all product modules require a new explicit owner authorization.

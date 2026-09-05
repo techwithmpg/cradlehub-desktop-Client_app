@@ -1,6 +1,6 @@
 # Stage 00 — Greenfield initialization evidence
 
-Status: **OWNER CONFIRMED / ACCEPTED PENDING MERGE**. The owner explicitly confirmed Stage 00 after independent GitHub review and manual Windows runtime inspection on 2026-09-05. Stage 00 is not merged; merge and Stage 01 remain unauthorized. The owner-acceptance addendum below supersedes the prior unaccepted status. Original initialization checks and agent-observed native evidence retain their original scope.
+Status: **ACCEPTED / MERGED — CLOSED**. The owner confirmed Stage 00 after independent GitHub review and manual Windows runtime inspection on 2026-09-05, then separately authorized its merge. Main now contains Stage 00 through merge `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`. Stage 01 and all further product work remain NOT AUTHORIZED. The merge-closure addendum supersedes the prior pending-merge status; original checks and runtime evidence retain their recorded scope.
 
 ## Target and immutable references
 
@@ -9,12 +9,12 @@ Status: **OWNER CONFIRMED / ACCEPTED PENDING MERGE**. The owner explicitly confi
 - Desktop repository: https://github.com/techwithmpg/cradlehub-desktop-Client_app.git
 - Hosted reference repository: https://github.com/techwithmpg/Cradlehub.git
 - Hosted reference directory: `E:\CradleHub-References\Cradlehub-Web`.
-- Branch: `stage/00-initialization`.
+- Original stage branch: `stage/00-initialization` (preserved). Current branch after authorized merge: `main`.
 - BASE_SHA: `280e4afd5e304c00b7d98f2c1106a016ca484076` — initial greenfield identity/governance baseline, pushed to main before stage work.
 - HEAD_SHA (verified implementation snapshot): `2cdedfb1718051bf41c9613ad177d91f6e3af42d`.
 - Hosted reference SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43`; local hosted HEAD and origin/main both resolved to this SHA, with a clean working tree.
 
-The original reviewed delivery HEAD_SHA is `9ecbbce6343ce2d6208dedceb7b51230c6f2181f`; it added evidence and its changed-file manifest to the implementation snapshot above. This subsequent acceptance update changes documentation only. Resolve the current acceptance-record HEAD_SHA with `git rev-parse stage/00-initialization`; the final acceptance report records the exact committed and pushed SHA. A tracked record cannot embed the hash of its own containing commit.
+The original reviewed delivery HEAD_SHA is `9ecbbce6343ce2d6208dedceb7b51230c6f2181f`; it added evidence and its changed-file manifest to the implementation snapshot above. The accepted documentation HEAD is `0526bf50ff50a748191dec04a76116cddb649c5d`, preserved on the stage branch. The owner-authorized merge commit is `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`. Resolve the final main closure HEAD_SHA with `git rev-parse main`; the final merge report records its exact pushed SHA. A tracked record cannot embed the hash of its own containing commit.
 
 The [revised authorization](../../30-delivery/STAGE_00_AUTHORIZATION.md) supersedes the older attached path. [Preflight](stage-00-preflight.md) records the initial empty-target check, empty desktop remote, ZIP presence, tool versions and native prerequisites before target changes. Existing user content was not overwritten. No earlier desktop implementation was imported.
 
@@ -114,13 +114,15 @@ Production CSP uses `connect-src 'none'`. Development CSP permits only the local
 - Binary hosted media and full history were not needed for this source audit. Local Node 25 is outside the hosted project's declared Node 24 range; the hosted application was not run.
 - No CI execution, production operation or post-installation environment was observed. Base UI, CVA and Motion are documented as compatible future additions, not unused parallel implementations.
 
-## Rollback
+## Original pre-merge rollback record
 
-No rollback was executed. After confirming a clean desktop tree with `git -C E:\Cradle-Destop-Client status --short --branch`, the safe local rollback is `git -C E:\Cradle-Destop-Client switch main`. Confirm `git -C E:\Cradle-Destop-Client rev-parse HEAD` equals BASE_SHA `280e4afd5e304c00b7d98f2c1106a016ca484076`.
+This paragraph records the pre-merge rollback option; switching to main no longer selects the old baseline after the authorized merge. No post-merge rollback is authorized or executed.
+
+Original pre-merge instructions: after confirming a clean desktop tree with `git -C E:\Cradle-Destop-Client status --short --branch`, the safe local rollback is `git -C E:\Cradle-Destop-Client switch main`. Confirm `git -C E:\Cradle-Destop-Client rev-parse HEAD` equals BASE_SHA `280e4afd5e304c00b7d98f2c1106a016ca484076`.
 
 This selects the already-pushed governance baseline and preserves the unmerged stage branch and commits for review. It neither deletes unrelated user files nor changes the hosted repository or remote history. If there are unexpected local modifications, stop rather than resetting, cleaning or overwriting them. No database rollback is needed because no database operation occurred.
 
-## Owner acceptance addendum — 2026-09-05
+## Owner acceptance addendum — 2026-09-05 (record at acceptance, before merge)
 
 Authority: the owner's explicit Stage 00 Owner Acceptance Recording instruction, identifying reviewed HEAD `9ecbbce6343ce2d6208dedceb7b51230c6f2181f` and BASE_SHA `280e4afd5e304c00b7d98f2c1106a016ca484076`. The instruction records successful independent GitHub review and explicit owner confirmation. This documentation update does not represent a new review performed by the recording agent.
 
@@ -169,8 +171,43 @@ Documentation checks: `pnpm format:check` and `git diff --check` exit 0. The fin
 
 Acceptance-update impact: no runtime/source/Rust, dependency, Tauri configuration/capability, hosted source, production data, database schema/migration, Auth, RLS, Storage or secret change. Existing evidence assets and raw logs are unchanged. Main remains BASE_SHA, and no merge or new branch is created.
 
+## Authorized merge and closure addendum
+
+Authority: the owner's explicit Stage 00 Authorized Merge instruction identifies accepted stage HEAD `0526bf50ff50a748191dec04a76116cddb649c5d` and pre-merge main `280e4afd5e304c00b7d98f2c1106a016ca484076`, permits an explicit merge and documentation closure only, and does not authorize Stage 01.
+
+Preflight confirmed a clean working tree, exact desktop fetch/push origin `https://github.com/techwithmpg/cradlehub-desktop-Client_app.git`, remote main equal to BASE_SHA and remote stage equal to the accepted HEAD after `git fetch origin --prune`. `git log --oneline --decorate --graph --all -n 15` showed only the three reviewed stage commits above the baseline. `git diff --stat origin/main...origin/stage/00-initialization` showed the 65 reviewed Stage 00 paths. `git merge-base origin/main origin/stage/00-initialization` returned BASE_SHA.
+
+`git switch main` succeeded; `git pull --ff-only origin main` exited 0, already up to date. `git merge --no-ff origin/stage/00-initialization -m "merge: accept Stage 00 greenfield initialization"` exited 0 without conflicts, squash or rebase. Merge commit: **`b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`**. Its parents are BASE_SHA and accepted stage HEAD respectively. `git diff --exit-code 0526bf50ff50a748191dec04a76116cddb649c5d b16593d6d1ea873b5d4d10eac99d21cbb400e9a6` exited 0: the merged tree exactly equals the accepted tree before closure documentation.
+
+Only these post-merge documentation files change: `README.md`, `CHATGPT_PROJECT_RULES.md`, `docs/10-architecture/DESKTOP_BOUNDARY.md`, `docs/10-architecture/WEB_CONTRACT_INVENTORY.md`, `docs/50-state/CURRENT_STATE.md`, `docs/50-state/CURRENT_TASK.md`, `docs/50-state/LAST_VERIFIED_GATE.md`, `docs/50-state/HANDOFF.md`, and this evidence record. The extra active-document status lines are aligned without changing technical findings, runtime, configuration or dependencies.
+
+### Post-merge check results
+
+The following checks were newly run after the authorized merge. Frontend/Git commands ran from `E:\Cradle-Destop-Client`; Cargo commands ran from `E:\Cradle-Destop-Client\src-tauri`.
+
+| Exact command                                        | Observed result                                                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `git diff --check`                                   | Exit 0; No whitespace errors.                                                                    |
+| `pnpm format:check`                                  | Exit 0; All matched files use Prettier code style.                                               |
+| `pnpm lint`                                          | Exit 0; ESLint completed with zero warnings permitted.                                           |
+| `pnpm typecheck`                                     | Exit 0; TypeScript check completed without diagnostics.                                          |
+| `pnpm test`                                          | Exit 0; Vitest 5.0.0: one file, three tests passed.                                              |
+| `pnpm build`                                         | Exit 0; Vite 8.2.2 production renderer build: 1,834 modules transformed.                         |
+| `cargo fmt --check`                                  | Exit 0; Rust formatting clean.                                                                   |
+| `cargo check --locked`                               | Exit 0; Development check completed.                                                             |
+| `cargo test --locked`                                | Exit 0; Library, binary and doc-test targets completed; zero authored Rust tests, zero failures. |
+| `cargo clippy --locked --all-targets -- -D warnings` | Exit 0; Strict all-targets Clippy completed without warnings.                                    |
+
+`git status --short --branch` before the closure commit showed `main...origin/main [ahead 4]` with exactly the nine intended Markdown modifications and no untracked files. `git log --oneline --decorate -n 10` showed merge `b16593d`, accepted stage `0526bf5`, its reviewed predecessors and baseline `280e4af`. The closure diff was inspected; all non-document source/configuration/dependency/evidence-asset files remain identical to accepted stage HEAD. Formatting and whitespace checks are repeated after this results entry before the documentation commit. Commit/push and final remote SHA verification are reported in the delivery response.
+
+No new visual runtime observation is made or inferred; accepted runtime files are unchanged. The original scanner's pre-acceptance state/stage-branch assertions do not apply to main; it is not rerun or changed during this closure.
+
+### Closure impact and delivery
+
+Stage 00 is **ACCEPTED / MERGED** on main. Production data, database/schema, migrations, Auth, RLS, Storage, hosted source, runtime implementation after acceptance, dependencies, Tauri capabilities and privileged secrets: **NO changes** in this merge/closure task. Prior native evidence assets and owner observation text remain unchanged. The stage branch is preserved, with no deletion or force-push. Final remote main SHA is recorded in the delivery report after committing closure documentation and pushing main.
+
 ## Gate and next permitted action
 
-The next reviewer should verify only this acceptance-record documentation update against the prior reviewed HEAD. The only remaining Stage 00 action is **OWNER-AUTHORIZED MERGE — NOT YET AUTHORIZED**. Do not merge automatically. Stage 01, authentication, the CRM shell, all product modules and another branch remain unauthorized.
+Stage 00 is closed. Stop after the authorized merge/closure is pushed and reported. Stage 01, a new stage branch, authentication, branch context, canonical shell work and every product module remain **NOT AUTHORIZED**. The next action requires new explicit owner authorization.
 
-STAGE 00 OWNER CONFIRMED — ACCEPTANCE RECORDED — NOT MERGED — STAGE 01 NOT AUTHORIZED
+STAGE 00 MERGED AND CLOSED — MAIN UPDATED — STAGE 01 NOT AUTHORIZED
