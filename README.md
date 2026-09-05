@@ -1,6 +1,6 @@
 # CradleHub Desktop
 
-Greenfield Windows client, effective 2026-09-05. Stage 00 is active and unaccepted.
+Greenfield Windows client, effective 2026-09-05. Stage 00 is OWNER CONFIRMED / ACCEPTED PENDING MERGE.
 
 Desktop repository: https://github.com/techwithmpg/cradlehub-desktop-Client_app
 Hosted reference: https://github.com/techwithmpg/Cradlehub (read-only source audit).
@@ -42,10 +42,12 @@ cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 ```
 
+The original `scripts/verify-stage00.mjs` includes pre-acceptance state assertions and was not rerun for this documentation-only acceptance update. Its recorded initialization result remains historical to the reviewed snapshot; the script is unchanged under the documentation-only scope.
+
 The three renderer/boundary tests protect unavailable operational actions, an empty native capability set and the absence of renderer persistence/network calls. Rust has no domain logic or authored unit tests yet; cargo test checks compilation/test targets, not CRM behavior.
 
 ## Boundaries
 
 See [hosted contracts](docs/10-architecture/WEB_CONTRACT_INVENTORY.md), [desktop ownership](docs/10-architecture/DESKTOP_BOUNDARY.md), and [one UI direction](docs/10-architecture/UI_SYSTEM_DIRECTION.md).
 
-No Stage 01, product modules, authentication, persistence, offline sync, production/database changes, or merge is authorized. Work remains on `stage/00-initialization` for independent review and explicit owner acceptance. Completion never authorizes the next stage.
+No Stage 01, product modules, authentication, persistence, offline sync, production/database changes, or merge is authorized. Work remains on `stage/00-initialization` for verification of the owner-acceptance documentation update. Owner acceptance is recorded; merge requires separate explicit authorization. Completion never authorizes the next stage.
