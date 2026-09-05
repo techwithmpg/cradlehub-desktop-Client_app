@@ -1,37 +1,57 @@
 # CradleHub Desktop
 
-Greenfield Windows client, effective 2026-09-05. Stage 00 is ACCEPTED / MERGED and closed on main. Merge commit: `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`.
+Greenfield Windows desktop CRM client for CradleHub, effective 2026-09-05.
 
-Desktop repository: https://github.com/techwithmpg/cradlehub-desktop-Client_app
-Hosted reference: https://github.com/techwithmpg/Cradlehub (read-only source audit).
+- **Desktop Repository**: https://github.com/techwithmpg/cradlehub-desktop-Client_app
+- **Hosted Reference**: https://github.com/techwithmpg/Cradlehub (read-only source audit)
+- **Base / Accepted Main**: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (Stage 00 accepted and merged)
+- **Stage 01 Branch**: `stage/01-auth-branch-shell` (OWNER CONFIRMED / ACCEPTED PENDING MERGE)
 
-The single Tauri 2 / React / TypeScript / Vite application displays initialization, not-authenticated and connection-not-established states. No product module or backend connection is implemented.
+## Stage Status
 
-## Stage 01 work in progress
+- **Stage 00**: **ACCEPTED / MERGED — CLOSED** on `main`.
+- **Stage 01 (Authentication, Branch Context & Canonical Shell)**: **OWNER CONFIRMED / ACCEPTED PENDING MERGE** on `stage/01-auth-branch-shell`.
+- **Stage 02**: **NOT AUTHORIZED**.
 
-The owner has separately authorized Stage 01 on `stage/01-auth-branch-shell`. It is OWNER CONFIRMED / ACCEPTED PENDING MERGE; the runtime on main is still the accepted Stage 00 implementation.
-Create ignored `.env.local` from `.env.example`, supplying only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (anon/publishable key). Do not include passwords or privileged secrets. Real environment values must remain untracked and must not be printed in logs/evidence.
+Stage 01 provides:
 
-## Start here
+- Real Supabase email and password authentication with identity verification via `supabase.auth.getUser()`.
+- Authoritative `staff.system_role` querying and canonical role resolution matching hosted contracts.
+- Authoritative, read-only branch context presentation.
+- Single refined canonical shell with corrected visual hierarchy (product-only sidebar, slim ~50px top app bar, exclusive avatar menu Sign Out, module workspace title ownership).
+- Exactly eight authorized navigation destinations (`Today`, `Bookings`, `Attendance`, `Customers`, `Schedule`, `Home Service`, `Staff`, `Settings`) with truthful unavailable states.
+- Local-scoped desktop Sign Out (`supabase.auth.signOut({ scope: 'local' })`) with retryable error presentation.
+- In-memory session management (`persistSession: false`, `autoRefreshToken: true`, `detectSessionInUrl: false`) with no durable token storage in localStorage/sessionStorage/SQLite.
 
-Read [agent rules](AGENTS.md), [governance](docs/00-governance/AI_START_HERE.md), [current state](docs/50-state/CURRENT_STATE.md), and [Stage 00 evidence](docs/50-state/evidence/stage-00-initialization.md).
+Stage 01 is accepted by the owner pending merge; it is NOT yet merged into `main`.
 
-Use pnpm 10.33.2. This host was checked with Node 25.2.0, Rust/Cargo 1.98.0, Windows MSVC Build Tools, Windows SDK and WebView2. Direct JavaScript dependencies and both lockfiles are committed. Do not install hosted web dependencies here or copy environment files.
+## Configuration
+
+Create ignored `.env.local` from `.env.example`, supplying only public connection keys:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Do not include service-role keys, passwords, or privileged secrets. Real environment values remain untracked.
+
+## Development & Build
+
+Requires Node 20+, pnpm 10.33.2, Rust/Cargo (MSVC toolchain on Windows), Windows SDK, and WebView2.
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm tauri dev
 ```
 
-The development command launches the native Windows application and a loopback-only Vite server. For a native executable with embedded production renderer assets:
+For a native debug build with embedded renderer assets:
 
 ```powershell
 pnpm tauri build --debug --no-bundle
 ```
 
-The executable is `src-tauri/target/debug/cradlehub-desktop.exe`. Debug packaging is local verification only; signed installers, update distribution and release acceptance remain unverified.
+The native binary is output to `src-tauri/target/debug/cradlehub-desktop.exe`.
 
-## Checks
+## Verification & Checks
 
 ```powershell
 pnpm format:check
@@ -39,7 +59,6 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-node scripts/verify-stage00.mjs
 cd src-tauri
 cargo fmt --check
 cargo check --locked
@@ -47,12 +66,16 @@ cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 ```
 
-The original `scripts/verify-stage00.mjs` includes pre-acceptance state and stage-branch assertions. It is not a post-merge main gate and was not rerun during closure. Its recorded initialization result applies to the reviewed initialization snapshot; the script remains unchanged. The requested post-merge verification is recorded in the Stage 00 evidence.
+Automated tests provide 45 tests across 4 suites:
 
-The three renderer/boundary tests protect unavailable operational actions, an empty native capability set and the absence of renderer persistence/network calls. Rust has no domain logic or authored unit tests yet; cargo test checks compilation/test targets, not CRM behavior.
+- `tests/roles.test.ts`: Role canonicalization and CRM workspace eligibility.
+- `tests/auth-service.test.ts`: Real authentication service, context resolution, contract drift (`system_role`), error taxonomy, and local sign-out.
+- `tests/boundary.test.ts`: Tauri security capability restrictions (`[]`), narrow Supabase origin CSP, absence of durable persistence / credential logging, and absence of leaked engineering terminology.
+- `tests/components.test.tsx`: Login form, Access Denied view, Canonical Shell hierarchy, popovers, and end-to-end authentication/sign-out state transitions.
+
+Renderer network communication is strictly restricted by CSP to the configured public Supabase project origin (`connect-src 'self' https://<project-ref>.supabase.co`).
 
 ## Boundaries
 
-See [hosted contracts](docs/10-architecture/WEB_CONTRACT_INVENTORY.md), [desktop ownership](docs/10-architecture/DESKTOP_BOUNDARY.md), and [one UI direction](docs/10-architecture/UI_SYSTEM_DIRECTION.md).
-
-The owner-authorized Stage 00 merge is complete on `main`; `stage/00-initialization` is preserved. Stage 01 authentication, authorized branch context and canonical shell work are now separately authorized on `stage/01-auth-branch-shell`. Product-module implementation, speculative persistence/offline sync, hosted or production/database changes, merge and Stage 02 remain unauthorized.
+- Stage 01 is accepted pending merge; merge to `main` is not yet executed.
+- Product module implementations (Bookings, Attendance, etc.), speculative offline sync, database/schema changes, and Stage 02 remain unauthorized.
