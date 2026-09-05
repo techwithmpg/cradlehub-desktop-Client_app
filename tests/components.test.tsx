@@ -301,6 +301,75 @@ describe('Stage 01 UI Components', () => {
       ).toBeDefined();
     });
 
+    it('renders truthful status chip indicating Session Active', () => {
+      render(
+        <CanonicalShell
+          authContext={mockAuthContext}
+          onSignOut={vi.fn()}
+          isSigningOut={false}
+          signOutError={null}
+        />,
+      );
+
+      expect(screen.getByTestId('status-chip').textContent).toContain(
+        'Session Active',
+      );
+    });
+
+    it('toggles notification popover with truthful empty state', async () => {
+      const user = userEvent.setup();
+      render(
+        <CanonicalShell
+          authContext={mockAuthContext}
+          onSignOut={vi.fn()}
+          isSigningOut={false}
+          signOutError={null}
+        />,
+      );
+
+      expect(screen.queryByTestId('notification-panel')).toBeNull();
+
+      // Open notification panel
+      await user.click(screen.getByTestId('notification-trigger'));
+      expect(screen.getByTestId('notification-panel')).toBeDefined();
+      expect(screen.getByText('No Notifications')).toBeDefined();
+      expect(
+        screen.getByText(
+          /Desktop notifications are not yet available in this stage/i,
+        ),
+      ).toBeDefined();
+
+      // Close notification panel by clicking trigger again
+      await user.click(screen.getByTestId('notification-trigger'));
+      expect(screen.queryByTestId('notification-panel')).toBeNull();
+    });
+
+    it('opens user avatar dropdown menu and supports dropdown sign-out', async () => {
+      const handleSignOut = vi.fn().mockResolvedValue(undefined);
+      const user = userEvent.setup();
+
+      render(
+        <CanonicalShell
+          authContext={mockAuthContext}
+          onSignOut={handleSignOut}
+          isSigningOut={false}
+          signOutError={null}
+        />,
+      );
+
+      expect(screen.queryByTestId('user-menu-dropdown')).toBeNull();
+
+      // Click user menu button to open dropdown
+      await user.click(screen.getByTestId('user-menu-trigger'));
+      expect(screen.getByTestId('user-menu-dropdown')).toBeDefined();
+      expect(screen.getByText('maria@cradlehub.com')).toBeDefined();
+      expect(screen.getAllByText('In-Memory Active').length).toBeGreaterThan(0);
+
+      // Click sign out inside dropdown
+      await user.click(screen.getByTestId('dropdown-signout-button'));
+      expect(handleSignOut).toHaveBeenCalled();
+    });
+
     it('triggers real sign-out when clicking Sign Out in the header', async () => {
       const handleSignOut = vi.fn().mockResolvedValue(undefined);
       const user = userEvent.setup();

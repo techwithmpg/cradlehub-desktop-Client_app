@@ -5,7 +5,7 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 
 Consult `docs/50-state/evidence/stage-01-auth-branch-shell.md` for full implementation, checks, and boundary scan evidence.
 
-Summary of Stage 01 deliverable after independent review corrections:
+Summary of Stage 01 deliverable after independent review corrections and visual refinement:
 
 - Single canonical desktop client application with Supabase email/password authentication.
 - In-memory auth session only (`persistSession: false`, `autoRefreshToken: true`, `detectSessionInUrl: false`, no browser localStorage/sessionStorage/SQLite token caching).
@@ -13,9 +13,9 @@ Summary of Stage 01 deliverable after independent review corrections:
 - Local-scoped sign-out (`supabase.auth.signOut({ scope: 'local' })`) without unexpected termination of other device sessions.
 - Non-swallowed sign-out error handling and retryable error state.
 - Truthful error taxonomy: Invalid Credentials, Network/Auth failure, Context Load failure, and proven Authorization Denial.
-- Single canonical shell featuring dark green navigation, gold accents, compact desktop density, exactly 8 authorized navigation modules, and neutral `"In-memory session"` badge.
+- Single refined canonical shell featuring dark green navigation, gold accents, compact desktop density, exactly 8 authorized navigation modules, truthful status chip, notification popover with truthful empty state, and user avatar account dropdown.
 - Truthful unavailable destination view for each module destination.
-- 43 automated tests passing across 4 test suites.
+- 46 automated tests passing across 4 test suites.
 - All frontend (`pnpm install --frozen-lockfile`, `format:check`, `lint`, `typecheck`, `test`, `build`), Rust (`cargo fmt`, `check`, `test`, `clippy`), and git whitespace checks pass.
 
 Stage status MUST remain ACTIVE / UNACCEPTED until independent review and owner runtime confirmation.

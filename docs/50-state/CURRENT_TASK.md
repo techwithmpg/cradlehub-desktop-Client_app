@@ -1,22 +1,21 @@
 # Current Task
 
-Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell (Corrections Pass).
+Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell (Visual Refinement Pass).
 Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 Branch: `stage/01-auth-branch-shell`.
 BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
 HOSTED_SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43`.
 
-Completed in this correction pass:
+Completed in this pass:
 
-1. Corrected staff query and role canonicalization to use authoritative `staff.system_role` instead of `staff.role`.
-2. Added focused contract-drift automated test verifying `system_role` selection and canonicalization.
-3. Updated desktop sign-out to `supabase.auth.signOut({ scope: 'local' })` to prevent terminating operator sessions on other devices.
-4. Implemented non-swallowed sign-out error handling with retryable error presentation in UI and protected context retention.
-5. Enabled in-memory token refresh (`autoRefreshToken: true`, `persistSession: false`, `detectSessionInUrl: false`).
-6. Implemented truthful 4-category error taxonomy separating Invalid Credentials, Network/Auth failure, Context Load / Query errors (`ContextLoadError`), and proven Authorization Denial (`AuthDenialError`).
-7. Removed unsupported `"RLS Verified"` label from runtime shell and replaced with truthful `"In-memory session"`.
-8. Updated all automated unit, component, and boundary tests (43 tests passing).
-9. Verified `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, and all Cargo / Rust checks pass.
+1. Refined left sidebar visual hierarchy, section spacing, gold active indicators, and operator profile card.
+2. Refined top horizontal bar with active branch indicator, truthful "Session Active" status chip, notification button with empty-state popover, and user avatar dropdown menu.
+3. Added keyboard accessibility, click-outside and Escape key handling for popovers.
+4. Preserved authoritative `system_role`, local-scoped sign-out, in-memory refresh, and 4-category error taxonomy.
+5. Preserved exactly 8 active navigation items and 0 dormant modules.
+6. Maintained truthful unavailable module placeholder states without fake data.
+7. Updated automated test suite (46 tests passing across 4 test suites).
+8. Verified `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, and all Cargo / Rust checks pass.
 
 Next:
 

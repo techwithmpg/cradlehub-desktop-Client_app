@@ -8,10 +8,10 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 - Local Root: `E:\Cradle-Destop-Client`
 - Branch: `stage/01-auth-branch-shell`
 - BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`
-- Reviewed HEAD prior to corrections: `2fb7e50b637d6b3d0c509832242fd7830ac4cef8`
+- Reviewed HEAD prior to refinement: `cd2cd9e498d788c5268346636516f182ad29cf0e`
 - Hosted Reference: `https://github.com/techwithmpg/Cradlehub.git` at `E:\CradleHub-References\Cradlehub-Web`
 - Hosted SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43` (clean origin/main)
-- Authority: Owner's Stage 01 explicit authorization and post-review corrections.
+- Authority: Owner's Stage 01 explicit authorization, review corrections, and visual shell refinement request.
 
 ## Authentication Architecture
 
@@ -50,13 +50,19 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
   - Query/network failure during staff or branch resolution -> Context Load Error (NOT denial).
   - Denial view provides a local "Sign Out" button to clear in-memory auth state and return to login.
 
-## Canonical Shell Implementation
+## Canonical Shell Implementation & Visual Refinements
 
-- **Character**:
+- **Character & Layout**:
   - Dark green navigation sidebar (`#0d2b20`, `#081d15`, `#164332`, `#e2ede8`, `#8ba89c`).
   - Restrained gold accents (`#d4af37`, `#c59b27`) for brand mark, active indicators, and badges.
   - Light operational workspace (`#f4f6f8`, `#ffffff`, `#e2e8f0`, `#0f172a`, `#64748b`).
   - Compact desktop density, clean vertical rhythm, high information hierarchy.
+- **Refined Header Controls**:
+  - **Active Branch Badge**: Pill badge with Building2 icon and `authContext.branchName`.
+  - **Truthful Status Chip**: `"Session Active"` chip with green indicator dot.
+  - **Notification Trigger & Panel**: Accessible popover with Bell icon, opening a clean panel stating: `"Desktop notifications are not yet available in this stage."` (no fake counts).
+  - **User Avatar Menu**: Clickable avatar button with user initials, opening an accessible dropdown displaying user name, email, canonical role, branch assignment, session authority, and Sign Out action.
+  - **Direct Sign Out Button**: Header Sign Out action calling `supabase.auth.signOut({ scope: 'local' })`.
 - **Truthful Runtime Claims**:
   - Uses neutral `"In-memory session"` badge.
   - Contains no unsupported `"RLS Verified"`, `"Production Verified"`, `"Live Verified"`, or `"Sync Verified"` claims.
@@ -91,7 +97,7 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 | Code Formatting           | `pnpm format:check`                                  | Exit 0 — All matched files use Prettier code style                                                      |
 | ESLint Check              | `pnpm lint`                                          | Exit 0 — 0 warnings, 0 errors                                                                           |
 | TypeScript Typecheck      | `pnpm typecheck`                                     | Exit 0 — `tsc --noEmit` clean                                                                           |
-| Automated Tests           | `pnpm test`                                          | Exit 0 — 4 test suites, 43 tests passed                                                                 |
+| Automated Tests           | `pnpm test`                                          | Exit 0 — 4 test suites, 46 tests passed                                                                 |
 | Production Frontend Build | `pnpm build`                                         | Exit 0 — Built clean bundle in `dist/`                                                                  |
 | Rust Code Formatting      | `cargo fmt --check` (src-tauri)                      | Exit 0 — Clean                                                                                          |
 | Cargo Compilation Check   | `cargo check --locked` (src-tauri)                   | Exit 0 — Clean                                                                                          |
@@ -100,7 +106,7 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 | Git Whitespace Diff Check | `git diff --check`                                   | Exit 0 — Clean                                                                                          |
 | Native Windows Runtime    | `pnpm tauri dev`                                     | Exit 0 — Native window compiled and opened `target\debug\cradlehub-desktop.exe` displaying login screen |
 
-## Test Suites Breakdown (43 Tests)
+## Test Suites Breakdown (46 Tests)
 
 1. `tests/roles.test.ts` (5 tests):
    - Canonicalizes Front Desk aliases (`crm`, `csr`, `csr_head`, `csr_staff`) to `crm`.
@@ -134,10 +140,10 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
    - Preserves names-only `.env.example` without values.
    - Verifies exactly 8 navigation entries and absence of all 7 dormant modules.
 
-4. `tests/components.test.tsx` (17 tests):
+4. `tests/components.test.tsx` (20 tests):
    - `LoginView`: accessible labels, password visibility toggle, error banner display, loading state, trimmed submission.
    - `AccessDeniedView`: denial reason, context summary, Sign Out button, sign-out error presentation.
-   - `CanonicalShell`: renders 8 nav items, active branch badge, operator badge, in-memory session badge (absence of `RLS Verified`), sign-out error notification, module navigation switching, truthful unavailable destination panel, header Sign Out.
+   - `CanonicalShell`: renders 8 nav items, active branch badge, operator badge, in-memory session badge (absence of `RLS Verified`), sign-out error notification, module navigation switching, truthful unavailable destination panel, truthful status chip (`"Session Active"`), notification trigger with empty-state popover, user avatar dropdown menu with Sign Out action, header Sign Out.
    - `App`: end-to-end state transitions (Login -> Shell -> Sign Out -> Login; Login -> Shell -> Failed Sign Out retains Shell with error; Login -> Denied -> Sign Out -> Login; Login -> ContextLoadError displays alert on LoginView).
 
 ## Native Runtime Verification Note
@@ -161,7 +167,7 @@ When verifying real Supabase authentication:
 - Service-role / privileged secret introduced: **NO**
 - Auth token persisted: **NO** (In-memory session only via `persistSession: false`)
 - Tauri capabilities changed: **NO** (`capabilities: []`)
-- CSP changed during correction: **NO** (Retains narrow CSP: `connect-src 'self' https://<project-subdomain>.supabase.co`)
+- CSP changed during refinement: **NO** (Retains narrow CSP: `connect-src 'self' https://<project-subdomain>.supabase.co`)
 
 ## Rollback Path
 

@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Building2,
   LogOut,
   Info,
-  ShieldCheck,
   AlertCircle,
   CalendarDays,
   BookmarkCheck,
@@ -13,6 +12,10 @@ import {
   Truck,
   UserCog,
   Settings,
+  Bell,
+  BellOff,
+  ChevronDown,
+  Radio,
   type LucideIcon,
 } from 'lucide-react';
 import type { AuthContext, NavModuleId } from '../types/auth';
@@ -44,6 +47,11 @@ export function CanonicalShell({
   signOutError,
 }: CanonicalShellProps) {
   const [activeModule, setActiveModule] = useState<NavModuleId>('today');
+  const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
+
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const currentNavConfig =
     AUTHORIZED_NAV_ITEMS.find((item) => item.id === activeModule) ||
@@ -56,6 +64,36 @@ export function CanonicalShell({
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join('') || 'ST';
+
+  // Close popovers on click outside or Escape key
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(target)
+      ) {
+        setIsNotificationOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsNotificationOpen(false);
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   return (
     <div className="shell-root" data-testid="canonical-shell">
@@ -79,8 +117,8 @@ export function CanonicalShell({
         >
           <div className="branch-card-header">
             <Building2
-              size={14}
-              className="text-amber-400"
+              size={13}
+              className="text-amber-400 shrink-0"
               aria-hidden="true"
             />
             <span className="branch-card-label">Active Branch</span>
@@ -92,12 +130,16 @@ export function CanonicalShell({
           >
             {authContext.branchName}
           </p>
-          <span className="branch-read-only-tag">Read-only Scope</span>
+          <div className="branch-card-footer">
+            <span className="branch-read-only-tag">Read-only Scope</span>
+          </div>
         </div>
 
         {/* Exactly 8 Authorized Nav Items */}
         <nav className="sidebar-nav" aria-label="Main navigation">
-          <p className="sidebar-section-heading">WORKSPACE</p>
+          <div className="sidebar-section-header">
+            <span className="sidebar-section-heading">WORKSPACE</span>
+          </div>
           <ul className="sidebar-nav-list" role="list">
             {AUTHORIZED_NAV_ITEMS.map((item: NavItemConfig) => {
               const Icon = ICON_MAP[item.id] || Info;
@@ -112,11 +154,11 @@ export function CanonicalShell({
                     aria-current={isActive ? 'page' : undefined}
                     data-testid={`nav-item-${item.id}`}
                   >
-                    <Icon size={18} className="nav-icon" aria-hidden="true" />
-                    <span className="nav-label">{item.label}</span>
                     {isActive && (
                       <span className="active-pill" aria-hidden="true" />
                     )}
+                    <Icon size={17} className="nav-icon" aria-hidden="true" />
+                    <span className="nav-label">{item.label}</span>
                   </button>
                 </li>
               );
@@ -151,48 +193,187 @@ export function CanonicalShell({
 
       {/* Main operational workspace */}
       <div className="shell-workspace">
-        {/* Top Operational Bar */}
+        {/* Top Horizontal Header Bar */}
         <header className="workspace-header">
           <div className="header-left">
-            <h1 className="header-title" data-testid="active-module-title">
-              {currentNavConfig.label}
-            </h1>
+            <div className="header-title-row">
+              <h1 className="header-title" data-testid="active-module-title">
+                {currentNavConfig.label}
+              </h1>
+            </div>
             <p className="header-subtitle">{currentNavConfig.description}</p>
           </div>
 
           <div className="header-right">
-            {/* Top Branch Indicator */}
+            {/* Top Branch Indicator Badge */}
             <div
               className="top-branch-indicator"
               data-testid="top-branch-indicator"
             >
               <Building2
-                size={16}
-                className="text-emerald-700"
+                size={14}
+                className="text-emerald-700 shrink-0"
                 aria-hidden="true"
               />
-              <div className="top-branch-text">
-                <span className="top-branch-label">Branch</span>
-                <span className="top-branch-val">{authContext.branchName}</span>
-              </div>
-            </div>
-
-            {/* Operator Badge */}
-            <div className="top-operator-badge">
-              <ShieldCheck
-                size={16}
-                className="text-emerald-700"
-                aria-hidden="true"
-              />
-              <span>
-                {formatRoleLabel(
-                  authContext.canonicalRole,
-                  authContext.rawRole,
-                )}
+              <span className="top-branch-val" title={authContext.branchName}>
+                {authContext.branchName}
               </span>
             </div>
 
-            {/* Real Sign Out Button */}
+            {/* Truthful Status Chip (Session Active) */}
+            <div
+              className="top-status-chip"
+              data-testid="status-chip"
+              title="Session is active in process memory"
+            >
+              <span className="status-indicator-dot" aria-hidden="true" />
+              <span className="status-chip-label">Session Active</span>
+            </div>
+
+            {/* Notification Trigger & Panel */}
+            <div className="relative-container" ref={notificationRef}>
+              <button
+                type="button"
+                className={`header-icon-button ${isNotificationOpen ? 'header-icon-button-active' : ''}`}
+                onClick={() => {
+                  setIsNotificationOpen(!isNotificationOpen);
+                  setIsUserMenuOpen(false);
+                }}
+                aria-label="Notifications"
+                aria-expanded={isNotificationOpen}
+                aria-haspopup="dialog"
+                data-testid="notification-trigger"
+              >
+                <Bell size={16} aria-hidden="true" />
+              </button>
+
+              {isNotificationOpen && (
+                <div
+                  className="popover-panel notification-popover"
+                  role="dialog"
+                  aria-label="Notifications Panel"
+                  data-testid="notification-panel"
+                >
+                  <div className="popover-header">
+                    <span className="popover-title">Notifications</span>
+                    <span className="popover-badge">Stage 01</span>
+                  </div>
+                  <div className="notification-empty-state">
+                    <div className="notification-empty-icon" aria-hidden="true">
+                      <BellOff size={24} className="text-slate-400" />
+                    </div>
+                    <p className="notification-empty-title">No Notifications</p>
+                    <p className="notification-empty-desc">
+                      Desktop notifications are not yet available in this stage.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* User Avatar Menu Trigger & Popover */}
+            <div className="relative-container" ref={userMenuRef}>
+              <button
+                type="button"
+                className={`user-menu-button ${isUserMenuOpen ? 'user-menu-button-active' : ''}`}
+                onClick={() => {
+                  setIsUserMenuOpen(!isUserMenuOpen);
+                  setIsNotificationOpen(false);
+                }}
+                aria-label="User Account Menu"
+                aria-expanded={isUserMenuOpen}
+                aria-haspopup="menu"
+                data-testid="user-menu-trigger"
+              >
+                <div className="top-avatar-circle" aria-hidden="true">
+                  {userInitials}
+                </div>
+                <div className="top-avatar-info">
+                  <span className="top-avatar-name">
+                    {authContext.fullName}
+                  </span>
+                  <span className="top-avatar-role">
+                    {formatRoleLabel(
+                      authContext.canonicalRole,
+                      authContext.rawRole,
+                    )}
+                  </span>
+                </div>
+                <ChevronDown
+                  size={14}
+                  className={`top-chevron ${isUserMenuOpen ? 'top-chevron-rotated' : ''}`}
+                  aria-hidden="true"
+                />
+              </button>
+
+              {isUserMenuOpen && (
+                <div
+                  className="popover-panel user-dropdown-menu"
+                  role="menu"
+                  aria-label="User Account Actions"
+                  data-testid="user-menu-dropdown"
+                >
+                  {/* Account Summary Header */}
+                  <div className="user-dropdown-header">
+                    <div className="user-dropdown-avatar" aria-hidden="true">
+                      {userInitials}
+                    </div>
+                    <div className="user-dropdown-meta">
+                      <p className="user-dropdown-name">
+                        {authContext.fullName}
+                      </p>
+                      <p className="user-dropdown-email">{authContext.email}</p>
+                      <span className="user-dropdown-role-tag">
+                        {formatRoleLabel(
+                          authContext.canonicalRole,
+                          authContext.rawRole,
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Context Details */}
+                  <div className="user-dropdown-details">
+                    <div className="user-detail-row">
+                      <span className="user-detail-label">Assigned Branch</span>
+                      <span className="user-detail-value">
+                        {authContext.branchName}
+                      </span>
+                    </div>
+                    <div className="user-detail-row">
+                      <span className="user-detail-label">
+                        Session Authority
+                      </span>
+                      <span className="user-detail-value text-emerald-700 font-semibold">
+                        In-Memory Active
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Dropdown Actions */}
+                  <div className="user-dropdown-actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onSignOut();
+                      }}
+                      disabled={isSigningOut}
+                      className="user-dropdown-signout-btn"
+                      role="menuitem"
+                      data-testid="dropdown-signout-button"
+                    >
+                      <LogOut size={15} aria-hidden="true" />
+                      <span>
+                        {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Direct Header Sign Out Button */}
             <button
               type="button"
               onClick={onSignOut}
@@ -201,7 +382,7 @@ export function CanonicalShell({
               aria-label="Sign Out"
               data-testid="signout-button"
             >
-              <LogOut size={16} aria-hidden="true" />
+              <LogOut size={15} aria-hidden="true" />
               <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
             </button>
           </div>
@@ -230,11 +411,18 @@ export function CanonicalShell({
             data-testid="module-unavailable-panel"
           >
             <div className="unavailable-icon-wrapper" aria-hidden="true">
-              <Info size={32} className="text-emerald-700" />
+              <Info size={28} className="text-emerald-700" />
             </div>
 
             <div className="unavailable-content">
-              <span className="unavailable-badge">Stage 01 Scope</span>
+              <div className="unavailable-badge-row">
+                <span className="unavailable-badge">Stage 01 Scope</span>
+                <span className="unavailable-status-tag">
+                  <Radio size={12} className="inline mr-1 text-emerald-600" />
+                  Canonical Shell
+                </span>
+              </div>
+
               <h2 className="unavailable-title">
                 {currentNavConfig.label} is not yet available in the desktop
                 client.
