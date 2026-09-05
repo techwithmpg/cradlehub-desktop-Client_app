@@ -1,24 +1,18 @@
 # Current Task
 
-Stage 02 — Bookings Final Correction Pass, on the existing `stage/02-bookings` branch.
+Stage 02 — Bookings Final Contract Correction: customer-search authority and documented hosted write blocker.
 
-**NOT ACCEPTED / NOT MERGED / AWAITING INDEPENDENT REVIEW. Stage 03 NOT AUTHORIZED.**
+**NOT ACCEPTED / NOT MERGED / AWAITING OWNER AUTHORIZATION FOR HOSTED BOOKING WRITE BOUNDARY.** Stage 02 is functionally incomplete. This correction awaits independent review; Stage 03 remains **NOT AUTHORIZED**.
 
-- Reviewed starting HEAD: `63cc5ce35a4eedee6fac94045ddf675c3a754ad3`.
+- Branch: `stage/02-bookings`.
+- Reviewed starting HEAD: `51e3c56ef6d2ee3b0b15e083611d28ab3c972a1e`.
 - BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-- Hosted SHA inspected: `feda4600f37e93084fdb672bd0c2612e9872bb43`.
+- Fetched hosted main inspected: `feda4600f37e93084fdb672bd0c2612e9872bb43`.
 
-Implemented within this correction:
+Decision: **CUSTOMER LOOKUP DISABLED** under authorization Section 8. The configured project's live RLS cannot be inspected through the connected Supabase MCP account; therefore safe branch scoping cannot be proven. The former global query has been removed, the helper makes no requests and rejects as unavailable, and the UI disables lookup while keeping manual preview fields.
 
-1. Removed the global service fallback. Branch catalog rows require active service/membership, CRM-visible configuration and an enabled delivery mode. Price/duration overrides remain intact. Home service also requires an explicitly enabled branch rule.
-2. Filtered providers by explicit capability for every selected service; retained hard role exclusions and active/unarchived/unmerged constraints. Invalid mode/service/provider selections are removed.
-3. Distinguished customer search and option read errors from valid empty states; ignored stale requests after query change, close/reopen and branch change.
-4. Disabled creation before submit with one preview notice. Removed the modal's write-helper invocation and fabricated future success path.
-5. Remounted the form per opening/branch and compared all meaningful fields against canonical defaults for discard handling.
-6. Corrected evidence attribution, exact hosted auth/provider facts and local-check terminology. Preserved the approved layout direction and canonical shell.
+Preserved: branch service/provider/mode constraints, distinct option errors, disabled creation, full meaningful-field dirty tracking, clean modal lifecycle, stale-response guards, listing relation and layout/shell. Isolated mock tests retain coverage of async lookup behavior; they are not an enabled production lookup.
 
-Validation: all required local checks passed, including 133 frontend tests in eight files; Rust checks passed with zero Rust tests defined. The isolated browser fixture verified three desktop sizes, mode filtering, distinct customer-search failure and discard/reopen. No live authentication/RLS/provider availability or owner acceptance is claimed.
+Documented only: proposed `POST /api/desktop/v1/bookings`, bearer user-token validation, active staff/canonical CRM role/branch enforcement, shared server-only booking logic and exact request fields/response shape derived from `createInhouseBookingMultiSchema`. The desktop renderer cannot replace this with inserts.
 
-Remaining blocker: authoritative New Booking mutation requires a separately authorized hosted server-side desktop-callable write boundary. See [evidence](evidence/stage-02-bookings.md).
-
-Delivery gate: commit and push only this correction on `stage/02-bookings`, then stop for independent review. Do not merge, modify hosted CradleHub or start Stage 03.
+Delivery: run the required local checks and three-size fixture verification, review the diff against the reviewed HEAD, commit and push on this same branch, then stop for independent review. Exact results and limitations are in [Stage 02 evidence](evidence/stage-02-bookings.md). No hosted changes, owner acceptance, merge or Stage 03 work are authorized here.

@@ -20,6 +20,8 @@ import type {
 import {
   fetchBranchBookingOptions,
   searchBranchCustomers,
+  getCustomerLookupUnavailableReason,
+  CustomerLookupUnavailableError,
   computeBookingEndTime,
   getTodayDateString,
   formatCurrency,
@@ -131,6 +133,11 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
   const searchVersion = useRef(0);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchCompleted, setSearchCompleted] = useState(false);
+  const [lookupUnavailableError, setLookupUnavailableError] = useState<
+    string | null
+  >(null);
+  const lookupUnavailableReason =
+    lookupUnavailableError ?? getCustomerLookupUnavailableReason();
 
   // Load branch options when modal opens
   useEffect(() => {
@@ -185,6 +192,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
   };
 
   const handleCustomerSearchChange = (query: string) => {
+    if (lookupUnavailableReason) return;
     cancelCustomerSearch();
     setCustomerSearchQuery(query);
     if (selectedCustomer && query !== selectedCustomer.full_name)
@@ -200,8 +208,12 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
           setCustomerSearchResults(results);
           setSearchCompleted(true);
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (version !== searchVersion.current) return;
+          if (error instanceof CustomerLookupUnavailableError) {
+            setLookupUnavailableError(error.message);
+            return;
+          }
           setSearchError('Customer search unavailable. Please try again.');
         })
         .finally(() => {
@@ -430,6 +442,12 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                   />
                   <input
                     id="customer-search-input"
+                    disabled={!!lookupUnavailableReason}
+                    aria-describedby={
+                      lookupUnavailableReason
+                        ? 'customer-lookup-unavailable'
+                        : undefined
+                    }
                     type="text"
                     className="form-input search-input"
                     placeholder="Search by name or phone..."
@@ -451,6 +469,15 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                   )}
                 </div>
 
+                {lookupUnavailableReason && (
+                  <p
+                    id="customer-lookup-unavailable"
+                    role="status"
+                    className="summary-subtext"
+                  >
+                    {lookupUnavailableReason}
+                  </p>
+                )}
                 {searchError && <p role="alert">{searchError}</p>}
                 {searchCompleted &&
                   !isSearchingCustomers &&

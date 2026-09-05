@@ -610,23 +610,32 @@ export async function fetchBranchBookingOptions(
   return { services, staff, resources };
 }
 
+const CUSTOMER_LOOKUP_UNAVAILABLE_MESSAGE =
+  'Customer lookup is unavailable until a branch-scoped hosted read boundary is available.';
+
+// This is a fixed read-safety decision, not an environment/user toggle. The
+// configured project's live booking/customer policies could not be inspected.
+export function getCustomerLookupUnavailableReason(): string | null {
+  return CUSTOMER_LOOKUP_UNAVAILABLE_MESSAGE;
+}
+
+export class CustomerLookupUnavailableError extends Error {
+  readonly code = 'CUSTOMER_LOOKUP_UNAVAILABLE';
+  constructor() {
+    super(CUSTOMER_LOOKUP_UNAVAILABLE_MESSAGE);
+    this.name = 'CustomerLookupUnavailableError';
+  }
+}
+
+// Preserve the call contract for the guarded lookup lifecycle, but never touch
+// the client until a separately reviewed branch-authorized read is available.
 export async function searchBranchCustomers(
   query: string,
   client?: SupabaseClient,
 ): Promise<BookingCustomer[]> {
-  if (!query || query.trim().length < 2) return [];
-  const supabase = client ?? getSupabaseClient();
-  const trimmed = query.trim();
-
-  const { data, error } = await supabase
-    .from('customers')
-    .select('id, full_name, phone, email, total_bookings, loyalty_tier')
-    .or(`full_name.ilike.%${trimmed}%,phone.ilike.%${trimmed}%`)
-    .limit(10);
-
-  if (error) throw new Error('Customer search unavailable. Please try again.');
-  if (!data) return [];
-  return data as unknown as BookingCustomer[];
+  void query;
+  void client;
+  throw new CustomerLookupUnavailableError();
 }
 
 /**
