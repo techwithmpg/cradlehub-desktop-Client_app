@@ -1,21 +1,24 @@
 # Current Task
 
-Stage 02 — Bookings Module Contract Correction Pass: **COMPLETED ON BRANCH `stage/02-bookings` — STOPPED FOR OWNER / INDEPENDENT REVIEW**.
+Stage 02 — Bookings Final Correction Pass, on the existing `stage/02-bookings` branch.
 
-- **Branch**: `stage/02-bookings`
-- **Accepted Main Baseline (BASE_SHA)**: `c9720805975004dbe11367f1ad9999270ad4ae7c`
-- **Reviewed Starting Branch HEAD**: `8eda71c46ccac5e637e203f06643671be129bc7d`
-- **Hosted Reference SHA Inspected**: `feda4600f37e93084fdb672bd0c2612e9872bb43`
+**NOT ACCEPTED / NOT MERGED / AWAITING INDEPENDENT REVIEW. Stage 03 NOT AUTHORIZED.**
 
-Corrections implemented:
+- Reviewed starting HEAD: `63cc5ce35a4eedee6fac94045ddf675c3a754ad3`.
+- BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
+- Hosted SHA inspected: `feda4600f37e93084fdb672bd0c2612e9872bb43`.
 
-1. **Inspection of Hosted Canonical Contract**: Inspected `src/app/(dashboard)/crm/bookings/new/page.tsx`, `src/components/features/bookings/quick-booking-form.tsx`, `src/lib/actions/inhouse-booking.ts`, `src/lib/queries/quick-booking-options.ts`, and `src/app/api/crm/bookings/route.ts`.
-2. **Removal of False Direct-Write Equivalence**: Direct mutation (`createBranchBooking` direct insert) was removed. Fails closed with `HOSTED_WRITE_BOUNDARY_REQUIRED`.
-3. **Critical Stop Condition Enforcement**: No network-callable server mutation boundary exists in hosted code (`src/app/api/**`). Noted requirement for owner-authorized hosted write boundary. UI shows truthful requirement notice rather than simulated success.
-4. **Branch Service Catalog Loading**: `fetchBranchBookingOptions` updated to read `branch_services` with overrides (`custom_price`, `custom_duration_minutes`, `available_in_spa`, `available_home_service`) and filter staff with `canActAsBookingServiceProvider`.
-5. **Modal Lifecycle & Dirty Detection**: Form reset on close/discard, dirty detection across all relevant fields, and discard confirmation dialog.
-6. **Preserved Visual & Layout Work**: Wide workspace (`.workspace-canvas-wide`), distributed 8 scope tabs, high-contrast button, and `branch_resources!bookings_resource_id_fkey` relation hint.
+Implemented within this correction:
 
-All 77 automated tests and Rust checks pass with 0 errors.
+1. Removed the global service fallback. Branch catalog rows require active service/membership, CRM-visible configuration and an enabled delivery mode. Price/duration overrides remain intact. Home service also requires an explicitly enabled branch rule.
+2. Filtered providers by explicit capability for every selected service; retained hard role exclusions and active/unarchived/unmerged constraints. Invalid mode/service/provider selections are removed.
+3. Distinguished customer search and option read errors from valid empty states; ignored stale requests after query change, close/reopen and branch change.
+4. Disabled creation before submit with one preview notice. Removed the modal's write-helper invocation and fabricated future success path.
+5. Remounted the form per opening/branch and compared all meaningful fields against canonical defaults for discard handling.
+6. Corrected evidence attribution, exact hosted auth/provider facts and local-check terminology. Preserved the approved layout direction and canonical shell.
 
-Work is strictly stopped for owner and independent review. Do NOT merge into `main`. Do NOT start Stage 03.
+Validation: all required local checks passed, including 133 frontend tests in eight files; Rust checks passed with zero Rust tests defined. The isolated browser fixture verified three desktop sizes, mode filtering, distinct customer-search failure and discard/reopen. No live authentication/RLS/provider availability or owner acceptance is claimed.
+
+Remaining blocker: authoritative New Booking mutation requires a separately authorized hosted server-side desktop-callable write boundary. See [evidence](evidence/stage-02-bookings.md).
+
+Delivery gate: commit and push only this correction on `stage/02-bookings`, then stop for independent review. Do not merge, modify hosted CradleHub or start Stage 03.

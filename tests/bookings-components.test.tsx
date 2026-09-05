@@ -420,6 +420,7 @@ describe('Stage 02 Bookings UI Components', () => {
             name: 'Swedish Massage',
             durationMinutes: 60,
             price: 700,
+            availableInSpa: true,
           },
         ],
         staff: [{ id: 'st-1', name: 'Ana Cruz', nickname: 'Ana' }],
@@ -487,7 +488,7 @@ describe('Stage 02 Bookings UI Components', () => {
       await screen.findByText('Swedish Massage');
 
       // Verify write boundary notice
-      expect(screen.getByText('Hosted Write Boundary Required')).toBeDefined();
+      expect(screen.getByText('Booking workflow preview')).toBeDefined();
 
       // Verify mode tabs
       expect(screen.getByText('Walk-in')).toBeDefined();
@@ -539,7 +540,7 @@ describe('Stage 02 Bookings UI Components', () => {
       expect(freshNameInput.value).toBe('');
     });
 
-    it('submits form and displays truthful error when write boundary is required', async () => {
+    it('disables creation without invoking the write helper', async () => {
       vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
         services: [
           {
@@ -547,6 +548,7 @@ describe('Stage 02 Bookings UI Components', () => {
             name: 'Swedish Massage',
             durationMinutes: 60,
             price: 700,
+            availableInSpa: true,
           },
         ],
         staff: [{ id: 'st-1', name: 'Ana Cruz', nickname: 'Ana' }],
@@ -574,14 +576,14 @@ describe('Stage 02 Bookings UI Components', () => {
       fireEvent.change(nameInput, { target: { value: 'Elena Santos' } });
       fireEvent.change(phoneInput, { target: { value: '09179998877' } });
 
-      const submitBtn = screen.getByRole('button', { name: /save walk-in/i });
+      const createSpy = vi.spyOn(bookingsService, 'createBranchBooking');
+      const submitBtn = screen.getByRole('button', {
+        name: 'Booking Creation Unavailable',
+      }) as HTMLButtonElement;
+      expect(submitBtn.disabled).toBe(true);
       fireEvent.click(submitBtn);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(/hosted server-side write boundary/i),
-        ).toBeDefined();
-      });
+      fireEvent.submit(nameInput.closest('form')!);
+      expect(createSpy).not.toHaveBeenCalled();
 
       expect(onBookingCreated).not.toHaveBeenCalled();
       expect(onClose).not.toHaveBeenCalled();

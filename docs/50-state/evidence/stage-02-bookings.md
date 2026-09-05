@@ -1,137 +1,114 @@
-# Stage 02 — Evidence: Bookings Module Contract Correction & Alignment
+# Stage 02 — Bookings Final Truth-State Correction Evidence
 
-**Target:** CradleHub Desktop (`https://github.com/techwithmpg/cradlehub-desktop-Client_app`)
+**Status: NOT ACCEPTED / NOT MERGED / AWAITING INDEPENDENT REVIEW.**
+Stage 03 remains **NOT AUTHORIZED**.
 
-**Stage / Task:** Stage 02 — Bookings Module Contract Correction Pass
-
-**Status:** `STAGE 02 CORRECTION PUSHED — STOPPED FOR INDEPENDENT REVIEW — NOT ACCEPTED OR MERGED`
-
-**Branch:** `stage/02-bookings`
-
-**Accepted Main Baseline (BASE_SHA):** `c9720805975004dbe11367f1ad9999270ad4ae7c`
-
-**Starting Reviewed Branch HEAD Before Correction:** `8eda71c46ccac5e637e203f06643671be129bc7d`
-
-**Hosted Canonical Reference Inspected:** `https://github.com/techwithmpg/Cradlehub` @ `feda4600f37e93084fdb672bd0c2612e9872bb43`
-
----
-
-## REPOSITORY-RECORDED PRODUCTION EVIDENCE
-
-### 1. Hosted Booking Contract Inspection
-
-Inspection of `https://github.com/techwithmpg/Cradlehub` at commit `feda4600f37e93084fdb672bd0c2612e9872bb43` revealed:
-
-- **Canonical Route & Form**:
-  - `src/app/(dashboard)/crm/bookings/new/page.tsx` renders `QuickBookingForm` from `src/components/features/bookings/quick-booking-form.tsx`.
-- **Authoritative Booking Creation Action**:
-  - Hosted CRM invokes `createInhouseBookingMultiAction` in `src/lib/actions/inhouse-booking.ts`.
-  - It is a Next.js Server Action running in a server-only execution environment.
-  - Uses `createAdminClient()` (`SUPABASE_SERVICE_ROLE_KEY`) to bypass RLS and perform authoritative CRM operations.
-- **Hosted Authoritative Behaviors & Side Effects**:
-  - **Auth / Role / Branch Authority**: Validates authenticated session, canonical CRM role (`requirePermission('bookings:create')`), and verified branch membership server-side.
-  - **Customer Creation / Upsert**: Authoritatively finds existing customer or creates a new customer row using server-side deduplication.
-  - **Multi-Service Semantics**: Creates authoritative sequential individual `bookings` rows for each selected service (sharing a group identifier or sequentially scheduled start/end times), rather than a single booking with secondary IDs crammed into metadata.
-  - **Branch Service Catalog & Overrides**: Options loaded via `getQuickBookingOptions` in `src/lib/queries/quick-booking-options.ts` querying `branch_services` with branch price (`custom_price`), duration (`custom_duration_minutes`), and service mode availability (`available_in_spa`, `available_home_service`).
-  - **Staff Eligibility**: Filters staff via `canActAsBookingServiceProvider` logic (`role`, `is_service_provider`, `is_merged === false`, `status === 'active'`) and includes provider service capabilities.
-  - **Resource Assignment**: Validates and assigns branch resources (`branch_resources`) for the booking timeframe.
-  - **Home Service Location & Distance**: Calculates distance/travel fee and address metadata from authoritative geocoding/branch configuration.
-  - **Side Effects**: Writes payment audit records (`booking_payment_logs`), creates notifications, writes operational logs, and triggers Next.js cache revalidation (`revalidatePath`).
-- **Network Write Boundary Inspection**:
-  - Inspected all routes under `src/app/api/**`.
-  - `src/app/api/crm/bookings/route.ts` only exports a `GET` handler for listing bookings.
-  - No `POST` / mutation endpoint exists in `src/app/api/**` for creating bookings.
-  - No safe desktop-callable network boundary (REST/RPC) currently exists in the hosted codebase.
-
----
+- Desktop repository: `https://github.com/techwithmpg/cradlehub-desktop-Client_app.git`.
+- Existing branch: `stage/02-bookings`.
+- Reviewed starting HEAD: `63cc5ce35a4eedee6fac94045ddf675c3a754ad3`.
+- Accepted main BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
+- Hosted repository: `https://github.com/techwithmpg/Cradlehub.git`.
+- Fetched HOSTED_SHA inspected: `feda4600f37e93084fdb672bd0c2612e9872bb43`.
+- Exact repository origins, clean starting worktrees, branch/HEAD and main baseline were checked before correction. Desktop and hosted refs were fetched; hosted HEAD matched its origin/main. The final correction commit is the commit carrying this evidence; its exact SHA is reported with the push result rather than a self-referential hash in this file.
 
 ## OWNER-PROVIDED MANUAL RUNTIME EVIDENCE
 
-The owner previously tested the native Windows desktop runtime of Stage 02 and noted:
+Earlier owner observations reported cramped workspace width, a weak/invisible New Booking button, a resource relation error, tab scrolling, and the need for real New Booking behavior.
 
-- The Bookings workspace layout and visual presentation were approved after the responsive layout, high-contrast button, distributed scope tabs, and `bookings_resource_id_fkey` relation fix were applied.
-- Independent review determined that the New Booking workflow in the desktop renderer previously performed direct table inserts (`createBranchBooking` writing directly to `customers` and `bookings` tables), which did NOT reproduce the hosted server action contract and multi-service semantics.
+The owner has **not** visually confirmed reviewed HEAD `63cc5ce35a4eedee6fac94045ddf675c3a754ad3` or this correction. The previous claim of post-correction owner layout approval was incorrect and is withdrawn. The synthetic browser checks below are agent test evidence, not owner observations.
 
----
+## INDEPENDENT REPOSITORY REVIEW
 
-## Critical Stop Condition & Write Boundary Decision
+The supplied independent review identified the earlier direct renderer writes as incompatible with the hosted booking contract. Those writes had already been replaced by a fail-closed helper at the reviewed starting HEAD. This pass removes its UI invocation and addresses the reviewed catalog fallback, eligibility, error states, disabled creation, dirty/reset lifecycle and evidence inaccuracies. Independent review findings are separate from owner runtime evidence; this pass still awaits a new independent review.
 
-**Decision:** `BLOCKED — HOSTED WRITE BOUNDARY REQUIRES OWNER AUTHORIZATION`
+## REPOSITORY-RECORDED PRODUCTION EVIDENCE
 
-1. **Reason**: The desktop renderer cannot safely reproduce the hosted server action (`createInhouseBookingMultiAction`) without a network-callable server boundary. Exposing `SUPABASE_SERVICE_ROLE_KEY` or privileged admin server code to the desktop renderer violates security rules.
-2. **Action Taken**:
-   - Removed the false direct-write equivalence from `src/lib/bookings-service.ts`.
-   - `createBranchBooking` now explicitly fails closed, returning:
-     `{ ok: false, code: 'HOSTED_WRITE_BOUNDARY_REQUIRED', error: 'Stage 02 requires owner authorization to add a hosted server-side desktop-callable booking creation boundary.' }`
-   - `NewBookingModal` displays a truthful notice stating that booking creation requires a hosted server boundary and refuses to simulate success.
-3. **Required Hosted Addition**:
-   - Owner authorization is required to implement a secure, authenticated API route (e.g. `POST /api/crm/bookings/create` or a dedicated Supabase Edge Function) in the hosted repository.
-   - The endpoint must accept the authenticated user token, verify branch/role permissions, execute canonical multi-service creation with customer upsert, assign resources, write payment/audit logs, and return the created booking records.
+This heading means behavior recorded in the pinned hosted source. It does not mean deployed production behavior was exercised or independently verified. All paths below refer to hosted SHA `feda4600f37e93084fdb672bd0c2612e9872bb43`.
 
----
+### Hosted action and authority
 
-## Authorized Corrections Made
+- `src/app/(dashboard)/crm/bookings/new/page.tsx` renders `QuickBookingForm` from `src/components/features/bookings/quick-booking-form.tsx`.
+- The form invokes server-only `createInhouseBookingMultiAction` in `src/lib/actions/inhouse-booking.ts`.
+- That action calls the authenticated Supabase client's `auth.getUser()`, then selects `id, branch_id, system_role` from active `staff` by `auth_user_id`. It canonicalizes `system_role` and, outside the explicit development bypass, requires staff plus `canAccessCrmWorkspace(staffRole)`. It resolves the requested/staff branch, rejects missing branch, and rejects cross-branch access for non-owner staff. The development bypass is present in hosted source and was not adopted in desktop. This action does not use the previously claimed `requirePermission('bookings:create')` path.
+- The hosted server action uses privileged server-side operations for customer resolution, sequential service bookings, exact provider/resource checks and payment/audit effects. It assigns the resolved provider to the sequential service rows. These operations cannot be replaced with renderer table inserts.
+- `src/app/api/crm/bookings/route.ts` exports a listing `GET`. Inspection/search of the API route tree found no desktop-callable booking-creation endpoint implementing this action's contract. Existing availability/distance endpoints do not authorize booking creation. No hosted boundary was added.
 
-1. **Branch Service Catalog & Option Loading**:
-   - `fetchBranchBookingOptions` in `src/lib/bookings-service.ts` now queries `branch_services` with explicit overrides (`custom_price`, `custom_duration_minutes`, `available_in_spa`, `available_home_service`), matching hosted `getQuickBookingOptions`.
-   - Staff list queries `branch_staff` joined to `staff` and applies `canActAsBookingServiceProvider` filtering.
-   - Distinguishes empty data from query / network / auth errors.
-2. **Modal Form Lifecycle & Dirty State**:
-   - Clean reset on close, discard, or submission.
-   - Robust `isDirty` calculation covering customer changes, notes, address, staff selection, resource selection, and multi-service changes.
-   - Discard confirmation modal prevents accidental loss of edits.
-   - Search debounce ref cleaned up on unmount.
-3. **Preserved Visual & Layout Corrections**:
-   - Wide Bookings workspace (`.workspace-canvas-wide`).
-   - Responsive layouts at 1440×900, 1366×768, and degraded 1024×768.
-   - Evenly distributed 8 scope tabs (`flex: 1 1 0`).
-   - High-contrast New Booking button (`#0d2b20`).
-   - Explicit `branch_resources!bookings_resource_id_fkey` relation hint.
+### Catalog and delivery eligibility
 
----
+- `src/lib/queries/quick-booking-options.ts` loads `getBranchServiceCatalog(branchId, { audience: 'crm' })`.
+- `src/lib/services/service-catalog.ts` and `service-eligibility.ts` require both the global service and branch membership to be active; apply branch price/duration overrides; normalize canonical `visibility` and legacy `booking_visibility`; expose public/internal visibility to CRM; and require the requested delivery flag. Home service also requires `homeServiceEnabled` from branch booking rules.
+- Hosted legacy normalization can default missing visibility to public and missing in-spa flags to true, and the catalog supports older column shapes. Desktop intentionally uses a narrower modern-column read: explicit supported visibility/delivery flags, finite nonnegative price and positive duration. Unknown flags/visibility are excluded; absent columns produce an error instead of a global fallback.
+- Hosted `src/lib/queries/branch-booking-rules.ts` uses a privileged server client and defaults. Desktop reads only `home_service_enabled` from `branch_booking_rules` with the existing authenticated client and branch filter. A missing/RLS-hidden row cannot enable home service. An explicit read error fails the options load. No hosted default or privileged read is copied into the renderer.
+- Hosted migration `20260702064926_transactional_booking_payment_update.sql` records authenticated branch-scoped CRM/management SELECT access to branch booking rules. That repository policy is not proof of current live grants/RLS, which were not exercised in this pass.
 
-## Changed Files
+### Provider semantics
 
-- `src/types/bookings.ts`: Updated `QuickBookingOptionService`, `QuickBookingOptionStaff`, `CreateBookingResult`.
-- `src/lib/bookings-service.ts`: Implemented `canActAsBookingServiceProvider`, branch-specific service queries with overrides, staff filtering, and write boundary rejection in `createBranchBooking`.
-- `src/components/bookings/NewBookingModal.tsx`: Updated with truthful write-boundary banner, comprehensive `isDirty` tracking, discard dialog, and clean reset.
-- `src/styles.css`: Added styles for `.new-booking-write-boundary-notice`.
-- `tests/bookings-service.test.ts`: Added tests for branch option loading with overrides, provider filtering, query error distinction, and write-boundary rejection.
-- `tests/bookings-components.test.tsx`: Added tests for NewBookingModal write-boundary notice, discard flow, and option loading.
-- `docs/50-state/CURRENT_STATE.md`: Updated state documentation.
-- `docs/50-state/CURRENT_TASK.md`: Updated task documentation.
-- `docs/50-state/evidence/stage-02-bookings.md`: Recorded full evidence.
+- `src/lib/queries/quick-booking-options.ts` reads `staff` directly, scoped by branch, `is_active = true`, `archived_at IS NULL`, and `merged_into_staff_id IS NULL`, including `staff_type`, `system_role` and `staff_services(service_id)`. It does not use the earlier claimed branch_staff join or fictional provider/merged/status fields.
+- `src/lib/staff/service-providers.ts` retains hard exclusions for `driver`, `digital_marketer` and `utility`, even with a capability row.
+- `src/lib/engine/exact-crm-booking-time.ts` checks a single provider against the complete selection. Home service requires explicit capability for every service. In-spa calls `canScheduledProviderPerformServices` in `src/lib/bookings/scheduled-provider-roster.ts`, which requires every service to be explicitly assigned or supported by staff-type/service-category inference.
+- Desktop deliberately requires explicit `staff_services` capability for **every** selected service in all modes, a narrower subset of hosted in-spa inference. It does not claim provider schedule, check-in, booking conflict, travel-time or resource availability verification. No role alone establishes selected-service capability in the modal.
 
----
+## Corrections and behavior
 
-## Exact Checks & Results
+1. Empty `branch_services` stays empty, with no global `services` request. Active/visibility/mode filtering and branch overrides are applied before display. Home-service enablement must be explicitly readable and true.
+2. Walk-in, phone and future modes show only in-spa services; home mode shows only home-eligible services. Switching removes invalid selections and picks an eligible default only when one exists. Provider options must cover the entire service selection; a now-ineligible provider is cleared.
+3. Customer query errors reject. The UI shows “Customer search unavailable” separately from successful “No matching customers.” Query version guards ignore late successes, failures and completion callbacks; selection/clear/close invalidate pending search.
+4. Services, staff, resources and rules load as one coherent option snapshot. Any failed read is an explicit options error, with corresponding unavailable messages; successful empty lists have distinct services/provider/resource messages. The previous snapshot is never used as a fallback.
+5. The CTA is genuinely disabled and reads “Booking Creation Unavailable.” Its accessible description points to one compact workflow-preview notice. Form submission only prevents the default event. `createBranchBooking` is not imported or invoked by the modal; the helper still returns `HOSTED_WRITE_BOUNDARY_REQUIRED` defensively. There is no save state or success simulation. Payment labels explicitly describe a preview.
+6. The stateful form unmounts on close and is keyed by branch. Reopen or branch change creates fresh defaults, clears all inputs, selections, search/errors/discard state and options, and starts a fresh load. Old option responses are ignored. No fake successful-creation path is recorded.
+7. Dirty detection compares exact values for mode, selected customer, search query, full name, phone, email, ordered service IDs, provider, resource, date, time, notes, address, barangay, city, payment flag and method. Initial date/time are captured per opening; the first eligible in-spa service is the canonical service default. Exact reversion is pristine. Merely touching a field is not dirty.
+8. No changes to CSS, the wide Bookings workspace, three-card layout, distributed tabs, high-contrast New Booking entry button, canonical shell or `branch_resources!bookings_resource_id_fkey` listing relation. Their preservation is supported by the scoped diff, not a new owner approval.
 
-| Check / Command                                      | Result | Notes                                                     |
-| ---------------------------------------------------- | ------ | --------------------------------------------------------- |
-| `pnpm format:check`                                  | PASS   | All files formatted with Prettier                         |
-| `pnpm lint`                                          | PASS   | `eslint . --max-warnings 0` exited with 0 warnings/errors |
-| `pnpm typecheck`                                     | PASS   | `tsc --noEmit` passed with 0 errors                       |
-| `pnpm test`                                          | PASS   | 77 tests passing across 6 test suites                     |
-| `pnpm build`                                         | PASS   | Vite production bundle built successfully                 |
-| `cargo fmt --check`                                  | PASS   | Rust code formatted                                       |
-| `cargo check --locked`                               | PASS   | Rust backend check passed                                 |
-| `cargo test --locked`                                | PASS   | Rust unittests and doc-tests passed                       |
-| `cargo clippy --locked --all-targets -- -D warnings` | PASS   | Zero clippy warnings                                      |
-| `git diff --check`                                   | PASS   | Zero whitespace errors                                    |
+## Exact changed files in this correction
 
----
+- `src/lib/bookings-service.ts`
+- `src/components/bookings/NewBookingModal.tsx`
+- `tests/bookings-service.test.ts`
+- `tests/bookings-components.test.tsx`
+- `tests/booking-options.test.ts`
+- `tests/booking-preview.test.tsx`
+- `docs/50-state/CURRENT_STATE.md`
+- `docs/50-state/CURRENT_TASK.md`
+- `docs/50-state/evidence/stage-02-bookings.md`
 
-## Security / Data Impact
+## Local checks
 
-- **Production data changed?** NO.
-- **Schema/migration changed?** NO.
-- **Auth/RLS/Storage policy changed?** NO.
-- **Secrets introduced?** NO (no service-role key or admin client in renderer).
-- **Direct table mutation removed?** YES (removed direct renderer insert into `customers` and `bookings`).
-- **Hosted repository changed?** NO (inspected read-only).
+These results were run locally for this correction. They are not GitHub CI and do not inherit an earlier stage's pass.
 
----
+| Command                                              | Result                                                                     |
+| ---------------------------------------------------- | -------------------------------------------------------------------------- |
+| `pnpm format`                                        | PASS; Prettier applied                                                     |
+| `pnpm format:check`                                  | PASS                                                                       |
+| `pnpm lint`                                          | PASS; zero warnings/errors                                                 |
+| `pnpm typecheck`                                     | PASS                                                                       |
+| `pnpm test`                                          | PASS; 133 tests in eight files                                             |
+| `pnpm build`                                         | PASS; TypeScript and Vite production build                                 |
+| `cargo fmt --check`                                  | PASS, from src-tauri                                                       |
+| `cargo check --locked`                               | PASS, from src-tauri                                                       |
+| `cargo test --locked`                                | PASS; zero unit/doc tests defined, from src-tauri                          |
+| `cargo clippy --locked --all-targets -- -D warnings` | PASS, from src-tauri                                                       |
+| `git diff --check`                                   | PASS                                                                       |
+| `git status --short --branch`                        | Inspected for same-branch scope; final clean status verified with delivery |
 
-## Gate
+The new regression suites cover branch-only catalog behavior, activity/visibility/overrides/modes/rules, role exclusions and capabilities, failed versus empty reads, disabled submission in every mode, dirty/revert behavior, all reset fields, same-branch reopening, branch changes and late option/search responses. Existing listing/FK and component tests remain passing.
 
-`STAGE 02 CORRECTION PUSHED — STOPPED FOR INDEPENDENT REVIEW — NOT ACCEPTED OR MERGED`
+The first test-mock type check and the first lint check found issues, which were corrected before the passing checks above. An isolated fixture bootstrap initially used an incompatible Vite helper; the fixture was corrected without adding dependencies or changing product code.
+
+### Separate rendered fixture check
+
+Browser skill/plugin was not available; bundled Playwright with headless Microsoft Edge was used. A temporary script outside the repository (`work/stage02-visual.mjs` in the task workspace) served only a clearly marked synthetic fixture at `http://127.0.0.1:1432/__stage02_fixture`, with external requests blocked. It imported the real modal and compiled CSS and substituted controlled read responses. No test fixture was added to normal runtime or committed.
+
+Page identity, nonblank content, absence of Vite overlay, zero browser errors/warnings, mode selection, distinct customer-search failure and discard/reopen reset passed. Modal bounds and the visible disabled CTA passed at 1440×900, 1366×768 and 1024×768. Screenshots were inspected and saved outside the repository in the task outputs (`stage02-preview-1440.png`, `stage02-preview-1366.png`, `stage02-preview-1024.png`, `stage02-preview-home-error.png`). This is not a native WebView2/live-auth/RLS test, a production claim or owner acceptance.
+
+## Security and data impact
+
+- Production data, schema, migrations, RLS, Auth configuration and hosted source changes: **none**.
+- No privileged credentials, admin clients, dependency changes or renderer mutations were introduced. No live customer/staff data was used in the tests.
+- Source scans for booking/customer inserts, `createAdminClient`, `SUPABASE_SERVICE_ROLE_KEY`, `service_role` and `service-role` were reviewed. These patterns produced no source matches; no booking/customer insert path exists.
+- Full correction diff against `63cc5ce35a4eedee6fac94045ddf675c3a754ad3` was reviewed for scope and whitespace. Hosted source remained clean at the pinned SHA.
+
+## Remaining blocker and gate
+
+Authoritative New Booking mutation still requires a separately authorized hosted server-side desktop-callable write boundary. It must perform authenticated role/branch enforcement and the canonical hosted booking workflow. That work is outside this correction.
+
+This correction is to be committed and pushed on `stage/02-bookings` only, then stopped for independent review. No merge, owner acceptance or Stage 03 authorization is recorded.

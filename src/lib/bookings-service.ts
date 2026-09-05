@@ -397,11 +397,12 @@ export async function fetchBranchBookingOptions(
 }> {
   const supabase = client ?? getSupabaseClient();
 
-  const [branchServicesRes, staffRes, resourcesRes] = await Promise.all([
-    supabase
-      .from('branch_services')
-      .select(
-        `
+  const [branchServicesRes, staffRes, resourcesRes, rulesRes] =
+    await Promise.all([
+      supabase
+        .from('branch_services')
+        .select(
+          `
         id,
         branch_id,
         service_id,
@@ -409,6 +410,8 @@ export async function fetchBranchBookingOptions(
         custom_duration_minutes,
         available_in_spa,
         available_home_service,
+        visibility,
+        booking_visibility,
         is_active,
         services (
           id,
@@ -418,13 +421,13 @@ export async function fetchBranchBookingOptions(
           is_active
         )
       `,
-      )
-      .eq('branch_id', branchId)
-      .eq('is_active', true),
-    supabase
-      .from('staff')
-      .select(
-        `
+        )
+        .eq('branch_id', branchId)
+        .eq('is_active', true),
+      supabase
+        .from('staff')
+        .select(
+          `
         id,
         full_name,
         nickname,
@@ -435,19 +438,24 @@ export async function fetchBranchBookingOptions(
         merged_into_staff_id,
         staff_services ( service_id )
       `,
-      )
-      .eq('branch_id', branchId)
-      .eq('is_active', true)
-      .is('archived_at', null)
-      .is('merged_into_staff_id', null)
-      .order('full_name', { ascending: true }),
-    supabase
-      .from('branch_resources')
-      .select('id, name, type, capacity, is_active')
-      .eq('branch_id', branchId)
-      .eq('is_active', true)
-      .order('name', { ascending: true }),
-  ]);
+        )
+        .eq('branch_id', branchId)
+        .eq('is_active', true)
+        .is('archived_at', null)
+        .is('merged_into_staff_id', null)
+        .order('full_name', { ascending: true }),
+      supabase
+        .from('branch_resources')
+        .select('id, name, type, capacity, is_active')
+        .eq('branch_id', branchId)
+        .eq('is_active', true)
+        .order('name', { ascending: true }),
+      supabase
+        .from('branch_booking_rules')
+        .select('home_service_enabled')
+        .eq('branch_id', branchId)
+        .maybeSingle(),
+    ]);
 
   if (branchServicesRes.error) {
     throw new Error(
@@ -463,8 +471,18 @@ export async function fetchBranchBookingOptions(
     );
   }
 
+  if (rulesRes.error) {
+    throw new Error(
+      'Failed to load branch booking rules. Booking options are unavailable.',
+    );
+  }
+  const homeServiceEnabled = rulesRes.data?.home_service_enabled === true;
+
   interface RawBranchServiceRow {
     id: string;
+    is_active: boolean | null;
+    visibility: string | null;
+    booking_visibility: string | null;
     custom_price: number | string | null;
     custom_duration_minutes: number | string | null;
     available_in_spa: boolean | null;
@@ -494,66 +512,83 @@ export async function fetchBranchBookingOptions(
     is_active: boolean | null;
     staff_type: string | null;
     system_role: string | null;
+    archived_at: string | null;
+    merged_into_staff_id: string | null;
     staff_services: { service_id: string }[] | null;
   }
 
   interface RawResourceRow {
     id: string;
+    is_active: boolean | null;
     name: string;
     type: string | null;
     capacity: number | string | null;
   }
 
-  let services: QuickBookingOptionService[];
-  const rawBranchServices = (branchServicesRes.data ??
-    []) as unknown as RawBranchServiceRow[];
-
-  if (rawBranchServices.length > 0) {
-    services = rawBranchServices
-      .map((row): QuickBookingOptionService | null => {
-        const s = extractFirst(row.services);
-        if (!s?.id || !s.name || s.is_active === false) return null;
-        return {
-          id: s.id,
-          name: s.name,
-          durationMinutes: Number(
-            row.custom_duration_minutes ?? s.duration_minutes ?? 60,
-          ),
-          price: Number(row.custom_price ?? s.price ?? 0),
-          availableInSpa: row.available_in_spa ?? true,
-          availableHomeService: row.available_home_service ?? false,
-          isActive: true,
-        };
-      })
-      .filter((s): s is QuickBookingOptionService => Boolean(s));
-  } else {
-    // Fallback if branch_services has no rows configured
-    const { data: globalServices, error: gsError } = await supabase
-      .from('services')
-      .select('id, name, duration_minutes, price, is_active')
-      .eq('is_active', true)
-      .order('name', { ascending: true });
-
-    if (gsError) {
-      throw new Error(`Failed to load services: ${gsError.message}`);
-    }
-
-    services = (globalServices ?? []).map((s) => ({
-      id: s.id,
-      name: s.name,
-      durationMinutes: Number(s.duration_minutes || 60),
-      price: Number(s.price || 0),
-      availableInSpa: true,
-      availableHomeService: false,
-      isActive: s.is_active ?? true,
-    }));
-  }
+  // Read-only safe subset of the hosted CRM catalog. Unknown flags/visibility
+  // are excluded; missing rules never enable home service by default.
+  const services = (
+    (branchServicesRes.data ?? []) as unknown as RawBranchServiceRow[]
+  )
+    .map((row): QuickBookingOptionService | null => {
+      const service = extractFirst(row.services);
+      const visibility = ['public', 'internal', 'hidden'].includes(
+        row.visibility ?? '',
+      )
+        ? row.visibility
+        : row.booking_visibility === 'csr_only'
+          ? 'internal'
+          : row.booking_visibility === 'public'
+            ? 'public'
+            : 'hidden';
+      if (
+        row.is_active !== true ||
+        service?.is_active !== true ||
+        !service.id ||
+        !service.name ||
+        visibility === 'hidden'
+      )
+        return null;
+      const availableInSpa = row.available_in_spa === true;
+      const availableHomeService =
+        homeServiceEnabled && row.available_home_service === true;
+      if (!availableInSpa && !availableHomeService) return null;
+      const durationMinutes = Number(
+        row.custom_duration_minutes ?? service.duration_minutes,
+      );
+      const price = Number(row.custom_price ?? service.price);
+      if (row.custom_price == null && service.price == null) return null;
+      if (
+        !Number.isFinite(durationMinutes) ||
+        durationMinutes <= 0 ||
+        !Number.isFinite(price) ||
+        price < 0
+      )
+        return null;
+      return {
+        id: service.id,
+        name: service.name,
+        durationMinutes,
+        price,
+        availableInSpa,
+        availableHomeService,
+        isActive: true,
+      };
+    })
+    .filter(
+      (service): service is QuickBookingOptionService => service !== null,
+    );
 
   const rawStaff = (staffRes.data ?? []) as unknown as RawStaffMemberRow[];
   const staff: QuickBookingOptionStaff[] = rawStaff
     .filter((member) => {
       const hasMatchingCapability = (member.staff_services ?? []).length > 0;
-      return canActAsBookingServiceProvider(member, hasMatchingCapability);
+      return (
+        member.is_active === true &&
+        member.archived_at === null &&
+        member.merged_into_staff_id === null &&
+        canActAsBookingServiceProvider(member, hasMatchingCapability)
+      );
     })
     .map((st) => ({
       id: st.id,
@@ -563,12 +598,14 @@ export async function fetchBranchBookingOptions(
     }));
 
   const rawResources = (resourcesRes.data ?? []) as unknown as RawResourceRow[];
-  const resources: QuickBookingOptionResource[] = rawResources.map((r) => ({
-    id: r.id,
-    name: r.name,
-    type: r.type || null,
-    capacity: Number(r.capacity || 1),
-  }));
+  const resources: QuickBookingOptionResource[] = rawResources
+    .filter((r) => r.is_active === true)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: r.type || null,
+      capacity: Number(r.capacity || 1),
+    }));
 
   return { services, staff, resources };
 }
@@ -587,7 +624,8 @@ export async function searchBranchCustomers(
     .or(`full_name.ilike.%${trimmed}%,phone.ilike.%${trimmed}%`)
     .limit(10);
 
-  if (error || !data) return [];
+  if (error) throw new Error('Customer search unavailable. Please try again.');
+  if (!data) return [];
   return data as unknown as BookingCustomer[];
 }
 

@@ -1,20 +1,20 @@
 # Current State
 
 Stage 00 is ACCEPTED / MERGED / CLOSED on `main` at `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
-Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell is **ACCEPTED / MERGED / CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-Stage 02 — Bookings: **CONTRACT CORRECTION COMPLETED ON BRANCH `stage/02-bookings` — STOPPED FOR OWNER / INDEPENDENT REVIEW**.
-BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-Fetched HOSTED_SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43`; hosted tracked source remains read-only and clean.
+Stage 01 is ACCEPTED / MERGED / CLOSED on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
+Stage 02 — Bookings final truth-state correction: **NOT ACCEPTED / NOT MERGED / AWAITING INDEPENDENT REVIEW**.
+Stage 03 remains **NOT AUTHORIZED**.
 
-- **Stage 02 Contract Corrections**:
-  - Re-inspected canonical hosted repository (`src/app/(dashboard)/crm/bookings/new/page.tsx`, `src/components/features/bookings/quick-booking-form.tsx`, `src/lib/actions/inhouse-booking.ts`, `src/lib/queries/quick-booking-options.ts`, `src/app/api/crm/bookings/route.ts`).
-  - Found that hosted CRM creates bookings via server-only Server Action `createInhouseBookingMultiAction` using `createAdminClient()` (`SUPABASE_SERVICE_ROLE_KEY`), with multi-service row generation, customer deduplication, payment logging, and cache revalidation. No network-callable create API route exists.
-  - Enforced Critical Stop Condition: Removed false direct-write table mutation from desktop renderer to preserve security boundary. Direct writes fail closed with truthful requirement notice.
-  - Replaced global service query with branch-specific catalog options (`branch_services` with `custom_price`, `custom_duration_minutes`, `available_in_spa`, `available_home_service`) and filtered staff using `canActAsBookingServiceProvider`.
-  - Corrected modal lifecycle with proper dirty tracking, discard confirmation, and clean state reset.
-  - Preserved all layout/visual corrections (wide workspace, distributed scope tabs, high-contrast button, `branch_resources!bookings_resource_id_fkey` relation hint).
-- **Canonical Shell Preservation**: Exactly zero changes to the canonical shell sidebar, top bar, avatar menu, or session indicators.
-- **Automated Tests**: 77 tests passing across 6 test suites (`tests/roles.test.ts`, `tests/bookings-service.test.ts`, `tests/auth-service.test.ts`, `tests/boundary.test.ts`, `tests/bookings-components.test.tsx`, `tests/components.test.tsx`).
-- **Quality Gates**: `format:check`, `lint`, `typecheck`, `test`, `build`, `cargo fmt --check`, `cargo check --locked`, `cargo test --locked`, `cargo clippy --locked --all-targets -- -D warnings`, `git diff --check` all passed with 0 errors.
-- **Stage Status**: Stage 00 (CLOSED), Stage 01 (CLOSED), Stage 02 (CONTRACT CORRECTION COMPLETED ON BRANCH — AWAITING INDEPENDENT REVIEW).
-- **Boundaries**: Strictly stopped for review. Not merged into `main`. Stage 03 is NOT authorized.
+- Branch: `stage/02-bookings`; reviewed starting HEAD: `63cc5ce35a4eedee6fac94045ddf675c3a754ad3`.
+- BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
+- Fetched hosted reference inspected: `feda4600f37e93084fdb672bd0c2612e9872bb43`; hosted tracked source remains unchanged and clean.
+- The booking preview reads branch services only, applies active/visibility/delivery flags and branch overrides, and requires explicit selected-service provider capabilities. This is a conservative subset of hosted behavior, not authoritative availability or full hosted equivalence.
+- Creation is disabled before submission. The UI does not call `createBranchBooking`; that helper retains its fail-closed rejection. No renderer insert path is present.
+- Customer search and option loading distinguish errors from successful empty results. Each modal opening and branch change gets new defaults/options, with stale async responses ignored. Dirty detection compares every meaningful form value with the opening defaults.
+- Wide workspace, three-card Bookings layout, distributed tabs, high-contrast New Booking button, explicit resource FK relation and canonical shell are preserved without changes to their components or CSS.
+- Local checks passed: formatting, lint, TypeScript, 133 frontend tests across eight files, production build, all required Rust checks and whitespace review. Rust unit/doc suites contain zero tests. These are local results, not CI or live production verification.
+- Separate synthetic browser fixture checks passed at 1440×900, 1366×768 and 1024×768. No owner visual acceptance is recorded for the reviewed HEAD or this correction.
+
+Authoritative New Booking mutation still requires a separately authorized hosted server-side desktop-callable write boundary. No hosted implementation, production/schema/RLS/Auth change, merge or Stage 03 work is authorized by this correction.
+
+See [Stage 02 evidence](evidence/stage-02-bookings.md) for exact scope, source facts, limitations and checks. Stop after the authorized same-branch correction push for independent review.

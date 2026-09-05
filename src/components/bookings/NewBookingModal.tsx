@@ -20,7 +20,6 @@ import type {
 import {
   fetchBranchBookingOptions,
   searchBranchCustomers,
-  createBranchBooking,
   computeBookingEndTime,
   getTodayDateString,
   formatCurrency,
@@ -71,20 +70,27 @@ function getCurrentQuarterTime(): string {
   return `${h}:${m}`;
 }
 
-export const NewBookingModal: React.FC<NewBookingModalProps> = ({
-  isOpen,
+// Unmount on close; key by branch so old options and async work cannot leak.
+export const NewBookingModal: React.FC<NewBookingModalProps> = (props) =>
+  props.isOpen ? <BookingPreview key={props.branchId} {...props} /> : null;
+
+const BookingPreview: React.FC<NewBookingModalProps> = ({
   onClose,
   branchId,
   branchName,
-  onBookingCreated,
 }) => {
+  const [defaults] = useState(() => ({
+    date: getTodayDateString(),
+    startTime: getCurrentQuarterTime(),
+  }));
+  const [defaultServiceIds, setDefaultServiceIds] = useState<string[]>([]);
   const [mode, setMode] = useState<QuickBookingMode>('walkin');
   const [services, setServices] = useState<QuickBookingOptionService[]>([]);
   const [staffList, setStaffList] = useState<QuickBookingOptionStaff[]>([]);
   const [resourceList, setResourceList] = useState<
     QuickBookingOptionResource[]
   >([]);
-  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(!!branchId);
 
   // Form Fields
   const [selectedCustomer, setSelectedCustomer] =
@@ -101,8 +107,8 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [staffId, setStaffId] = useState('');
   const [resourceId, setResourceId] = useState('');
-  const [date, setDate] = useState(() => getTodayDateString());
-  const [startTime, setStartTime] = useState(() => getCurrentQuarterTime());
+  const [date, setDate] = useState(defaults.date);
+  const [startTime, setStartTime] = useState(defaults.startTime);
   const [notes, setNotes] = useState('');
 
   // Home Service fields
@@ -115,44 +121,20 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
   // Submission & Validation State
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [optionsError, setOptionsError] = useState<string | null>(
+    branchId ? null : 'Booking options unavailable: no branch selected.',
+  );
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const searchDebounceRef = useRef<number | null>(null);
 
-  // Reset form to canonical defaults
-  const resetForm = () => {
-    setMode('walkin');
-    setSelectedCustomer(null);
-    setCustomerSearchQuery('');
-    setCustomerSearchResults([]);
-    setIsSearchingCustomers(false);
-    setFullName('');
-    setPhone('');
-    setEmail('');
-    setStaffId('');
-    setResourceId('');
-    setDate(getTodayDateString());
-    setStartTime(getCurrentQuarterTime());
-    setNotes('');
-    setHomeServiceAddress('');
-    setHomeServiceBarangay('');
-    setHomeServiceCity('');
-    setPaymentReceived(true);
-    setPaymentMethod('cash');
-    setErrorMessage(null);
-    setShowDiscardConfirm(false);
-    if (services.length > 0) {
-      setSelectedServiceIds([services[0].id]);
-    } else {
-      setSelectedServiceIds([]);
-    }
-  };
+  const searchVersion = useRef(0);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchCompleted, setSearchCompleted] = useState(false);
 
   // Load branch options when modal opens
   useEffect(() => {
-    if (!isOpen || !branchId) return;
+    if (!branchId) return;
 
     let isMounted = true;
     fetchBranchBookingOptions(branchId)
@@ -161,16 +143,17 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
         setServices(opts.services);
         setStaffList(opts.staff);
         setResourceList(opts.resources);
-        if (opts.services.length > 0) {
-          setSelectedServiceIds((prev) =>
-            prev.length === 0 ? [opts.services[0].id] : prev,
-          );
-        }
+        const first = opts.services.find(
+          (service) => service.availableInSpa === true,
+        );
+        const ids = first ? [first.id] : [];
+        setSelectedServiceIds(ids);
+        setDefaultServiceIds(ids);
       })
       .catch((err: unknown) => {
         if (!isMounted) return;
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        setErrorMessage(`Failed to load booking options: ${msg}`);
+        setOptionsError(`Failed to load booking options: ${msg}`);
       })
       .finally(() => {
         if (isMounted) setIsLoadingOptions(false);
@@ -179,81 +162,102 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, branchId]);
+  }, [branchId]);
 
   // Clean up debounce timer on unmount
   useEffect(() => {
     return () => {
+      searchVersion.current += 1;
       if (searchDebounceRef.current) {
         window.clearTimeout(searchDebounceRef.current);
       }
     };
   }, []);
 
-  // Debounced customer search triggered on input change
-  const handleCustomerSearchChange = (query: string) => {
-    setCustomerSearchQuery(query);
-    if (searchDebounceRef.current) {
+  const cancelCustomerSearch = () => {
+    searchVersion.current += 1;
+    if (searchDebounceRef.current)
       window.clearTimeout(searchDebounceRef.current);
-    }
+    setCustomerSearchResults([]);
+    setIsSearchingCustomers(false);
+    setSearchError(null);
+    setSearchCompleted(false);
+  };
 
-    if (
-      !query.trim() ||
-      query.trim().length < 2 ||
-      selectedCustomer?.full_name === query
-    ) {
-      setCustomerSearchResults([]);
-      setIsSearchingCustomers(false);
+  const handleCustomerSearchChange = (query: string) => {
+    cancelCustomerSearch();
+    setCustomerSearchQuery(query);
+    if (selectedCustomer && query !== selectedCustomer.full_name)
+      setSelectedCustomer(null);
+    if (query.trim().length < 2 || selectedCustomer?.full_name === query)
       return;
-    }
-
+    const version = searchVersion.current;
     setIsSearchingCustomers(true);
     searchDebounceRef.current = window.setTimeout(() => {
       searchBranchCustomers(query)
         .then((results) => {
+          if (version !== searchVersion.current) return;
           setCustomerSearchResults(results);
+          setSearchCompleted(true);
         })
         .catch(() => {
-          setCustomerSearchResults([]);
+          if (version !== searchVersion.current) return;
+          setSearchError('Customer search unavailable. Please try again.');
         })
         .finally(() => {
-          setIsSearchingCustomers(false);
+          if (version === searchVersion.current) setIsSearchingCustomers(false);
         });
     }, 250);
   };
 
-  // Handle Mode Change
-  const handleModeChange = (newMode: QuickBookingMode) => {
-    setMode(newMode);
-    if (newMode === 'walkin') {
-      setDate(getTodayDateString());
-      setStartTime(getCurrentQuarterTime());
-      setPaymentReceived(true);
-      setPaymentMethod('cash');
-    } else if (newMode === 'home_service') {
-      setResourceId('');
-      setPaymentReceived(false);
-      setPaymentMethod('');
-    } else {
-      setPaymentReceived(false);
-      setPaymentMethod('');
-    }
+  const servicesForMode = (nextMode: QuickBookingMode) =>
+    services.filter((service) =>
+      nextMode === 'home_service'
+        ? service.availableHomeService === true
+        : service.availableInSpa === true,
+    );
+  const visibleServices = servicesForMode(mode);
+  // Explicit capabilities for every service are a conservative subset of hosted
+  // in-spa staff-type/category inference. This does not verify time availability.
+  const providersForServices = (ids: string[]) =>
+    ids.length === 0
+      ? []
+      : staffList.filter((staff) =>
+          ids.every((id) => staff.serviceIds?.includes(id)),
+        );
+  const eligibleStaff = providersForServices(selectedServiceIds);
+  const updateServiceSelection = (ids: string[]) => {
+    setSelectedServiceIds(ids);
+    if (!providersForServices(ids).some((staff) => staff.id === staffId))
+      setStaffId('');
   };
-
-  // Toggle service selection
+  const handleModeChange = (newMode: QuickBookingMode) => {
+    const allowed = servicesForMode(newMode);
+    const kept = selectedServiceIds.filter((id) =>
+      allowed.some((service) => service.id === id),
+    );
+    updateServiceSelection(
+      kept.length ? kept : allowed.length ? [allowed[0].id] : [],
+    );
+    setMode(newMode);
+    if (newMode === 'home_service') setResourceId('');
+    setPaymentReceived(newMode === 'walkin');
+    setPaymentMethod('cash');
+  };
   const handleToggleService = (serviceId: string) => {
-    setSelectedServiceIds((prev) => {
-      if (prev.includes(serviceId)) {
-        if (prev.length === 1) return prev; // Keep at least one
-        return prev.filter((id) => id !== serviceId);
-      }
-      if (prev.length >= 5) return prev; // Max 5 services
-      return [...prev, serviceId];
-    });
+    if (!visibleServices.some((service) => service.id === serviceId)) return;
+    if (selectedServiceIds.includes(serviceId)) {
+      if (selectedServiceIds.length > 1)
+        updateServiceSelection(
+          selectedServiceIds.filter((id) => id !== serviceId),
+        );
+    } else if (selectedServiceIds.length < 5)
+      updateServiceSelection([...selectedServiceIds, serviceId]);
   };
 
   // Customer selection
   const handleSelectCustomer = (customer: BookingCustomer) => {
+    cancelCustomerSearch();
     setSelectedCustomer(customer);
     setCustomerSearchQuery(customer.full_name);
     setFullName(customer.full_name);
@@ -263,6 +267,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
   };
 
   const handleClearCustomer = () => {
+    cancelCustomerSearch();
     setSelectedCustomer(null);
     setCustomerSearchQuery('');
     setFullName('');
@@ -287,143 +292,34 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
   }, [selectedServices]);
 
   const calculatedEndTime = useMemo(() => {
-    if (!startTime) return '--:--';
-    return computeBookingEndTime(startTime, totalDurationMinutes || 60).slice(
-      0,
-      5,
-    );
+    if (!startTime || !totalDurationMinutes) return '--:--';
+    return computeBookingEndTime(startTime, totalDurationMinutes).slice(0, 5);
   }, [startTime, totalDurationMinutes]);
 
-  // Is form dirty?
-  const isDirty = useMemo(() => {
-    const isServiceChanged =
-      selectedServiceIds.length > 1 ||
-      (services.length > 0 && selectedServiceIds[0] !== services[0]?.id);
-    return (
-      fullName.trim() !== '' ||
-      phone.trim() !== '' ||
-      email.trim() !== '' ||
-      notes.trim() !== '' ||
-      homeServiceAddress.trim() !== '' ||
-      selectedCustomer !== null ||
-      staffId !== '' ||
-      resourceId !== '' ||
-      isServiceChanged
-    );
-  }, [
-    fullName,
-    phone,
-    email,
-    notes,
-    homeServiceAddress,
-    selectedCustomer,
-    staffId,
-    resourceId,
-    selectedServiceIds,
-    services,
-  ]);
-
+  // Compare exact meaningful values with this opening's canonical defaults.
+  const isDirty =
+    mode !== 'walkin' ||
+    selectedCustomer !== null ||
+    customerSearchQuery !== '' ||
+    fullName !== '' ||
+    phone !== '' ||
+    email !== '' ||
+    notes !== '' ||
+    homeServiceAddress !== '' ||
+    homeServiceBarangay !== '' ||
+    homeServiceCity !== '' ||
+    staffId !== '' ||
+    resourceId !== '' ||
+    date !== defaults.date ||
+    startTime !== defaults.startTime ||
+    paymentReceived !== true ||
+    paymentMethod !== 'cash' ||
+    JSON.stringify(selectedServiceIds) !== JSON.stringify(defaultServiceIds);
   const handleRequestClose = () => {
-    if (isDirty) {
-      setShowDiscardConfirm(true);
-    } else {
-      resetForm();
-      onClose();
-    }
+    if (isDirty) setShowDiscardConfirm(true);
+    else onClose();
   };
-
-  const handleConfirmDiscard = () => {
-    setShowDiscardConfirm(false);
-    resetForm();
-    onClose();
-  };
-
-  // Form Submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    // Validate
-    if (!fullName.trim()) {
-      setErrorMessage("Please enter the customer's full name.");
-      return;
-    }
-    if (!phone.trim() || phone.trim().length < 7) {
-      setErrorMessage('Please enter a valid phone number (at least 7 digits).');
-      return;
-    }
-    if (selectedServiceIds.length === 0) {
-      setErrorMessage('Please select at least one service.');
-      return;
-    }
-    if (!date) {
-      setErrorMessage('Please select a booking date.');
-      return;
-    }
-    if (!startTime) {
-      setErrorMessage('Please select a start time.');
-      return;
-    }
-    if (mode === 'home_service' && !homeServiceAddress.trim()) {
-      setErrorMessage('Please enter the home-service destination address.');
-      return;
-    }
-    if (paymentReceived && !paymentMethod) {
-      setErrorMessage('Please select a payment method.');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const res = await createBranchBooking({
-        branchId,
-        customerId: selectedCustomer?.id,
-        fullName: fullName.trim(),
-        phone: phone.trim(),
-        email: email.trim() || undefined,
-        serviceIds: selectedServiceIds,
-        staffId: staffId || undefined,
-        resourceId:
-          mode === 'home_service' ? undefined : resourceId || undefined,
-        date,
-        startTime,
-        endTime: calculatedEndTime,
-        totalDurationMinutes,
-        totalPrice,
-        mode,
-        paymentReceived,
-        paymentMethod: paymentReceived ? paymentMethod : undefined,
-        notes: notes.trim() || undefined,
-        homeServiceAddress:
-          mode === 'home_service' ? homeServiceAddress.trim() : undefined,
-        homeServiceBarangay:
-          mode === 'home_service'
-            ? homeServiceBarangay.trim() || undefined
-            : undefined,
-        homeServiceCity:
-          mode === 'home_service'
-            ? homeServiceCity.trim() || undefined
-            : undefined,
-      });
-
-      if (!res.ok) {
-        setErrorMessage(res.error || 'Failed to create booking.');
-        return;
-      }
-
-      // Success
-      onBookingCreated();
-      onClose();
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : 'An unexpected error occurred.';
-      setErrorMessage(msg);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (!isOpen) return null;
+  const handleConfirmDiscard = () => onClose();
 
   return (
     <div
@@ -447,7 +343,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
               </span>
             </div>
             <p className="new-booking-subtitle">
-              Schedule or record a walk-in, phone, or home-service booking.
+              Preview the branch booking workflow.
             </p>
           </div>
           <button
@@ -472,6 +368,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                 aria-selected={isActive}
                 className={`new-booking-mode-tab ${isActive ? 'active' : ''}`}
                 onClick={() => handleModeChange(m.value)}
+                disabled={isLoadingOptions}
               >
                 <span className="mode-tab-label">{m.label}</span>
                 <span className="mode-tab-desc">{m.description}</span>
@@ -485,38 +382,32 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
           className="new-booking-write-boundary-notice"
           role="note"
           data-testid="write-boundary-notice"
+          id="booking-preview-notice"
         >
-          <div className="notice-badge">Hosted Write Boundary Required</div>
+          <div className="notice-badge">Booking workflow preview</div>
           <p className="notice-text">
-            Desktop booking creation is currently disabled pending owner
-            authorization of a hosted API endpoint. Real branch service catalog,
-            staff provider capabilities, and pricing are previewed
-            authoritatively.
+            Booking creation requires an authorized hosted booking creation
+            endpoint. Only verified branch catalog flags and explicit provider
+            capabilities are previewed; availability, payment and booking
+            confirmation are not verified.
           </p>
         </div>
-
-        {/* Error Alert */}
-        {errorMessage && (
+        {optionsError && (
           <div
             className="new-booking-error-banner"
             role="alert"
-            data-testid="new-booking-error"
+            data-testid="booking-options-error"
           >
-            <AlertCircle size={16} className="error-icon" aria-hidden="true" />
-            <div className="error-message">{errorMessage}</div>
-            <button
-              type="button"
-              className="error-dismiss-btn"
-              onClick={() => setErrorMessage(null)}
-              aria-label="Dismiss error"
-            >
-              <X size={14} />
-            </button>
+            <AlertCircle size={16} aria-hidden="true" />
+            {optionsError}
           </div>
         )}
 
         {/* Modal Body: 2 Columns */}
-        <form className="new-booking-body-grid" onSubmit={handleSubmit}>
+        <form
+          className="new-booking-body-grid"
+          onSubmit={(event) => event.preventDefault()}
+        >
           {/* Left Column: Form Controls */}
           <div className="new-booking-form-col">
             {/* 1. Customer Section */}
@@ -560,6 +451,13 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                   )}
                 </div>
 
+                {searchError && <p role="alert">{searchError}</p>}
+                {searchCompleted &&
+                  !isSearchingCustomers &&
+                  !searchError &&
+                  customerSearchResults.length === 0 && (
+                    <p role="status">No matching customers.</p>
+                  )}
                 {/* Autocomplete Results Dropdown */}
                 {customerSearchResults.length > 0 && (
                   <div className="customer-autocomplete-dropdown">
@@ -641,9 +539,13 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
 
               {isLoadingOptions ? (
                 <div className="options-loading-text">Loading services...</div>
+              ) : optionsError ? (
+                <p>Service options unavailable.</p>
+              ) : visibleServices.length === 0 ? (
+                <p>No eligible services for this branch and mode.</p>
               ) : (
                 <div className="services-selection-grid">
-                  {services.map((srv) => {
+                  {visibleServices.map((srv) => {
                     const isSelected = selectedServiceIds.includes(srv.id);
                     return (
                       <button
@@ -651,6 +553,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                         type="button"
                         className={`service-option-card ${isSelected ? 'selected' : ''}`}
                         onClick={() => handleToggleService(srv.id)}
+                        aria-pressed={isSelected}
                       >
                         <div className="service-card-top">
                           <span className="service-name">{srv.name}</span>
@@ -689,15 +592,26 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                     id="staff-select"
                     className="form-select"
                     value={staffId}
+                    disabled={
+                      isLoadingOptions ||
+                      !!optionsError ||
+                      eligibleStaff.length === 0
+                    }
                     onChange={(e) => setStaffId(e.target.value)}
                   >
-                    <option value="">Any Available Therapist</option>
-                    {staffList.map((st) => (
+                    <option value="">No provider selected</option>
+                    {eligibleStaff.map((st) => (
                       <option key={st.id} value={st.id}>
                         {st.name} {st.nickname ? `(${st.nickname})` : ''}
                       </option>
                     ))}
                   </select>
+                  {!isLoadingOptions &&
+                    (optionsError ? (
+                      <p>Provider options unavailable.</p>
+                    ) : eligibleStaff.length === 0 ? (
+                      <p>No eligible providers for the selected services.</p>
+                    ) : null)}
                 </div>
 
                 {mode !== 'home_service' ? (
@@ -709,15 +623,26 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                       id="resource-select"
                       className="form-select"
                       value={resourceId}
+                      disabled={
+                        isLoadingOptions ||
+                        !!optionsError ||
+                        resourceList.length === 0
+                      }
                       onChange={(e) => setResourceId(e.target.value)}
                     >
-                      <option value="">First Available Room</option>
+                      <option value="">No resource selected</option>
                       {resourceList.map((res) => (
                         <option key={res.id} value={res.id}>
                           {res.name} {res.type ? `· ${res.type}` : ''}
                         </option>
                       ))}
                     </select>
+                    {!isLoadingOptions &&
+                      (optionsError ? (
+                        <p>Resource options unavailable.</p>
+                      ) : resourceList.length === 0 ? (
+                        <p>No active resources for this branch.</p>
+                      ) : null)}
                   </div>
                 ) : null}
 
@@ -939,7 +864,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                 <span className="summary-label">Therapist</span>
                 <span className="summary-value">
                   {staffList.find((st) => st.id === staffId)?.name ||
-                    'Any Available'}
+                    'No provider selected'}
                 </span>
               </div>
 
@@ -951,7 +876,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                   {mode === 'home_service'
                     ? homeServiceCity || 'Address required'
                     : resourceList.find((r) => r.id === resourceId)?.name ||
-                      'First Available'}
+                      'No resource selected'}
                 </span>
               </div>
 
@@ -967,10 +892,12 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
               <div className="summary-payment-status">
                 {paymentReceived ? (
                   <span className="status-tag paid">
-                    ✓ Paid ({paymentMethod.toUpperCase()})
+                    Preview: payment received ({paymentMethod.toUpperCase()})
                   </span>
                 ) : (
-                  <span className="status-tag pending">⏳ Payment Pending</span>
+                  <span className="status-tag pending">
+                    Preview: payment pending
+                  </span>
                 )}
               </div>
             </div>
@@ -983,33 +910,17 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
             type="button"
             className="new-booking-cancel-btn"
             onClick={handleRequestClose}
-            disabled={isSaving}
           >
             Cancel
           </button>
           <button
             type="button"
             className="new-booking-submit-btn"
-            onClick={handleSubmit}
-            disabled={isSaving || isLoadingOptions}
+            disabled
+            aria-describedby="booking-preview-notice"
           >
-            {isSaving ? (
-              <>
-                <span className="spinner" />
-                <span>Saving Booking...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={16} />
-                <span>
-                  {mode === 'walkin'
-                    ? 'Save Walk-in'
-                    : mode === 'home_service'
-                      ? 'Create Home Service'
-                      : 'Schedule Booking'}
-                </span>
-              </>
-            )}
+            <Sparkles size={16} aria-hidden="true" />
+            <span>Booking Creation Unavailable</span>
           </button>
         </footer>
       </div>
