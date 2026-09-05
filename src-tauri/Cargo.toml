@@ -1,0 +1,16 @@
+[package]
+name = "cradlehub-desktop"
+version = "0.0.0"
+description = "CradleHub Desktop greenfield initialization"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "cradlehub_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

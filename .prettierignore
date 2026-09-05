@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+src-tauri/target/
+src-tauri/gen/
+dist/
+node_modules/
+docs/99-archive/
+bootstrap-manifest.json

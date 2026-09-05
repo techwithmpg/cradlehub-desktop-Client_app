@@ -1,0 +1,52 @@
+{
+  "project": "CradleHub Desktop",
+  "mode": "GREENFIELD FUNCTIONAL REBUILD",
+  "effective": "2026-09-05",
+  "hosted_reference_repo": "https://github.com/techwithmpg/Cradlehub",
+  "hosted_reference_head_observed_2026_09_05": "feda4600f37e93084fdb672bd0c2612e9872bb43",
+  "active_modules": [
+    "Today",
+    "Bookings",
+    "Attendance",
+    "Customers",
+    "Schedule",
+    "Home Service",
+    "Staff",
+    "Settings"
+  ],
+  "reference_images": [
+    {
+      "file": "crm-today.png",
+      "sha256": "a9b15d0000b3671f34a196697db7ee7c6eeb554cd36e09be5c7d02f06338a059"
+    },
+    {
+      "file": "crm-bookings.png",
+      "sha256": "3e28a5a077ca3cf7979cb7f0b9c3198373dde7ef073add8688c831dd9198fff3"
+    },
+    {
+      "file": "crm-attendance.png",
+      "sha256": "6b9b8d55e62087e53875956e162c73aa1e19349b8ab620a6c5da718888626b81"
+    },
+    {
+      "file": "crm-attendance-detail.png",
+      "sha256": "c93f2e3efe58a75875cfbd22aba91796e0080f00fec136d8b6dfeaeadde95ada"
+    },
+    {
+      "file": "crm-schedule.png",
+      "sha256": "aa4ad2f8fd946889ed2955981b70b4cc2b664bf7e1294f62603d7123ef982ddd"
+    },
+    {
+      "file": "crm-home-service.png",
+      "sha256": "46343cf1c33ad3456e2f0e8d933a75d25f5ccad1131ff48c7049f8c3e4f4f38d"
+    },
+    {
+      "file": "crm-staff.png",
+      "sha256": "19aaa487bd11951efeaea9407302fdf0a6e0180e7aaa2dc62b6b0f182d98591f"
+    },
+    {
+      "file": "crm-settings.png",
+      "sha256": "7f54874bf6c42cc5c4fca5604b0b8134fd8cd1e7a9a4a8b54b5f058797f1971a"
+    }
+  ],
+  "customers_reference_present": false
+}
