@@ -4,14 +4,14 @@ Greenfield Windows desktop CRM client for CradleHub, effective 2026-09-05.
 
 - **Desktop Repository**: https://github.com/techwithmpg/cradlehub-desktop-Client_app
 - **Hosted Reference**: https://github.com/techwithmpg/Cradlehub (read-only source audit)
-- **Base / Accepted Main**: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (Stage 00 accepted and merged)
-- **Stage 01 Branch**: `stage/01-auth-branch-shell` (OWNER CONFIRMED / ACCEPTED PENDING MERGE)
+- **Base / Stage 00 Baseline**: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (Stage 00 accepted and merged)
+- **Stage 01 Branch**: `stage/01-auth-branch-shell` (ACCEPTED / MERGED / CLOSED on `main`)
 
 ## Stage Status
 
 - **Stage 00**: **ACCEPTED / MERGED — CLOSED** on `main`.
-- **Stage 01 (Authentication, Branch Context & Canonical Shell)**: **OWNER CONFIRMED / ACCEPTED PENDING MERGE** on `stage/01-auth-branch-shell`.
-- **Stage 02**: **NOT AUTHORIZED**.
+- **Stage 01 (Authentication, Branch Context & Canonical Shell)**: **ACCEPTED / MERGED — CLOSED** on `main`.
+- **Stage 02 (Bookings)**: **OWNER AUTHORIZED — NOT STARTED**.
 
 Stage 01 provides:
 
@@ -23,7 +23,7 @@ Stage 01 provides:
 - Local-scoped desktop Sign Out (`supabase.auth.signOut({ scope: 'local' })`) with retryable error presentation.
 - In-memory session management (`persistSession: false`, `autoRefreshToken: true`, `detectSessionInUrl: false`) with no durable token storage in localStorage/sessionStorage/SQLite.
 
-Stage 01 is accepted by the owner pending merge; it is NOT yet merged into `main`.
+Stage 01 is merged and closed on `main`; Stage 02 is owner authorized but not yet started.
 
 ## Configuration
 
@@ -77,5 +77,6 @@ Renderer network communication is strictly restricted by CSP to the configured p
 
 ## Boundaries
 
-- Stage 01 is accepted pending merge; merge to `main` is not yet executed.
-- Product module implementations (Bookings, Attendance, etc.), speculative offline sync, database/schema changes, and Stage 02 remain unauthorized.
+- Stage 01 is accepted, merged, and closed on `main`.
+- Stage 02 (Bookings) is owner authorized but not yet started (awaiting independent merge review before branch creation).
+- Product module implementations (Bookings, Attendance, etc.), speculative offline sync, and database/schema changes remain unavailable until authorized stages are executed.

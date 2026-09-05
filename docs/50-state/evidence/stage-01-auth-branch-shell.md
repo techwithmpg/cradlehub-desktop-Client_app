@@ -1,14 +1,15 @@
 # Stage 01 — Authentication, Authorized Branch Context, and Canonical Shell Evidence
 
-Status: **OWNER CONFIRMED / ACCEPTED PENDING MERGE**.
+Status: **ACCEPTED / MERGED / CLOSED** on `main`.
 
 ## Target and References
 
 - Desktop: `https://github.com/techwithmpg/cradlehub-desktop-Client_app.git`
 - Local Root: `E:\Cradle-Destop-Client`
 - Branch: `stage/01-auth-branch-shell`
-- Accepted Main: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (BASE_SHA)
-- Owner-Approved Implementation HEAD: `01419e4ff2bc354b734f36b4b78e1240a84b1034`
+- Pre-Merge Main Baseline: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (BASE_SHA)
+- Owner-Approved Implementation Snapshot: `01419e4ff2bc354b734f36b4b78e1240a84b1034`
+- Merged Stage 01 Branch Snapshot: `36651ce871c8b5dd278aaf34fbdc19d8b444d5b3`
 - Hosted Reference: `https://github.com/techwithmpg/Cradlehub.git` at `E:\CradleHub-References\Cradlehub-Web`
 - Hosted SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43` (clean origin/main)
 - Authority: Owner's Stage 01 explicit authorization, review corrections, visual hierarchy correction, and final owner runtime confirmation.
@@ -200,3 +201,28 @@ git rev-parse HEAD # Expected: 79ef30b9da7267b6f01a6bf9a462712a2b8cfc13
 ```
 
 No database rollback or hosted changes are necessary.
+
+## Merge Closure
+
+- **Authorization**: Owner explicitly authorized Stage 01 merge and closure.
+- **Pre-Merge Main Baseline**: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
+- **Accepted Stage 01 Branch**: `stage/01-auth-branch-shell`.
+- **Owner-Approved Implementation Snapshot**: `01419e4ff2bc354b734f36b4b78e1240a84b1034`.
+- **Branch Snapshot Merged into Main**: `36651ce871c8b5dd278aaf34fbdc19d8b444d5b3`.
+- **Merge Method**: Fast-forward only (`git merge --ff-only origin/stage/01-auth-branch-shell`).
+- **Exact Pre-Merge Checks & Results**:
+  - `pnpm install --frozen-lockfile`: Exit 0 — Lockfile up to date.
+  - `pnpm format:check`: Exit 0 — All matched files use Prettier style.
+  - `pnpm lint`: Exit 0 — 0 warnings, 0 errors.
+  - `pnpm typecheck`: Exit 0 — `tsc --noEmit` clean.
+  - `pnpm test`: Exit 0 — 4 test suites, 45 tests passed.
+  - `pnpm build`: Exit 0 — Client build output to `dist/`.
+  - `cargo fmt --check` (src-tauri): Exit 0 — Rust code formatted cleanly.
+  - `cargo check --locked` (src-tauri): Exit 0 — Clean check.
+  - `cargo test --locked` (src-tauri): Exit 0 — 0 failed.
+  - `cargo clippy --locked --all-targets -- -D warnings` (src-tauri): Exit 0 — Clean clippy.
+  - `git diff --check`: Exit 0 — Clean whitespace.
+- **Production Data Impact**: None (NO production data changed).
+- **Schema / Migrations / Auth / RLS Changes**: None (NO schema, migrations, RLS, or Auth server configuration changed).
+- **Owner Runtime Evidence**: Fully preserved under OWNER-PROVIDED MANUAL RUNTIME EVIDENCE.
+- **Stage Status**: Stage 01 is **ACCEPTED / MERGED / CLOSED**.
