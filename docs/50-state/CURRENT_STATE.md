@@ -1,11 +1,20 @@
 # Current State
 
-Stage 00 = **ACCEPTED / MERGED**. Stage 00 is closed.
-Current branch: `main`, now containing the accepted Stage 00 implementation.
-Accepted stage HEAD: `0526bf50ff50a748191dec04a76116cddb649c5d` on the preserved `stage/00-initialization` branch.
-Pre-merge main / BASE_SHA: `280e4afd5e304c00b7d98f2c1106a016ca484076`.
-Authorized merge commit: `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`.
-The owner confirmed the Stage 00 Windows initialization runtime on 2026-09-05 after independent GitHub review, then separately authorized this merge.
-See `evidence/stage-00-initialization.md` for owner evidence, merge/check records and unchanged verification limits.
-Hosted source reference remains `feda4600f37e93084fdb672bd0c2612e9872bb43`; no hosted or production behavior was newly verified.
-Stage 01, authentication, branch context, shell work and every product module remain **NOT AUTHORIZED**. The next action requires new explicit owner authorization. No historical desktop acceptance transfers.
+Stage 00 is ACCEPTED / MERGED / CLOSED on main at `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
+Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell is **ACTIVE / UNACCEPTED** under the owner's explicit Stage 01 authorization.
+Branch: `stage/01-auth-branch-shell`. BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
+Fetched HOSTED_SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43`; hosted tracked source remains read-only and clean.
+
+Stage 01 implementation is complete on `stage/01-auth-branch-shell`:
+
+- Real Supabase email/password authentication via `@supabase/supabase-js` (2.115.0).
+- In-memory session management (`persistSession: false`, no localStorage/sessionStorage/SQLite).
+- RLS-governed staff and branch context resolution with fail-closed authorization.
+- Canonical desktop shell with dark green sidebar, restrained gold accents, compact operational workspace.
+- Exactly 8 authorized navigation modules (Today, Bookings, Attendance, Customers, Schedule, Home Service, Staff, Settings) with truthful unavailable destination states.
+- Real Sign Out clearing authenticated state and returning to login.
+- Narrowed Tauri CSP allowing only the exact public Supabase project origin.
+- 30 automated unit and boundary tests passing with full test coverage of boundaries and auth flows.
+
+Status remains **ACTIVE / UNACCEPTED** pending independent GitHub review and owner runtime verification.
+Product modules, hosted changes, schema/RLS changes, merge to main, and Stage 02 remain unauthorized.

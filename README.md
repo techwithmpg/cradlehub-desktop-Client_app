@@ -7,6 +7,11 @@ Hosted reference: https://github.com/techwithmpg/Cradlehub (read-only source aud
 
 The single Tauri 2 / React / TypeScript / Vite application displays initialization, not-authenticated and connection-not-established states. No product module or backend connection is implemented.
 
+## Stage 01 work in progress
+
+The owner has separately authorized Stage 01 on `stage/01-auth-branch-shell`. It is ACTIVE / UNACCEPTED and paused for public client configuration; the runtime below is still the accepted Stage 00 implementation.
+Create ignored `.env.local` from `.env.example`, supplying only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (anon/publishable key). Do not include passwords or privileged secrets. Real environment values must remain untracked and must not be printed in logs/evidence.
+
 ## Start here
 
 Read [agent rules](AGENTS.md), [governance](docs/00-governance/AI_START_HERE.md), [current state](docs/50-state/CURRENT_STATE.md), and [Stage 00 evidence](docs/50-state/evidence/stage-00-initialization.md).
@@ -50,4 +55,4 @@ The three renderer/boundary tests protect unavailable operational actions, an em
 
 See [hosted contracts](docs/10-architecture/WEB_CONTRACT_INVENTORY.md), [desktop ownership](docs/10-architecture/DESKTOP_BOUNDARY.md), and [one UI direction](docs/10-architecture/UI_SYSTEM_DIRECTION.md).
 
-The owner-authorized Stage 00 merge is complete on `main`; `stage/00-initialization` is preserved. Stage 01, product modules, authentication, branch context, canonical shell work, persistence, offline sync and production/database changes remain unauthorized. Stop after closure; the next action requires a new explicit owner authorization. Completion never authorizes the next stage.
+The owner-authorized Stage 00 merge is complete on `main`; `stage/00-initialization` is preserved. Stage 01 authentication, authorized branch context and canonical shell work are now separately authorized on `stage/01-auth-branch-shell`. Product-module implementation, speculative persistence/offline sync, hosted or production/database changes, merge and Stage 02 remain unauthorized.

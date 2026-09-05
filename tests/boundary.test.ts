@@ -1,29 +1,76 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { createElement } from 'react';
-import { App } from '../src/App';
 import config from '../src-tauri/tauri.conf.json';
-describe('Stage 00 authority boundary', () => {
-  it('presents unavailable identity and connection without operational actions', () => {
-    const html = renderToStaticMarkup(createElement(App));
-    expect(html).toContain('Not authenticated');
-    expect(html).toContain('Not established');
-    expect(html).not.toMatch(/<(button|input|form|table|nav)\b/);
-  });
-  it('grants no renderer native capabilities or production network access', () => {
+import { AUTHORIZED_NAV_ITEMS } from '../src/lib/navigation';
+
+describe('Stage 01 authority and security boundaries', () => {
+  it('grants no renderer native capabilities and enforces narrow CSP', () => {
     expect(config.app.security.capabilities).toEqual([]);
-    expect(config.app.security.csp).toContain("connect-src 'none'");
+    // CSP must not contain broad wildcards
+    expect(config.app.security.csp).not.toContain('connect-src *');
+    expect(config.app.security.csp).not.toContain('connect-src https:');
+    expect(config.app.security.csp).toMatch(
+      /connect-src 'self' https:\/\/[a-zA-Z0-9.-]+\.supabase\.co/,
+    );
+
     const rust = readFileSync('src-tauri/src/lib.rs', 'utf8');
     expect(rust).not.toMatch(/invoke_handler|#\[tauri::command\]|\.plugin\(/);
   });
-  it('has no durable state or network clients in renderer sources', () => {
-    const sources = readdirSync('src')
-      .filter((f) => /\.tsx?$/.test(f))
-      .map((f) => readFileSync('src/' + f, 'utf8'))
+
+  it('has no durable auth persistence in localStorage, sessionStorage, indexedDB, or SQLite', () => {
+    function scanDir(dir: string): string[] {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      let files: string[] = [];
+      for (const entry of entries) {
+        const fullPath = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          files = files.concat(scanDir(fullPath));
+        } else if (/\.tsx?$/.test(entry.name)) {
+          files.push(fullPath);
+        }
+      }
+      return files;
+    }
+
+    const sourceFiles = scanDir('src');
+    const combinedSources = sourceFiles
+      .map((f) => readFileSync(f, 'utf8'))
       .join('\n');
-    expect(sources).not.toMatch(
-      /localStorage|sessionStorage|indexedDB|fetch\(|WebSocket|setInterval|supabase|invoke\(/,
-    );
+
+    expect(combinedSources).not.toMatch(/localStorage/);
+    expect(combinedSources).not.toMatch(/sessionStorage/);
+    expect(combinedSources).not.toMatch(/indexedDB/);
+    expect(combinedSources).not.toMatch(/sqlite/i);
+    expect(combinedSources).not.toMatch(/console\.log\([^)]*password/i);
+    expect(combinedSources).not.toMatch(/console\.log\([^)]*token/i);
+  });
+
+  it('contains exactly the eight authorized navigation items and excludes dormant modules', () => {
+    const navIds = AUTHORIZED_NAV_ITEMS.map((item) => item.id);
+    expect(navIds).toHaveLength(8);
+    expect(navIds).toEqual([
+      'today',
+      'bookings',
+      'attendance',
+      'customers',
+      'schedule',
+      'home-service',
+      'staff',
+      'settings',
+    ]);
+
+    // Ensure dormant modules are NOT in navigation
+    const dormant = [
+      'owner',
+      'payments',
+      'finance',
+      'reports',
+      'reconciliation',
+      'payroll',
+      'marketing',
+    ];
+    for (const d of dormant) {
+      expect(navIds).not.toContain(d);
+    }
   });
 });

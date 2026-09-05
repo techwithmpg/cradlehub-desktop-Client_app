@@ -1,6 +1,8 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
@@ -11,4 +13,8 @@ export default defineConfig({
     watch: { ignored: ['**/src-tauri/**'] },
   },
   build: { target: 'chrome111' },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
 });

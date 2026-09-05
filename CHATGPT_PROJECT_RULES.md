@@ -368,4 +368,4 @@ Stop and ask for/record a decision when:
 
 ## 20. Current stage truth
 
-Stage 00 is ACCEPTED / MERGED and closed on main. The owner-confirmed stage HEAD 0526bf50ff50a748191dec04a76116cddb649c5d was merged through separately authorized merge commit b16593d6d1ea873b5d4d10eac99d21cbb400e9a6, with pre-merge main 280e4afd5e304c00b7d98f2c1106a016ca484076. Consult docs/50-state for owner evidence, merge verification and closure. The stage branch is preserved. Stage 01, authentication, branch context, canonical shell work and all product modules remain NOT AUTHORIZED. The next action requires new explicit owner authorization.
+Stage 00 is ACCEPTED / MERGED / CLOSED at main 79ef30b9da7267b6f01a6bf9a462712a2b8cfc13. The owner's subsequent Stage 01 authorization permits real authentication, authoritative branch context and one canonical shell with eight unavailable module destinations on stage/01-auth-branch-shell. Stage 01 is ACTIVE / UNACCEPTED and currently paused for public Supabase configuration under authorization Section 6. Current runtime is still Stage 00. Consult docs/50-state. Product modules, hosted/schema/RLS changes, merge and Stage 02 remain unauthorized.

@@ -1,9 +1,20 @@
 # Handoff
 
-Stage 00 is **ACCEPTED / MERGED — CLOSED** on `main` in `techwithmpg/cradlehub-desktop-Client_app`.
-Merge commit: `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`; accepted stage HEAD: `0526bf50ff50a748191dec04a76116cddb649c5d`.
-The `stage/00-initialization` branch is preserved. Main includes the accepted Stage 00 implementation and its closure documentation.
-Consult `docs/50-state/evidence/stage-00-initialization.md` for the authorized merge and exact verification results.
+Stage 01 on `stage/01-auth-branch-shell` (BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`).
+Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT REVIEW**.
 
-Stop after the authorized merge/closure is pushed and reported. The next action requires new explicit owner authorization.
-Stage 01, a new stage branch, authentication, branch context, the canonical shell and all product modules are **NOT AUTHORIZED**.
+Consult `docs/50-state/evidence/stage-01-auth-branch-shell.md` for full implementation, checks, and boundary scan evidence.
+
+Summary of Stage 01 deliverable:
+
+- Single canonical desktop client application with Supabase email/password authentication.
+- In-memory auth session only (`persistSession: false`, no browser localStorage/sessionStorage/SQLite token caching).
+- Authoritative staff and branch context resolution with fail-closed access denial (no staff profile, inactive account, non-CRM role, missing branch).
+- Single canonical shell featuring dark green navigation, gold accents, compact desktop density, and exactly 8 authorized navigation modules.
+- Truthful unavailable destination view for each module destination.
+- Real Sign Out clearing authenticated context and returning to login.
+- 30 automated tests passing across 4 test suites.
+- All frontend (`format:check`, `lint`, `typecheck`, `test`, `build`), Rust (`cargo fmt`, `check`, `test`, `clippy`), and git whitespace checks pass.
+
+Stage status MUST remain ACTIVE / UNACCEPTED until independent review and owner runtime confirmation.
+Do not merge into main. Do not start module implementations. Stage 02 is not authorized.
