@@ -17,6 +17,7 @@ import {
   ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
+import { BookingsView } from './bookings/BookingsView';
 import type { AuthContext, NavModuleId } from '../types/auth';
 import { formatRoleLabel } from '../lib/roles';
 import { AUTHORIZED_NAV_ITEMS, type NavItemConfig } from '../lib/navigation';
@@ -332,29 +333,47 @@ export function CanonicalShell({
         {/* Operational Workspace Canvas */}
         <main id="main-content" className="workspace-content" tabIndex={-1}>
           <div className="workspace-canvas">
-            {/* Module Workspace Header */}
-            <div className="workspace-page-header">
-              <h1
-                className="workspace-page-title"
-                data-testid="active-module-title"
-              >
-                {currentNavConfig.label}
-              </h1>
-            </div>
-
-            {/* Clean, quiet empty state placeholder */}
-            <div
-              className="workspace-placeholder"
-              data-testid="module-unavailable-panel"
-            >
-              <div className="placeholder-icon-wrapper" aria-hidden="true">
-                <ModuleIcon size={24} className="placeholder-icon" />
+            {activeModule === 'bookings' ? (
+              <div className="bookings-module-wrapper">
+                <div className="workspace-page-header visually-hidden-module-header">
+                  <h1
+                    className="workspace-page-title"
+                    data-testid="active-module-title"
+                  >
+                    {currentNavConfig.label}
+                  </h1>
+                </div>
+                <BookingsView authContext={authContext} />
               </div>
-              <h2 className="placeholder-title">{currentNavConfig.label}</h2>
-              <p className="placeholder-desc">
-                This module is not yet available in the desktop client.
-              </p>
-            </div>
+            ) : (
+              <>
+                {/* Module Workspace Header */}
+                <div className="workspace-page-header">
+                  <h1
+                    className="workspace-page-title"
+                    data-testid="active-module-title"
+                  >
+                    {currentNavConfig.label}
+                  </h1>
+                </div>
+
+                {/* Clean, quiet empty state placeholder */}
+                <div
+                  className="workspace-placeholder"
+                  data-testid="module-unavailable-panel"
+                >
+                  <div className="placeholder-icon-wrapper" aria-hidden="true">
+                    <ModuleIcon size={24} className="placeholder-icon" />
+                  </div>
+                  <h2 className="placeholder-title">
+                    {currentNavConfig.label}
+                  </h2>
+                  <p className="placeholder-desc">
+                    This module is not yet available in the desktop client.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </main>
       </div>

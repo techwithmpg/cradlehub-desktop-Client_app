@@ -2,33 +2,38 @@
 
 Stage 00: **ACCEPTED / MERGED / CLOSED** on `main`.
 Stage 01: **ACCEPTED / MERGED / CLOSED** on `main`.
-Stage 02 (Bookings): **OWNER AUTHORIZED — NOT STARTED**.
+Stage 02 (Bookings): **IMPLEMENTED ON BRANCH `stage/02-bookings` — STOPPED FOR INDEPENDENT REVIEW**.
 
-- **Pre-Merge Main Baseline**: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (BASE_SHA).
-- **Stage 01 Branch**: `stage/01-auth-branch-shell`.
-- **Owner-Approved Implementation Snapshot**: `01419e4ff2bc354b734f36b4b78e1240a84b1034`.
-- **Merged Stage 01 Branch Snapshot**: `36651ce871c8b5dd278aaf34fbdc19d8b444d5b3`.
+- **Base Baseline (BASE_SHA)**: `c9720805975004dbe11367f1ad9999270ad4ae7c` on `main`.
+- **Active Branch**: `stage/02-bookings`.
+- **Hosted Reference SHA**: `feda4600f37e93084fdb672bd0c2612e9872bb43`.
 
-Stage 01 was merged into `main` via fast-forward following explicit owner authorization.
-Stage 02 — Bookings is owner authorized but has not started. The next controlled action is independent verification of the Stage 01 merge, followed by creation of `stage/02-bookings` from the accepted main baseline.
+Summary of Stage 02 deliverable:
 
-Consult `docs/50-state/evidence/stage-01-auth-branch-shell.md` for full implementation, checks, boundary scan, owner runtime evidence, and merge closure record.
+1. **Card A (KPI Summary Strip)**: 6 status metric cells (Today, Confirmed, Checked In, Completed, No Show, Cancelled) dynamically computed from branch bookings.
+2. **Card B (Bookings List Card)**:
+   - 8 scope tabs: `All Bookings`, `Today`, `Tomorrow`, `This Week`, `This Month`, `Upcoming`, `Completed`, `Cancelled`.
+   - Filter toolbar: live search (customer name, phone, service, therapist, id), status selector, date picker, service selector, staff selector, and one-click filter reset.
+   - Compact DataGrid: time/date, customer initials badge and details, service and duration pill, room resource tag, status badge, therapist avatar/tier chip, source badge, price, inspect action.
+   - Pagination: configurable rows per page (10, 25, 50), page selector, total record counts.
+3. **Card C (Booking Inspector Card)**:
+   - Selected booking sticky panel with status header, customer identity, and quick actions (Reschedule, Cancel, Add Payment [Dormant]).
+   - 5 inspector tabs:
+     - Overview: Session details, therapist, channel, amounts, quick actions, customer snapshot card.
+     - Customer: Complete profile details, contact information, loyalty classification, visit history.
+     - Timeline: Lifecycle tracking (created at, updated at, current status).
+     - Payments: Read-only financial metadata (payment status, method, amount, reference) with explicit dormant scope notice.
+     - Notes: Customer profile notes and special health considerations.
+4. **Canonical Shell Preservation**: Zero alteration to Stage 01 sidebar, top bar, avatar menu, or session indicators.
+5. **Quality Gate Verification**:
+   - `pnpm format:check` — PASSED
+   - `pnpm lint` — PASSED (`--max-warnings 0`)
+   - `pnpm typecheck` — PASSED
+   - `pnpm test` — PASSED (71/71 tests passing)
+   - `pnpm build` — PASSED (Vite production bundle built cleanly)
+   - `cargo fmt --check; cargo check --locked; cargo test --locked; cargo clippy --locked --all-targets -- -D warnings` — PASSED (100% Rust backend clean)
+   - `git diff --check` — PASSED
 
-Summary of Stage 01 deliverable:
+Consult `docs/50-state/evidence/stage-02-bookings.md` for full implementation details and evidence.
 
-- Single canonical desktop client application with real Supabase email/password authentication.
-- In-memory auth session only (`persistSession: false`, `autoRefreshToken: true`, `detectSessionInUrl: false`, no browser localStorage/sessionStorage/SQLite token caching).
-- Authoritative staff and branch context resolution using `staff.system_role` (NOT `role`) matching the hosted authority contract.
-- Local-scoped sign-out (`supabase.auth.signOut({ scope: 'local' })`) without unexpected termination of other device sessions.
-- Non-swallowed sign-out error handling and retryable error state.
-- Truthful error taxonomy: Invalid Credentials, Network/Auth failure, Context Load failure, and proven Authorization Denial.
-- Single refined canonical shell with corrected visual hierarchy:
-  - Sidebar: Product navigation only (~224px width, 8 destinations, no duplicated branch or operator profile).
-  - Top Bar: Slim ~50px header with compact global controls (`[ Branch Context ] [ ● Session Active ] [ Bell ] [ Avatar ]`), no page title or direct sign out.
-  - User Menu: Avatar dropdown containing full name, email, canonical role, branch, and exclusive Sign Out action.
-  - Workspace Canvas: Owns module page title and clean, quiet empty state without internal engineering terms.
-- 45 automated tests passing across 4 test suites.
-- All frontend (`pnpm install --frozen-lockfile`, `format:check`, `lint`, `typecheck`, `test`, `build`), Rust (`cargo fmt`, `check`, `test`, `clippy`), and git whitespace checks pass.
-- Full owner native Windows runtime and visual inspection completed and approved.
-
-Do not start Stage 02 implementation or create `stage/02-bookings` until independent merge review completes.
+Work is stopped for independent review. Do NOT merge into `main` or start Stage 03 until explicit authorization.
