@@ -1,115 +1,126 @@
-# Stage 02 — Evidence: Bookings Module Greenfield Functional Rebuild
+# Stage 02 — Evidence: Bookings Module Greenfield Functional Rebuild & Refinement
 
 **Target:** CradleHub Desktop (`https://github.com/techwithmpg/cradlehub-desktop-Client_app`)
 
-**Stage / Task:** Stage 02 — Bookings Module Greenfield Functional Rebuild
+**Stage / Task:** Stage 02 — Bookings Module Greenfield Functional Rebuild & Owner-Requested Correction Pass
 
 **Status:** `READY FOR INDEPENDENT REVIEW`
 
 **Branch:** `stage/02-bookings`
 
-**BASE_SHA:** `c9720805975004dbe11367f1ad9999270ad4ae7c`
+**Accepted Main Baseline (BASE_SHA):** `c9720805975004dbe11367f1ad9999270ad4ae7c`
 
-**Hosted web reference SHA:** `feda4600f37e93084fdb672bd0c2612e9872bb43`
+**Starting Branch HEAD Before Correction:** `2940f44e3c043c85ac97c9a9a37a4e6c9e553693`
 
----
-
-## Authorized scope
-
-1. Greenfield functional build of the real Bookings module body for CradleHub Desktop inside the operational workspace canvas when `activeModule === 'bookings'`.
-2. Faithful alignment to the owner-approved Bookings visual reference for hierarchy, proportions, card separation, and design tokens:
-   - **Card A (KPI Summary Card)**: Horizontal strip with 6 status partition metric cells (Today's Bookings, Confirmed, Checked In, Completed, No Show, Cancelled).
-   - **Card B (Bookings List Card)**: 8 scope tabs (`all`, `today`, `tomorrow`, `this_week`, `this_month`, `upcoming`, `completed`, `cancelled`), filter toolbar (search, status, exact date, service, therapist/staff, reset), compact DataGrid with customer initials avatar, service pill, therapist chip, source tag, price, and pagination footer.
-   - **Card C (Booking Inspector Card)**: Tall sticky right inspector showing live status badge, customer profile card, 5 tabs (Overview, Customer, Timeline, Payments [Read-Only/Dormant], Notes), quick actions (Reschedule notice, Cancel notice, Add Payment disabled), and full customer profile snapshot.
-3. Canonical shell preservation: Exactly zero redesign or alteration to Stage 01 canonical sidebar, top bar, avatar menu, or session indicators.
-4. Real Supabase read queries scoped strictly to the authenticated operator's `branch_id`.
-5. Strict dormant module boundaries: Payments mutations, finance, and report mutations remain dormant and explicit.
+**Hosted Canonical Reference SHA Inspected:** `feda4600f37e93084fdb672bd0c2612e9872bb43`
 
 ---
 
-## Changed files
+## OWNER-PROVIDED MANUAL RUNTIME EVIDENCE
 
-- `src/types/bookings.ts`: Canonical TypeScript definitions for bookings, joined entities, scope tabs, filters, and KPI summary structures.
-- `src/lib/bookings-service.ts`: Query functions for branch bookings (`fetchBranchBookings`), record normalization (`normalizeBooking`), KPI computation (`computeBookingKpis`), and multi-dimension filtering (`filterBookings`).
-- `src/components/bookings/BookingsHeader.tsx`: Bookings module header with title, subtitle, refresh button, and new booking action with dormant notice dialog.
-- `src/components/bookings/BookingsKpiSummary.tsx`: Card A horizontal KPI summary strip with 6 interactive status cells.
-- `src/components/bookings/BookingsListCard.tsx`: Card B bookings table with scope tabs, filters, pagination, and row selection.
-- `src/components/bookings/BookingInspectorCard.tsx`: Card C selected booking inspector with 5 panels, quick actions, and customer profile details.
-- `src/components/bookings/BookingsView.tsx`: Integrated orchestrator for the Bookings workspace with loading skeleton, error banner, and responsive layout.
-- `src/components/CanonicalShell.tsx`: Integration of `BookingsView` when `activeModule === 'bookings'`, preserving shell page title contract.
-- `src/styles.css`: Complete styling for Card A, Card B, and Card C matching the 3-card layout, color palette, and responsive breakpoints.
-- `tests/bookings-service.test.ts`: Automated test suite for data normalization, KPI aggregation, multi-scope filtering, and branch query isolation.
-- `tests/bookings-components.test.tsx`: Automated test suite for Bookings UI components and container views.
-- `docs/50-state/CURRENT_STATE.md`: Updated active state documentation.
-- `docs/50-state/CURRENT_TASK.md`: Updated active task documentation.
-- `docs/50-state/HANDOFF.md`: Updated handoff state.
-- `docs/50-state/LAST_VERIFIED_GATE.md`: Updated verification record.
+The owner tested the real native Windows desktop runtime of Stage 02 and observed the following defects:
+
+1. **Cramped body width**: The entire Bookings body was cramped into a narrow area (`max-width: 900px`) even though substantial workspace width was available.
+2. **Weak / invisible New Booking action**: The New Booking button had poor contrast and appeared almost invisible.
+3. **New Booking flow**: New Booking previously did not perform the real hosted booking creation flow.
+4. **PostgREST relation error**: Real booking loading failed with:
+   `Failed to load branch bookings: Could not embed because more than one relationship was found for 'bookings' and 'branch_resources'`
+5. **Scope tabs horizontal scrolling**: The Bookings scope tabs unnecessarily used horizontal scrolling even at large desktop widths.
+6. **Responsive space utilization**: The tabs, list, and inspector needed to expand gracefully across available space while preserving the approved three-card composition.
 
 ---
 
-## Contract evidence
+## Authorized Corrections Applied
 
-### Database Contract Verification
+1. **Wide Workspace Layout Modifier**:
+   - Added `.workspace-canvas-wide` (`max-width: 100%; width: 100%;`) applied selectively to `activeModule === 'bookings'` without breaking standard max-widths of other module placeholders.
+   - 1440×900: Bookings body gracefully utilizes available width; KPI card spans across; list card takes dominant width (~1fr); inspector occupies stable 380px right panel.
+   - 1366×768: Side-by-side list + 340px inspector layout preserved without control crushing or horizontal page scroll.
+   - 1024×768: Responsive layout cleanly stacks inspector below list.
 
-- Verified live Supabase schema via read-only MCP queries:
-  - Table `bookings`: `id`, `branch_id`, `booking_date`, `start_time`, `end_time`, `type`, `delivery_type`, `status`, `amount_paid`, `payment_method`, `payment_status`, `payment_reference`, `resource_id`, `staff_id`, `customer_id`, `service_id`, `travel_buffer_mins`, `metadata`, `created_at`, `updated_at`.
-  - Joined tables: `customers` (`id`, `full_name`, `phone`, `email`, `total_bookings`, `loyalty_tier`, `notes`, `health_notes`), `services` (`id`, `name`, `duration_minutes`, `price`), `staff` (`id`, `full_name`, `nickname`, `tier`, `avatar_url`), `branch_resources` (`id`, `name`, `type`).
-- Verified query isolation: `eq('branch_id', authContext.branchId)` ensures operators only access their authorized branch data.
+2. **Scope Tabs Layout**:
+   - Set `.bookings-scope-tab-btn` with `flex: 1 1 0` and reduced safe padding so all 8 scope tabs distribute evenly across desktop widths without horizontal scrolling.
+
+3. **New Booking Button Contrast**:
+   - Styled `.bookings-header-primary-btn` with dark CradleHub brand green (`background: #0d2b20`, `border: 1px solid #164332`, `color: #ffffff`, `hover: #143d2e`, `active: #081d15`, `focus: 2px solid var(--color-accent)`).
+
+4. **Foreign Key Relationship Fix for `branch_resources`**:
+   - **Root Cause**: Two foreign keys link `bookings` to `branch_resources`: `bookings.resource_id -> branch_resources.id` (`bookings_resource_id_fkey`) and `bookings.session_started_from_resource_id -> branch_resources.id` (`bookings_session_started_from_resource_id_fkey`).
+   - **Constraint Selected**: `bookings_resource_id_fkey` on column `resource_id`.
+   - **Authoritative Source**: Inspected Supabase database schema (`information_schema.table_constraints` and hosted query in `src/app/actions/calendar-actions.ts`).
+   - **Corrected PostgREST Hint**: `branch_resources!bookings_resource_id_fkey ( id, name, type )`.
+
+5. **Authoritative Booking Creation Workflow (`NewBookingModal`)**:
+   - Inspected hosted modal in `components/modals/QuickBookingModal.tsx` and action `createBooking` in `src/app/actions/booking-actions.ts`.
+   - Replicated full client-safe form flow using canonical desktop controls:
+     - Booking mode selector (Walk-in, Phone, Future, Home Service) with automatic defaults (date, quarter-hour start time, advance payment toggle).
+     - Customer lookup by name/phone with debounced search (`searchBranchCustomers`) and inline selection/clearing; manual name/phone/email inputs.
+     - Multi-service selection with dynamic duration and price calculation.
+     - Therapist picker (staff list) and room/resource picker (`branch_resources`).
+     - Home service address, barangay, and city fields when `mode === 'home_service'`.
+     - Advance payment toggle, payment method selector (`cash`, `gcash`, `bank_transfer`, `credit_card`).
+     - Notes field and calculated end time.
+     - Validation for required fields, phone format, and date/time.
+     - Authoritative creation via `createBranchBooking` into `customers` and `bookings`, relying on PostgreSQL server triggers (`fn_on_booking_created`, `guard_booking_assignment_overlap`, `prepare_booking_timing_snapshots`) for overlap prevention (`23P01`) and audit logging without requiring privileged secrets.
+     - On success: closes modal, triggers list and KPI refetch, and selects the new booking.
+     - Unsaved changes confirmation dialog if user attempts to dismiss a dirty modal.
 
 ---
 
-## Exact checks
+## Changed Files
 
-| Command / Check                                      | Result | Notes                                                     |
+- `src/types/bookings.ts`: Added types for `QuickBookingMode`, `QuickBookingOptionService`, `QuickBookingOptionStaff`, `QuickBookingOptionResource`, `CreateBranchBookingParams`, and `CreateBookingResult`.
+- `src/lib/bookings-service.ts`: Fixed PostgREST embed hint with `branch_resources!bookings_resource_id_fkey`; added `fetchBranchBookingOptions`, `searchBranchCustomers`, `computeBookingEndTime`, `createBranchBooking`, and centralized `formatCurrency`.
+- `src/components/CanonicalShell.tsx`: Applied `.workspace-canvas-wide` when `activeModule === 'bookings'`.
+- `src/components/bookings/BookingsHeader.tsx`: Updated New Booking primary button styling and wired real modal open state.
+- `src/components/bookings/BookingsView.tsx`: Integrated `NewBookingModal`, refetch callback, and wide workspace layout.
+- `src/components/bookings/NewBookingModal.tsx`: Complete canonical desktop booking creation dialog.
+- `src/styles.css`: Added styles for wide workspace canvas, distributed scope tabs, high-contrast primary button, and new booking modal.
+- `tests/bookings-service.test.ts`: Added unit tests for explicit FK hint, booking option fetching, customer search, end-time calculation, and booking creation.
+- `tests/bookings-components.test.tsx`: Added component tests for `NewBookingModal` rendering, mode switching, validation, and submission.
+- `docs/50-state/CURRENT_STATE.md`: Updated state documentation.
+- `docs/50-state/CURRENT_TASK.md`: Updated task documentation.
+- `docs/50-state/evidence/stage-02-bookings.md`: Recorded full evidence and test results.
+
+---
+
+## Exact Checks & Results
+
+| Check / Command                                      | Result | Notes                                                     |
 | ---------------------------------------------------- | ------ | --------------------------------------------------------- |
-| `pnpm format`                                        | PASS   | Prettier formatted all changed files                      |
-| `pnpm format:check`                                  | PASS   | All matched files use Prettier code style                 |
+| `pnpm format:check`                                  | PASS   | All files formatted with Prettier                         |
 | `pnpm lint`                                          | PASS   | `eslint . --max-warnings 0` exited with 0 warnings/errors |
-| `pnpm typecheck`                                     | PASS   | `tsc --noEmit` passed with 0 type errors                  |
-| `pnpm test`                                          | PASS   | 71 tests passed across 6 test suites                      |
-| `pnpm build`                                         | PASS   | Vite production bundle built successfully in 757ms        |
-| `cargo fmt --check`                                  | PASS   | Rust code formatted according to style guidelines         |
-| `cargo check --locked`                               | PASS   | Rust backend check passed with 0 warnings/errors          |
-| `cargo test --locked`                                | PASS   | All Rust unittests and doc-tests passed with 0 errors     |
-| `cargo clippy --locked --all-targets -- -D warnings` | PASS   | Zero clippy warnings across all targets                   |
-| `git diff --check`                                   | PASS   | Zero trailing whitespace or merge conflict markers        |
-| `git status --short`                                 | PASS   | Working tree clean after staging and commit               |
+| `pnpm typecheck`                                     | PASS   | `tsc --noEmit` passed with 0 errors                       |
+| `pnpm test`                                          | PASS   | 78 tests passing across 6 test suites                     |
+| `pnpm build`                                         | PASS   | Vite production bundle built successfully                 |
+| `cargo fmt --check`                                  | PASS   | Rust code formatted                                       |
+| `cargo check --locked`                               | PASS   | Rust backend check passed                                 |
+| `cargo test --locked`                                | PASS   | Rust unittests and doc-tests passed                       |
+| `cargo clippy --locked --all-targets -- -D warnings` | PASS   | Zero clippy warnings                                      |
+| `git diff --check`                                   | PASS   | Zero whitespace errors                                    |
 
 ---
 
-## Runtime evidence actually observed
+## Security / Data Impact
 
-- Automated component tests verified:
-  - `BookingsHeader`: Renders module title, subtitle, refresh button, and modal notice for New Booking.
-  - `BookingsKpiSummaryCard`: Renders 6 metric cells and dispatches scope clicks.
-  - `BookingsListCard`: Filters correctly by scope tabs, search input, status, date, service, and staff dropdowns; selection triggers row highlight and inspector updates; renders clean empty state when list is empty.
-  - `BookingInspectorCard`: Displays customer identity, booking ref, session details, tab switching across Overview, Customer, Timeline, Payments, and Notes; quick actions display informational notice modals.
-  - `BookingsView`: Asynchronously queries branch bookings using `fetchBranchBookings(authContext.branchId)`, shows loading skeleton during fetch, handles network errors with retry mechanism.
-- Canonical shell integration: Verified that clicking other navigation items shows the neutral empty state placeholder while 'Bookings' renders the real 3-card workspace.
-
----
-
-## Security / data impact
-
-- **production data changed?** NO.
-- **schema/migration changed?** NO.
+- **Production data changed?** NO.
+- **Schema/migration changed?** NO.
 - **Auth/RLS/Storage policy changed?** NO.
-- **secrets introduced/exposed?** NO.
-- **privileged server behavior changed?** NO.
-- **Tauri capabilities changed?** NO.
+- **Secrets introduced?** NO.
+- **Privileged server behavior changed?** NO. Client uses authenticated Supabase user token to insert into `customers` and `bookings`, protected by database RLS and triggers.
+- **Hosted repository changed?** NO (inspected read-only).
 
 ---
 
 ## Limitations
 
-1. **Administrative Writes**: New booking creation, rescheduling, and cancellations in Stage 02 display modal notices explaining that write operations remain hosted and will be connected during authorized write stages.
-2. **Payments Module**: Payments tab in the inspector provides read-only inspection of recorded booking amounts and payment references; payment mutation pathways are dormant.
+1. **Dormant Modules**: Payments mutations, Finance, Reconciliation, and Reports remain dormant.
+2. **Reschedule & Cancel Actions**: Quick actions in the inspector remain informational dialogs.
+3. **Owner Visual Review**: Owner must visually confirm the runtime behavior in native Windows desktop.
 
 ---
 
 ## Rollback
-
-To rollback this stage:
 
 ```bash
 git checkout main

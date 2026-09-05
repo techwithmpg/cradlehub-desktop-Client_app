@@ -332,7 +332,9 @@ export function CanonicalShell({
 
         {/* Operational Workspace Canvas */}
         <main id="main-content" className="workspace-content" tabIndex={-1}>
-          <div className="workspace-canvas">
+          <div
+            className={`workspace-canvas ${activeModule === 'bookings' ? 'workspace-canvas-wide' : ''}`}
+          >
             {activeModule === 'bookings' ? (
               <div className="bookings-module-wrapper">
                 <div className="workspace-page-header visually-hidden-module-header">

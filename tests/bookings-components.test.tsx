@@ -9,6 +9,7 @@ import { BookingsKpiSummaryCard } from '../src/components/bookings/BookingsKpiSu
 import { BookingsListCard } from '../src/components/bookings/BookingsListCard';
 import { BookingInspectorCard } from '../src/components/bookings/BookingInspectorCard';
 import { BookingsView } from '../src/components/bookings/BookingsView';
+import { NewBookingModal } from '../src/components/bookings/NewBookingModal';
 import * as bookingsService from '../src/lib/bookings-service';
 import * as supabaseLib from '../src/lib/supabase';
 
@@ -405,6 +406,110 @@ describe('Stage 02 Bookings UI Components', () => {
         expect(screen.getAllByText('Maria Santos').length).toBeGreaterThan(0);
       });
       expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('opens NewBookingModal when clicking + New Booking in BookingsHeader', async () => {
+      vi.spyOn(supabaseLib, 'getSupabaseClient').mockReturnValue(
+        {} as unknown as SupabaseClient,
+      );
+      vi.spyOn(bookingsService, 'fetchBranchBookings').mockResolvedValue([]);
+      vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
+        services: [
+          {
+            id: 's-1',
+            name: 'Swedish Massage',
+            durationMinutes: 60,
+            price: 700,
+          },
+        ],
+        staff: [{ id: 'st-1', name: 'Ana Cruz', nickname: 'Ana' }],
+        resources: [{ id: 'r-1', name: 'Room 1', type: 'room', capacity: 1 }],
+      });
+
+      render(<BookingsView authContext={mockAuthContext} />);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('bookings-skeleton')).toBeNull();
+      });
+
+      const newBookingBtn = screen.getByTestId('new-booking-button');
+      fireEvent.click(newBookingBtn);
+
+      expect(screen.getByTestId('new-booking-modal')).toBeDefined();
+      expect(
+        screen.getByRole('heading', { name: 'New Booking' }),
+      ).toBeDefined();
+      expect(screen.getByText('Walk-in')).toBeDefined();
+      expect(screen.getByText('Home Service')).toBeDefined();
+    });
+  });
+
+  describe('NewBookingModal', () => {
+    it('switches modes, updates defaults, and handles form submission', async () => {
+      vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
+        services: [
+          {
+            id: 's-1',
+            name: 'Swedish Massage',
+            durationMinutes: 60,
+            price: 700,
+          },
+          { id: 's-2', name: 'Deep Tissue', durationMinutes: 90, price: 950 },
+        ],
+        staff: [{ id: 'st-1', name: 'Ana Cruz', nickname: 'Ana' }],
+        resources: [{ id: 'r-1', name: 'Room 1', type: 'room', capacity: 1 }],
+      });
+
+      const createSpy = vi
+        .spyOn(bookingsService, 'createBranchBooking')
+        .mockResolvedValue({ ok: true, bookingId: 'b-created-1' });
+
+      const onBookingCreated = vi.fn();
+      const onClose = vi.fn();
+
+      render(
+        <NewBookingModal
+          isOpen={true}
+          onClose={onClose}
+          branchId="branch-1"
+          branchName="Makati Branch"
+          onBookingCreated={onBookingCreated}
+        />,
+      );
+
+      // Wait for options to load
+      await screen.findByText('Swedish Massage');
+
+      // Verify mode tabs
+      expect(screen.getByText('Walk-in')).toBeDefined();
+      expect(screen.getByText('Phone')).toBeDefined();
+      expect(screen.getByText('Future')).toBeDefined();
+      expect(screen.getByText('Home Service')).toBeDefined();
+
+      // Enter customer info
+      const nameInput = screen.getByPlaceholderText(/e\.g\. Maria Santos/i);
+      const phoneInput = screen.getByPlaceholderText(/e\.g\. 09171234567/i);
+
+      fireEvent.change(nameInput, { target: { value: 'Elena Santos' } });
+      fireEvent.change(phoneInput, { target: { value: '09179998877' } });
+
+      // Click submit
+      const submitBtn = screen.getByRole('button', { name: /save walk-in/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            branchId: 'branch-1',
+            fullName: 'Elena Santos',
+            phone: '09179998877',
+            mode: 'walkin',
+          }),
+        );
+      });
+
+      expect(onBookingCreated).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
     });
   });
 });

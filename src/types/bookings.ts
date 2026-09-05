@@ -118,3 +118,50 @@ export interface BookingKpiSummary {
 
 export type InspectorTab =
   'overview' | 'customer' | 'timeline' | 'payments' | 'notes';
+
+export type QuickBookingMode =
+  'walkin' | 'phone' | 'standard_future' | 'home_service';
+
+export interface QuickBookingOptionService {
+  id: string;
+  name: string;
+  durationMinutes: number;
+  price: number;
+  isActive?: boolean;
+}
+
+export interface QuickBookingOptionStaff {
+  id: string;
+  name: string;
+  nickname?: string | null;
+}
+
+export interface QuickBookingOptionResource {
+  id: string;
+  name: string;
+  type?: string | null;
+  capacity?: number | null;
+}
+
+export interface CreateBookingInput {
+  branchId: string;
+  customerId?: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  serviceIds: string[];
+  staffId?: string;
+  resourceId?: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  totalDurationMinutes?: number;
+  totalPrice?: number;
+  mode: QuickBookingMode;
+  paymentReceived?: boolean;
+  paymentMethod?: string;
+  notes?: string;
+  homeServiceAddress?: string;
+  homeServiceBarangay?: string;
+  homeServiceCity?: string;
+}

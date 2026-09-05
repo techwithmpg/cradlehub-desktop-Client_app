@@ -3,13 +3,23 @@ import React, { useState } from 'react';
 interface BookingsHeaderProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onOpenNewBooking?: () => void;
 }
 
 export const BookingsHeader: React.FC<BookingsHeaderProps> = ({
   onRefresh,
   isRefreshing = false,
+  onOpenNewBooking,
 }) => {
   const [showNotice, setShowNotice] = useState(false);
+
+  const handleNewBookingClick = () => {
+    if (onOpenNewBooking) {
+      onOpenNewBooking();
+    } else {
+      setShowNotice(true);
+    }
+  };
 
   return (
     <div className="bookings-header-container">
@@ -52,8 +62,9 @@ export const BookingsHeader: React.FC<BookingsHeaderProps> = ({
         <button
           type="button"
           className="bookings-header-primary-btn"
-          onClick={() => setShowNotice(true)}
+          onClick={handleNewBookingClick}
           aria-label="Create New Booking"
+          data-testid="new-booking-button"
         >
           <svg
             className="bookings-header-btn-icon"

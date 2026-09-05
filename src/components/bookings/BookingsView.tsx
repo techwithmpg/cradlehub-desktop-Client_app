@@ -14,6 +14,7 @@ import { BookingsHeader } from './BookingsHeader';
 import { BookingsKpiSummaryCard } from './BookingsKpiSummary';
 import { BookingsListCard } from './BookingsListCard';
 import { BookingInspectorCard } from './BookingInspectorCard';
+import { NewBookingModal } from './NewBookingModal';
 
 interface BookingsViewProps {
   authContext: AuthContext;
@@ -23,6 +24,7 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isNewBookingOpen, setIsNewBookingOpen] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -171,7 +173,11 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
       data-testid="bookings-view"
     >
       {/* Module Header */}
-      <BookingsHeader onRefresh={handleRefresh} isRefreshing={isRefreshing} />
+      <BookingsHeader
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        onOpenNewBooking={() => setIsNewBookingOpen(true)}
+      />
 
       {/* Error Banner */}
       {error && (
@@ -254,6 +260,15 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
           </div>
         </>
       )}
+
+      {/* New Booking Modal */}
+      <NewBookingModal
+        isOpen={isNewBookingOpen}
+        onClose={() => setIsNewBookingOpen(false)}
+        branchId={authContext.branchId}
+        branchName={authContext.branchName}
+        onBookingCreated={handleRefresh}
+      />
     </div>
   );
 };
