@@ -4,8 +4,8 @@ Stage 00 is ACCEPTED / MERGED / CLOSED on `main` at `79ef30b9da7267b6f01a6bf9a46
 Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell is **OWNER CONFIRMED / ACCEPTED PENDING MERGE**.
 Branch: `stage/01-auth-branch-shell`.
 Accepted Main: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (BASE_SHA).
-Owner-Approved Implementation HEAD: `01419e4ff2bc354b734f36b4b78e1240a84b1034`.
-Current Stage 01 Branch Tip: `f6165ae2493f48d45518c93e589516e508aca849` (includes documentation-only acceptance and reconciliation commits).
+Owner-Approved Implementation Snapshot: `01419e4ff2bc354b734f36b4b78e1240a84b1034`.
+Stage 01 remains on `stage/01-auth-branch-shell`. The owner-approved implementation snapshot is `01419e4ff2bc354b734f36b4b78e1240a84b1034`. Subsequent commits on the same branch are documentation-only acceptance/reconciliation records. Verify the live branch HEAD directly from Git before merge.
 Fetched HOSTED_SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43`; hosted tracked source remains read-only and clean.
 
 - **Stage 01 Implementation**: Completed on `stage/01-auth-branch-shell`.
