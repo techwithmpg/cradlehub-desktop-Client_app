@@ -1,12 +1,16 @@
 # Last Verified Gate
 
 Stage 00 = **ACCEPTED / MERGED — CLOSED**.
+Stage 01 = **OWNER CONFIRMED / ACCEPTED PENDING MERGE**.
 
-- Stage 00 passed independent GitHub review, as recorded by the owner.
-- Owner inspection of the actual Windows initialization runtime was completed on 2026-09-05 under **OWNER-PROVIDED MANUAL RUNTIME EVIDENCE**.
-- The owner explicitly confirmed Stage 00; accepted stage HEAD: `0526bf50ff50a748191dec04a76116cddb649c5d`.
-- The owner separately authorized the Stage 00 merge into main.
-- Main contains Stage 00 through explicit no-fast-forward merge `b16593d6d1ea873b5d4d10eac99d21cbb400e9a6`, based on pre-merge main `280e4afd5e304c00b7d98f2c1106a016ca484076`.
-- Stage 01 implementation is corrected on `stage/01-auth-branch-shell` (BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`). Status is **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**. It has not yet passed independent re-review or owner runtime confirmation. Product-module implementation, merge to main, and Stage 02 remain unauthorized.
+- Independent review of HEAD `01419e4ff2bc354b734f36b4b78e1240a84b1034` returned **ACCEPTABLE FOR OWNER CONFIRMATION**.
+- Native authentication was owner verified on Windows on 2026-09-05.
+- Authoritative branch presentation was owner verified.
+- Eight-module navigation was owner verified.
+- Native local Sign Out returning to login view was owner verified.
+- Final canonical shell visual hierarchy (product-only sidebar, slim ~50px top bar, avatar menu Sign Out, module workspace title ownership, neutral canvas) was owner inspected and approved.
+- Stage 01 is accepted pending merge (`stage/01-auth-branch-shell` at `01419e4ff2bc354b734f36b4b78e1240a84b1034`).
+- Stage 01 is NOT merged into main.
+- Stage 02 remains **NOT AUTHORIZED**.
 
-The post-merge checks and their scope are recorded in `evidence/stage-00-initialization.md`. Stage 01 evidence is recorded in `evidence/stage-01-auth-branch-shell.md`. Tests alone do not confer owner authority. The authorized Stage 01 corrections task is tracked in CURRENT_TASK.md; this remains the last accepted gate.
+The verified runtime evidence is recorded in `evidence/stage-01-auth-branch-shell.md`.

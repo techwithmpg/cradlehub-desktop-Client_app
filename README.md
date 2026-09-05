@@ -9,7 +9,7 @@ The single Tauri 2 / React / TypeScript / Vite application displays initializati
 
 ## Stage 01 work in progress
 
-The owner has separately authorized Stage 01 on `stage/01-auth-branch-shell`. It is ACTIVE / UNACCEPTED and paused for public client configuration; the runtime below is still the accepted Stage 00 implementation.
+The owner has separately authorized Stage 01 on `stage/01-auth-branch-shell`. It is OWNER CONFIRMED / ACCEPTED PENDING MERGE; the runtime on main is still the accepted Stage 00 implementation.
 Create ignored `.env.local` from `.env.example`, supplying only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (anon/publishable key). Do not include passwords or privileged secrets. Real environment values must remain untracked and must not be printed in logs/evidence.
 
 ## Start here

@@ -1,6 +1,6 @@
 # Stage 01 — Authentication, Authorized Branch Context, and Canonical Shell Evidence
 
-Status: **ACTIVE / UNACCEPTED — READY FOR OWNER VISUAL RE-TEST**.
+Status: **OWNER CONFIRMED / ACCEPTED PENDING MERGE**.
 
 ## Target and References
 
@@ -8,10 +8,45 @@ Status: **ACTIVE / UNACCEPTED — READY FOR OWNER VISUAL RE-TEST**.
 - Local Root: `E:\Cradle-Destop-Client`
 - Branch: `stage/01-auth-branch-shell`
 - BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`
-- Reviewed HEAD prior to correction: `7bafad4d9b17ede0d7f8b89ee9cd7f53e932fc61`
+- Accepted Stage 01 HEAD: `01419e4ff2bc354b734f36b4b78e1240a84b1034`
 - Hosted Reference: `https://github.com/techwithmpg/Cradlehub.git` at `E:\CradleHub-References\Cradlehub-Web`
 - Hosted SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43` (clean origin/main)
-- Authority: Owner's Stage 01 explicit authorization and visual hierarchy correction request.
+- Authority: Owner's Stage 01 explicit authorization, review corrections, visual hierarchy correction, and final owner runtime confirmation.
+
+## OWNER-PROVIDED MANUAL RUNTIME EVIDENCE
+
+Date:
+2026-09-05
+
+The owner previously confirmed:
+
+- Native CradleHub Desktop launched successfully.
+- Real Supabase authentication succeeded.
+- Authenticated operator context resolved.
+- Real branch context resolved.
+- Exactly eight authorized navigation destinations were present.
+- Navigation between module placeholders worked.
+- Real Sign Out returned to the login screen.
+
+After the latest canonical-shell visual correction at:
+
+`01419e4ff2bc354b734f36b4b78e1240a84b1034`
+
+the owner also visually inspected the real native desktop runtime and explicitly APPROVED:
+
+- simplified canonical sidebar;
+- removal of duplicate branch information;
+- removal of duplicate user identity;
+- Sign Out ownership inside avatar menu;
+- module title ownership inside the module workspace;
+- compact global top app bar;
+- branch context placement;
+- truthful Session Active indicator;
+- notification trigger and truthful empty notification state;
+- avatar/user menu;
+- overall canonical shell visual hierarchy and presentation.
+
+This constitutes final OWNER visual confirmation for Stage 01.
 
 ## Authentication Architecture
 
@@ -153,7 +188,7 @@ Status: **ACTIVE / UNACCEPTED — READY FOR OWNER VISUAL RE-TEST**.
 - Service-role / privileged secret introduced: **NO**
 - Auth token persisted: **NO** (In-memory session only via `persistSession: false`)
 - Tauri capabilities changed: **NO** (`capabilities: []`)
-- CSP changed during correction: **NO** (Retains narrow CSP: `connect-src 'self' https://<project-subdomain>.supabase.co`)
+- CSP changed: **NO** (Retains narrow CSP: `connect-src 'self' https://<project-subdomain>.supabase.co`)
 
 ## Rollback Path
 

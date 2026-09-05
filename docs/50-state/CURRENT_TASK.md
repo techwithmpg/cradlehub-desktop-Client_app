@@ -1,20 +1,16 @@
 # Current Task
 
-Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell (Visual Hierarchy Correction).
-Status: **ACTIVE / UNACCEPTED — READY FOR OWNER VISUAL RE-TEST**.
+Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell.
+Status: **OWNER CONFIRMED / ACCEPTED PENDING MERGE**.
 Branch: `stage/01-auth-branch-shell`.
 BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
+Accepted Stage 01 HEAD: `01419e4ff2bc354b734f36b4b78e1240a84b1034`.
 HOSTED_SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43`.
 
-Completed in this pass (Owner-requested visual correction):
+Stage 01 implementation, independent review corrections, canonical shell visual hierarchy correction, automated verification, and owner native Windows runtime inspection are fully completed and approved by the owner.
 
-1. **Sidebar**: Established product-navigation-only scope (~224px width, dark green `#0d2b20`, refined gold accents). Removed duplicated branch card, read-only scope tag, and bottom operator profile card. Retained exactly 8 authorized nav items and 0 dormant items.
-2. **Top App Bar**: Slimmed to ~50px height. Right-aligned compact global control cluster (`[ Branch Context ] [ ● Session Active ] [ Bell ] [ Avatar ]`) separated by subtle dividers rather than large boxed cards. Removed module title and direct sign-out button.
-3. **User Menu**: Circular avatar button opens account popover containing full name, email, canonical role label, assigned branch, and exclusive Sign Out button.
-4. **Module Workspace**: Module page title (`Today`, `Bookings`, etc.) moved to the module workspace canvas. Replaced bulky engineering cards with an elegant, quiet empty-state placeholder without developer jargon.
-5. **Quality & Boundary Verification**: 45 automated tests passing across 4 test suites. `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `cargo fmt --check`, `cargo check --locked`, `cargo test --locked`, `cargo clippy --locked --all-targets -- -D warnings`, and `git diff --check` all clean.
+The ONLY remaining action is:
 
-Next:
+**OWNER-AUTHORIZED STAGE 01 MERGE — NOT YET AUTHORIZED**
 
-- Owner visual review and native re-test.
-- Stop and push for review. Do not merge. Stage 02 is not authorized.
+Do not merge. Do not create Stage 02. Stage 02 is not authorized.
