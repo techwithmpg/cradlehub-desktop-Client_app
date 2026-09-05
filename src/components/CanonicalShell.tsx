@@ -15,7 +15,6 @@ import {
   Bell,
   BellOff,
   ChevronDown,
-  Radio,
   type LucideIcon,
 } from 'lucide-react';
 import type { AuthContext, NavModuleId } from '../types/auth';
@@ -57,6 +56,8 @@ export function CanonicalShell({
     AUTHORIZED_NAV_ITEMS.find((item) => item.id === activeModule) ||
     AUTHORIZED_NAV_ITEMS[0];
 
+  const ModuleIcon = ICON_MAP[activeModule] || Info;
+
   const userInitials =
     authContext.fullName
       .split(' ')
@@ -97,7 +98,7 @@ export function CanonicalShell({
 
   return (
     <div className="shell-root" data-testid="canonical-shell">
-      {/* Dark green sidebar navigation */}
+      {/* Dark green sidebar navigation - product navigation only */}
       <aside className="shell-sidebar" aria-label="Sidebar navigation">
         {/* Brand Header */}
         <div className="sidebar-brand">
@@ -107,31 +108,6 @@ export function CanonicalShell({
           <div className="brand-text">
             <span className="brand-name">CradleHub</span>
             <span className="brand-badge">Desktop CRM</span>
-          </div>
-        </div>
-
-        {/* Read-only Branch Context Card */}
-        <div
-          className="sidebar-branch-card"
-          data-testid="sidebar-branch-context"
-        >
-          <div className="branch-card-header">
-            <Building2
-              size={13}
-              className="text-amber-400 shrink-0"
-              aria-hidden="true"
-            />
-            <span className="branch-card-label">Active Branch</span>
-          </div>
-          <p
-            className="branch-card-name"
-            title={authContext.branchName}
-            data-testid="active-branch-name"
-          >
-            {authContext.branchName}
-          </p>
-          <div className="branch-card-footer">
-            <span className="branch-read-only-tag">Read-only Scope</span>
           </div>
         </div>
 
@@ -157,7 +133,7 @@ export function CanonicalShell({
                     {isActive && (
                       <span className="active-pill" aria-hidden="true" />
                     )}
-                    <Icon size={17} className="nav-icon" aria-hidden="true" />
+                    <Icon size={16} className="nav-icon" aria-hidden="true" />
                     <span className="nav-label">{item.label}</span>
                   </button>
                 </li>
@@ -165,76 +141,48 @@ export function CanonicalShell({
             })}
           </ul>
         </nav>
-
-        {/* Sidebar Footer with Operator Info */}
-        <div className="sidebar-footer">
-          <div className="operator-profile">
-            <div className="operator-avatar" aria-hidden="true">
-              {userInitials}
-            </div>
-            <div className="operator-details">
-              <p
-                className="operator-name"
-                title={authContext.fullName}
-                data-testid="operator-name"
-              >
-                {authContext.fullName}
-              </p>
-              <p className="operator-role" data-testid="operator-role">
-                {formatRoleLabel(
-                  authContext.canonicalRole,
-                  authContext.rawRole,
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* Main operational workspace */}
       <div className="shell-workspace">
-        {/* Top Horizontal Header Bar */}
+        {/* Slim Top Horizontal Global Header Bar (~50px) */}
         <header className="workspace-header">
-          <div className="header-left">
-            <div className="header-title-row">
-              <h1 className="header-title" data-testid="active-module-title">
-                {currentNavConfig.label}
-              </h1>
-            </div>
-            <p className="header-subtitle">{currentNavConfig.description}</p>
-          </div>
-
           <div className="header-right">
-            {/* Top Branch Indicator Badge */}
+            {/* Branch Context - Single Location */}
             <div
-              className="top-branch-indicator"
+              className="top-branch-context"
               data-testid="top-branch-indicator"
+              title={authContext.branchName}
             >
               <Building2
                 size={14}
-                className="text-emerald-700 shrink-0"
+                className="top-branch-icon"
                 aria-hidden="true"
               />
-              <span className="top-branch-val" title={authContext.branchName}>
+              <span className="top-branch-name" data-testid="top-branch-name">
                 {authContext.branchName}
               </span>
             </div>
 
-            {/* Truthful Status Chip (Session Active) */}
+            <span className="header-divider" aria-hidden="true" />
+
+            {/* Truthful Session Status (Session Active) */}
             <div
-              className="top-status-chip"
+              className="top-session-status"
               data-testid="status-chip"
               title="Session is active in process memory"
             >
-              <span className="status-indicator-dot" aria-hidden="true" />
-              <span className="status-chip-label">Session Active</span>
+              <span className="session-status-dot" aria-hidden="true" />
+              <span className="session-status-text">Session Active</span>
             </div>
 
-            {/* Notification Trigger & Panel */}
+            <span className="header-divider" aria-hidden="true" />
+
+            {/* Notification Trigger & Popover */}
             <div className="relative-container" ref={notificationRef}>
               <button
                 type="button"
-                className={`header-icon-button ${isNotificationOpen ? 'header-icon-button-active' : ''}`}
+                className={`header-ghost-btn ${isNotificationOpen ? 'header-ghost-btn-active' : ''}`}
                 onClick={() => {
                   setIsNotificationOpen(!isNotificationOpen);
                   setIsUserMenuOpen(false);
@@ -256,15 +204,14 @@ export function CanonicalShell({
                 >
                   <div className="popover-header">
                     <span className="popover-title">Notifications</span>
-                    <span className="popover-badge">Stage 01</span>
                   </div>
                   <div className="notification-empty-state">
                     <div className="notification-empty-icon" aria-hidden="true">
-                      <BellOff size={24} className="text-slate-400" />
+                      <BellOff size={20} className="text-slate-400" />
                     </div>
                     <p className="notification-empty-title">No Notifications</p>
                     <p className="notification-empty-desc">
-                      Desktop notifications are not yet available in this stage.
+                      Desktop notifications are not yet available.
                     </p>
                   </div>
                 </div>
@@ -275,7 +222,7 @@ export function CanonicalShell({
             <div className="relative-container" ref={userMenuRef}>
               <button
                 type="button"
-                className={`user-menu-button ${isUserMenuOpen ? 'user-menu-button-active' : ''}`}
+                className={`avatar-menu-trigger ${isUserMenuOpen ? 'avatar-menu-trigger-active' : ''}`}
                 onClick={() => {
                   setIsUserMenuOpen(!isUserMenuOpen);
                   setIsNotificationOpen(false);
@@ -285,23 +232,12 @@ export function CanonicalShell({
                 aria-haspopup="menu"
                 data-testid="user-menu-trigger"
               >
-                <div className="top-avatar-circle" aria-hidden="true">
+                <span className="avatar-circle" aria-hidden="true">
                   {userInitials}
-                </div>
-                <div className="top-avatar-info">
-                  <span className="top-avatar-name">
-                    {authContext.fullName}
-                  </span>
-                  <span className="top-avatar-role">
-                    {formatRoleLabel(
-                      authContext.canonicalRole,
-                      authContext.rawRole,
-                    )}
-                  </span>
-                </div>
+                </span>
                 <ChevronDown
-                  size={14}
-                  className={`top-chevron ${isUserMenuOpen ? 'top-chevron-rotated' : ''}`}
+                  size={12}
+                  className={`avatar-chevron ${isUserMenuOpen ? 'avatar-chevron-rotated' : ''}`}
                   aria-hidden="true"
                 />
               </button>
@@ -319,11 +255,17 @@ export function CanonicalShell({
                       {userInitials}
                     </div>
                     <div className="user-dropdown-meta">
-                      <p className="user-dropdown-name">
+                      <p
+                        className="user-dropdown-name"
+                        data-testid="dropdown-user-name"
+                      >
                         {authContext.fullName}
                       </p>
                       <p className="user-dropdown-email">{authContext.email}</p>
-                      <span className="user-dropdown-role-tag">
+                      <span
+                        className="user-dropdown-role-tag"
+                        data-testid="dropdown-user-role"
+                      >
                         {formatRoleLabel(
                           authContext.canonicalRole,
                           authContext.rawRole,
@@ -335,22 +277,18 @@ export function CanonicalShell({
                   {/* Context Details */}
                   <div className="user-dropdown-details">
                     <div className="user-detail-row">
-                      <span className="user-detail-label">Assigned Branch</span>
-                      <span className="user-detail-value">
+                      <span className="user-detail-label">Branch</span>
+                      <span
+                        className="user-detail-value"
+                        title={authContext.branchName}
+                        data-testid="dropdown-branch-name"
+                      >
                         {authContext.branchName}
-                      </span>
-                    </div>
-                    <div className="user-detail-row">
-                      <span className="user-detail-label">
-                        Session Authority
-                      </span>
-                      <span className="user-detail-value text-emerald-700 font-semibold">
-                        In-Memory Active
                       </span>
                     </div>
                   </div>
 
-                  {/* Dropdown Actions */}
+                  {/* Dropdown Actions - Exclusive Sign Out location */}
                   <div className="user-dropdown-actions">
                     <button
                       type="button"
@@ -363,7 +301,7 @@ export function CanonicalShell({
                       role="menuitem"
                       data-testid="dropdown-signout-button"
                     >
-                      <LogOut size={15} aria-hidden="true" />
+                      <LogOut size={14} aria-hidden="true" />
                       <span>
                         {isSigningOut ? 'Signing out...' : 'Sign Out'}
                       </span>
@@ -372,23 +310,10 @@ export function CanonicalShell({
                 </div>
               )}
             </div>
-
-            {/* Direct Header Sign Out Button */}
-            <button
-              type="button"
-              onClick={onSignOut}
-              disabled={isSigningOut}
-              className="signout-button"
-              aria-label="Sign Out"
-              data-testid="signout-button"
-            >
-              <LogOut size={15} aria-hidden="true" />
-              <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
-            </button>
           </div>
         </header>
 
-        {/* Sign Out Error Notification if failed */}
+        {/* Sign Out Error Banner if sign-out fails */}
         {signOutError && (
           <div
             className="signout-error-banner"
@@ -404,74 +329,31 @@ export function CanonicalShell({
           </div>
         )}
 
-        {/* Operational Workspace Body */}
+        {/* Operational Workspace Canvas */}
         <main id="main-content" className="workspace-content" tabIndex={-1}>
-          <div
-            className="module-unavailable-panel"
-            data-testid="module-unavailable-panel"
-          >
-            <div className="unavailable-icon-wrapper" aria-hidden="true">
-              <Info size={28} className="text-emerald-700" />
+          <div className="workspace-canvas">
+            {/* Module Workspace Header */}
+            <div className="workspace-page-header">
+              <h1
+                className="workspace-page-title"
+                data-testid="active-module-title"
+              >
+                {currentNavConfig.label}
+              </h1>
             </div>
 
-            <div className="unavailable-content">
-              <div className="unavailable-badge-row">
-                <span className="unavailable-badge">Stage 01 Scope</span>
-                <span className="unavailable-status-tag">
-                  <Radio size={12} className="inline mr-1 text-emerald-600" />
-                  Canonical Shell
-                </span>
+            {/* Clean, quiet empty state placeholder */}
+            <div
+              className="workspace-placeholder"
+              data-testid="module-unavailable-panel"
+            >
+              <div className="placeholder-icon-wrapper" aria-hidden="true">
+                <ModuleIcon size={24} className="placeholder-icon" />
               </div>
-
-              <h2 className="unavailable-title">
-                {currentNavConfig.label} is not yet available in the desktop
-                client.
-              </h2>
-              <p className="unavailable-description">
-                Operational module implementations are scheduled for subsequent
-                authorized stages. Stage 01 establishes authenticated session
-                management, authoritative branch context, and the canonical
-                desktop shell.
+              <h2 className="placeholder-title">{currentNavConfig.label}</h2>
+              <p className="placeholder-desc">
+                This module is not yet available in the desktop client.
               </p>
-
-              <div className="unavailable-summary-grid">
-                <div className="summary-card">
-                  <span className="summary-card-label">Assigned Branch</span>
-                  <span
-                    className="summary-card-value"
-                    data-testid="module-branch-val"
-                  >
-                    {authContext.branchName}
-                  </span>
-                  <span className="summary-card-meta">Read-only context</span>
-                </div>
-
-                <div className="summary-card">
-                  <span className="summary-card-label">Active Operator</span>
-                  <span className="summary-card-value">
-                    {authContext.fullName}
-                  </span>
-                  <span className="summary-card-meta">
-                    {formatRoleLabel(
-                      authContext.canonicalRole,
-                      authContext.rawRole,
-                    )}
-                  </span>
-                </div>
-
-                <div className="summary-card">
-                  <span className="summary-card-label">Session Authority</span>
-                  <span className="summary-card-value text-emerald-800">
-                    In-Memory Active
-                  </span>
-                  <span
-                    className="summary-card-meta"
-                    data-testid="in-memory-session-badge"
-                  >
-                    In-memory session
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         </main>

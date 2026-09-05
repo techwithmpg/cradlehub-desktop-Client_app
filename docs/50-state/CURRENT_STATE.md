@@ -5,21 +5,16 @@ Stage 01 — Real Authentication + Authorized Branch Context + Canonical Shell i
 Branch: `stage/01-auth-branch-shell`. BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
 Fetched HOSTED_SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43`; hosted tracked source remains read-only and clean.
 
-First independent review returned CHANGES REQUIRED, and the owner authorized visual refinement of the canonical shell on the same `stage/01-auth-branch-shell` branch:
+Owner visual feedback on initial visual pass identified shell hierarchy redundancy and leaking engineering terminology. Applied **OWNER-REQUESTED VISUAL CORRECTION — canonical shell hierarchy/density** on the same `stage/01-auth-branch-shell` branch:
 
-- Authoritative field `staff.system_role` (NOT `role`) used in staff queries, types, and role canonicalization, matching the hosted CradleHub authority contract.
-- Focused contract-drift tests verifying that `system_role` is queried and required.
-- Sign-out constrained to local desktop scope via `supabase.auth.signOut({ scope: 'local' })` to avoid terminating sessions on other devices.
-- Non-swallowed sign-out failure with truthful retryable error presentation and context retention.
-- Enabled in-memory token auto-refresh (`autoRefreshToken: true`, `persistSession: false`, `detectSessionInUrl: false`).
-- Truthful error taxonomy distinguishing Invalid Credentials (`InvalidCredentialsError`), Network/Auth Service failure (`NetworkOrConfigError`), Context Load / Query failure (`ContextLoadError`), and proven Authorization Denial (`AuthDenialError`).
-- Removed unsupported `"RLS Verified"` runtime claim; replaced with neutral, truthful `"In-memory session"`.
-- Refined visual shell:
-  - Polished dark green sidebar with gold active indicators and refined operator profile card.
-  - Top horizontal bar with active branch badge, truthful "Session Active" status chip, notification trigger with truthful empty-state popover ("No Notifications"), and user avatar account dropdown menu with Sign Out action.
-  - Refined module unavailable panels with clear Stage 01 scope labeling and responsive spacing across 1440, 1366, and 1024 viewports.
-- 46 automated unit, component, and boundary tests passing across 4 test suites.
+- **Correct Shell Hierarchy**:
+  - **Sidebar**: Product navigation only (~224px width). Contains CradleHub brand and exactly 8 authorized nav destinations (`Today`, `Bookings`, `Attendance`, `Customers`, `Schedule`, `Home Service`, `Staff`, `Settings`). Removed redundant Active Branch card, Read-only Scope tag, and bottom operator profile card.
+  - **Global Top App Bar**: Slim (~50px height) horizontal bar for global app controls only (`[ Branch Context ] [ ● Session Active ] [ Bell ] [ Avatar ]`). Compact ghost/text styling without individual large bordered card boxes. Module title and direct Sign Out removed from top bar.
+  - **User Menu**: Avatar trigger (circular initials + small chevron) opens account dropdown containing user name, email, canonical role label, assigned branch, and exclusive Sign Out action.
+  - **Module Workspace Canvas**: Owns module page title and clean, elegant empty-state placeholder (`This module is not yet available in the desktop client.`). Leaked developer phrases (`Stage 01 Scope`, `Canonical Shell`, `Session Authority`, `Active Operator`, `In-Memory Active summary cards`) eliminated from normal user runtime.
+- **Contracts Preserved**: Authoritative field `staff.system_role`, local-scoped sign out via `supabase.auth.signOut({ scope: 'local' })`, in-memory token refresh, 4-category error taxonomy, fail-closed access control.
+- **Verification**: 45 automated unit, component, and boundary tests passing across 4 test suites. All web and Rust checks pass.
 
 Status remains **ACTIVE / UNACCEPTED**.
-Next action: Independent GitHub re-review, followed by owner native runtime verification if re-review is acceptable.
+Next action: Owner native runtime verification and visual review.
 Product modules, hosted changes, schema/RLS mutations, merge to main, and Stage 02 remain unauthorized.

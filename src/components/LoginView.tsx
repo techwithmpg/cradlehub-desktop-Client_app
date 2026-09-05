@@ -169,7 +169,7 @@ export function LoginView({
 
         <footer className="login-footer">
           <p className="login-note">
-            Stage 01 • Authorized read-only branch context & canonical shell
+            Authorized branch access for CradleHub staff
           </p>
         </footer>
       </div>

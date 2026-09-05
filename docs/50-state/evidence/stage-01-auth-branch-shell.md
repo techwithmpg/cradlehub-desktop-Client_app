@@ -1,6 +1,6 @@
 # Stage 01 — Authentication, Authorized Branch Context, and Canonical Shell Evidence
 
-Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
+Status: **ACTIVE / UNACCEPTED — READY FOR OWNER VISUAL RE-TEST**.
 
 ## Target and References
 
@@ -8,10 +8,10 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 - Local Root: `E:\Cradle-Destop-Client`
 - Branch: `stage/01-auth-branch-shell`
 - BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`
-- Reviewed HEAD prior to refinement: `cd2cd9e498d788c5268346636516f182ad29cf0e`
+- Reviewed HEAD prior to correction: `7bafad4d9b17ede0d7f8b89ee9cd7f53e932fc61`
 - Hosted Reference: `https://github.com/techwithmpg/Cradlehub.git` at `E:\CradleHub-References\Cradlehub-Web`
 - Hosted SHA: `feda4600f37e93084fdb672bd0c2612e9872bb43` (clean origin/main)
-- Authority: Owner's Stage 01 explicit authorization, review corrections, and visual shell refinement request.
+- Authority: Owner's Stage 01 explicit authorization and visual hierarchy correction request.
 
 ## Authentication Architecture
 
@@ -40,7 +40,7 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 - **Branch Context**:
   - Requires authoritative `branch_id` from the staff record.
   - Resolves `branch_name` via `branches` relation or fallback query.
-  - Displayed as read-only context in the sidebar and top header.
+  - Displayed as read-only context in the global top app bar.
   - No client-side branch picker or arbitrary cross-branch access.
 - **Fail-Closed Behavior**:
   - Missing staff record -> Denied: `"No staff profile associated with this authenticated account."`
@@ -50,33 +50,29 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
   - Query/network failure during staff or branch resolution -> Context Load Error (NOT denial).
   - Denial view provides a local "Sign Out" button to clear in-memory auth state and return to login.
 
-## Canonical Shell Implementation & Visual Refinements
+## Canonical Shell Implementation & Visual Hierarchy Correction
 
-- **Character & Layout**:
-  - Dark green navigation sidebar (`#0d2b20`, `#081d15`, `#164332`, `#e2ede8`, `#8ba89c`).
-  - Restrained gold accents (`#d4af37`, `#c59b27`) for brand mark, active indicators, and badges.
-  - Light operational workspace (`#f4f6f8`, `#ffffff`, `#e2e8f0`, `#0f172a`, `#64748b`).
-  - Compact desktop density, clean vertical rhythm, high information hierarchy.
-- **Refined Header Controls**:
-  - **Active Branch Badge**: Pill badge with Building2 icon and `authContext.branchName`.
-  - **Truthful Status Chip**: `"Session Active"` chip with green indicator dot.
-  - **Notification Trigger & Panel**: Accessible popover with Bell icon, opening a clean panel stating: `"Desktop notifications are not yet available in this stage."` (no fake counts).
-  - **User Avatar Menu**: Clickable avatar button with user initials, opening an accessible dropdown displaying user name, email, canonical role, branch assignment, session authority, and Sign Out action.
-  - **Direct Sign Out Button**: Header Sign Out action calling `supabase.auth.signOut({ scope: 'local' })`.
+- **Core Hierarchy Principles**:
+  - **Sidebar = Product Navigation Only**:
+    - Compact 224px width in refined dark green (`#0d2b20`, `#081d15`, `#164332`).
+    - Restrained gold accents (`#d4af37`) for brand mark and active indicator pills.
+    - Exactly 8 authorized navigation destinations (`Today`, `Bookings`, `Attendance`, `Customers`, `Schedule`, `Home Service`, `Staff`, `Settings`).
+    - Removed redundant Active Branch card, Read-only Scope tag, and bottom operator profile.
+  - **Global Top App Bar = Global Context Only**:
+    - Slim 50px horizontal bar.
+    - Right-aligned compact global control cluster: `[ Branch Context ] [ ● Session Active ] [ Bell ] [ Avatar ]`.
+    - Compact ghost/text styling with subtle vertical dividers instead of individual large boxed cards.
+    - Removed module title & subtitle, direct Sign Out button, and user name/role text.
+  - **User Menu = Account Context & Sign Out**:
+    - Circular avatar trigger (user initials + chevron) opening a clean 260px account popover.
+    - Contains: full name, email, canonical role label, assigned branch, and exclusive Sign Out button.
+  - **Module Workspace = Page Context & Actions**:
+    - Owns module page title (`Today`, `Bookings`, etc.).
+    - Elegant, quiet empty-state placeholder (`This module is not yet available in the desktop client.`) replacing bulky engineering cards.
+    - Eliminates internal developer terminology (`Stage 01 Scope`, `Canonical Shell`, `Session Authority`, `Active Operator`, `In-Memory Active summary cards`) from normal user runtime.
 - **Truthful Runtime Claims**:
-  - Uses neutral `"In-memory session"` badge.
   - Contains no unsupported `"RLS Verified"`, `"Production Verified"`, `"Live Verified"`, or `"Sync Verified"` claims.
-- **Exactly 8 Authorized Navigation Modules**:
-  1. Today (`CalendarDays`)
-  2. Bookings (`BookmarkCheck`)
-  3. Attendance (`UserCheck`)
-  4. Customers (`Users`)
-  5. Schedule (`CalendarRange`)
-  6. Home Service (`Truck`)
-  7. Staff (`UserCog`)
-  8. Settings (`Settings`)
 - **Dormant Modules Absent**: Owner, Payments, Finance, Reports, Reconciliation, Payroll, Marketing are strictly excluded.
-- **Module Destinations**: Shared truthful unavailable destination pattern (`"{Module} is not yet available in the desktop client."`) with summary of active branch and operator context. No fake dashboards, counts, or mock records.
 - **Single Shell Rule**: Exactly one canonical shell (`CanonicalShell.tsx`). No duplicate shells, V2s, or showcase variants.
 
 ## Security & Boundary Scan
@@ -91,22 +87,21 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 
 ## Exact Checks and Results
 
-| Check                     | Command                                              | Result                                                                                                  |
-| ------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Lockfile / Dependencies   | `pnpm install --frozen-lockfile`                     | Exit 0 — Dependencies verified strictly against frozen lockfile                                         |
-| Code Formatting           | `pnpm format:check`                                  | Exit 0 — All matched files use Prettier code style                                                      |
-| ESLint Check              | `pnpm lint`                                          | Exit 0 — 0 warnings, 0 errors                                                                           |
-| TypeScript Typecheck      | `pnpm typecheck`                                     | Exit 0 — `tsc --noEmit` clean                                                                           |
-| Automated Tests           | `pnpm test`                                          | Exit 0 — 4 test suites, 46 tests passed                                                                 |
-| Production Frontend Build | `pnpm build`                                         | Exit 0 — Built clean bundle in `dist/`                                                                  |
-| Rust Code Formatting      | `cargo fmt --check` (src-tauri)                      | Exit 0 — Clean                                                                                          |
-| Cargo Compilation Check   | `cargo check --locked` (src-tauri)                   | Exit 0 — Clean                                                                                          |
-| Cargo Unit Tests          | `cargo test --locked` (src-tauri)                    | Exit 0 — 0 failed                                                                                       |
-| Cargo Clippy Lints        | `cargo clippy --locked --all-targets -- -D warnings` | Exit 0 — Clean                                                                                          |
-| Git Whitespace Diff Check | `git diff --check`                                   | Exit 0 — Clean                                                                                          |
-| Native Windows Runtime    | `pnpm tauri dev`                                     | Exit 0 — Native window compiled and opened `target\debug\cradlehub-desktop.exe` displaying login screen |
+| Check                     | Command                                              | Result                                                          |
+| ------------------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
+| Lockfile / Dependencies   | `pnpm install --frozen-lockfile`                     | Exit 0 — Dependencies verified strictly against frozen lockfile |
+| Code Formatting           | `pnpm format:check`                                  | Exit 0 — All matched files use Prettier code style              |
+| ESLint Check              | `pnpm lint`                                          | Exit 0 — 0 warnings, 0 errors                                   |
+| TypeScript Typecheck      | `pnpm typecheck`                                     | Exit 0 — `tsc --noEmit` clean                                   |
+| Automated Tests           | `pnpm test`                                          | Exit 0 — 4 test suites, 45 tests passed                         |
+| Production Frontend Build | `pnpm build`                                         | Exit 0 — Built clean bundle in `dist/`                          |
+| Rust Code Formatting      | `cargo fmt --check` (src-tauri)                      | Exit 0 — Clean                                                  |
+| Cargo Compilation Check   | `cargo check --locked` (src-tauri)                   | Exit 0 — Clean                                                  |
+| Cargo Unit Tests          | `cargo test --locked` (src-tauri)                    | Exit 0 — 0 failed                                               |
+| Cargo Clippy Lints        | `cargo clippy --locked --all-targets -- -D warnings` | Exit 0 — Clean                                                  |
+| Git Whitespace Diff Check | `git diff --check`                                   | Exit 0 — Clean                                                  |
 
-## Test Suites Breakdown (46 Tests)
+## Test Suites Breakdown (45 Tests)
 
 1. `tests/roles.test.ts` (5 tests):
    - Canonicalizes Front Desk aliases (`crm`, `csr`, `csr_head`, `csr_staff`) to `crm`.
@@ -135,25 +130,16 @@ Status: **ACTIVE / UNACCEPTED — READY FOR INDEPENDENT RE-REVIEW**.
 3. `tests/boundary.test.ts` (6 tests):
    - Enforces empty Tauri capabilities `[]` and narrow Supabase origin CSP.
    - Scans all renderer source files ensuring no `localStorage`, `sessionStorage`, `indexedDB`, SQLite, or credential logging.
-   - Scans renderer source ensuring absence of unsupported claims (`RLS Verified`, `Production Verified`, `Live Verified`, `Sync Verified`).
+   - Scans renderer source ensuring absence of unsupported claims (`RLS Verified`, `Production Verified`, `Live Verified`, `Sync Verified`) and developer jargon (`Stage 01 Scope`, `Canonical Shell`, `Session Authority`, `Active Operator`).
    - Verifies Supabase client configuration (`persistSession: false`, `autoRefreshToken: true`, `detectSessionInUrl: false`).
    - Preserves names-only `.env.example` without values.
    - Verifies exactly 8 navigation entries and absence of all 7 dormant modules.
 
-4. `tests/components.test.tsx` (20 tests):
-   - `LoginView`: accessible labels, password visibility toggle, error banner display, loading state, trimmed submission.
-   - `AccessDeniedView`: denial reason, context summary, Sign Out button, sign-out error presentation.
-   - `CanonicalShell`: renders 8 nav items, active branch badge, operator badge, in-memory session badge (absence of `RLS Verified`), sign-out error notification, module navigation switching, truthful unavailable destination panel, truthful status chip (`"Session Active"`), notification trigger with empty-state popover, user avatar dropdown menu with Sign Out action, header Sign Out.
-   - `App`: end-to-end state transitions (Login -> Shell -> Sign Out -> Login; Login -> Shell -> Failed Sign Out retains Shell with error; Login -> Denied -> Sign Out -> Login; Login -> ContextLoadError displays alert on LoginView).
-
-## Native Runtime Verification Note
-
-Automated checks and Tauri compilation verify that the application launches natively on Windows.
-When verifying real Supabase authentication:
-
-- The owner must manually enter credentials directly into the running native application.
-- Never paste credentials into chat or CLI commands.
-- Never record plaintext passwords or capture unmasked credentials.
+4. `tests/components.test.tsx` (19 tests):
+   - `LoginView` (5 tests): accessible labels, password visibility toggle, error banner display, loading state, trimmed submission.
+   - `AccessDeniedView` (3 tests): denial reason, context summary, Sign Out button, sign-out error presentation.
+   - `CanonicalShell` (7 tests): renders 8 nav items without branch/operator duplication in sidebar; branch and session active in top bar; absence of developer terminology; sign-out error notification; module navigation switching in workspace canvas; notification trigger with truthful popover; user avatar dropdown menu with exclusive Sign Out action.
+   - `App` integration flows (4 tests): Login -> Shell -> Avatar Sign Out -> Login; Login -> Shell -> Failed Sign Out retains Shell with banner error; Login -> Denied -> Sign Out -> Login; Login -> ContextLoadError displays alert on LoginView.
 
 ## Security / Data Impact Statement
 
@@ -167,7 +153,7 @@ When verifying real Supabase authentication:
 - Service-role / privileged secret introduced: **NO**
 - Auth token persisted: **NO** (In-memory session only via `persistSession: false`)
 - Tauri capabilities changed: **NO** (`capabilities: []`)
-- CSP changed during refinement: **NO** (Retains narrow CSP: `connect-src 'self' https://<project-subdomain>.supabase.co`)
+- CSP changed during correction: **NO** (Retains narrow CSP: `connect-src 'self' https://<project-subdomain>.supabase.co`)
 
 ## Rollback Path
 

@@ -190,7 +190,7 @@ describe('Stage 01 UI Components', () => {
       isCrmEligible: true,
     };
 
-    it('renders all 8 authorized navigation items and active branch context', () => {
+    it('renders all 8 authorized navigation items without duplicating branch or operator in sidebar', () => {
       render(
         <CanonicalShell
           authContext={mockAuthContext}
@@ -201,16 +201,8 @@ describe('Stage 01 UI Components', () => {
       );
 
       expect(screen.getByTestId('canonical-shell')).toBeDefined();
-      expect(screen.getByTestId('active-branch-name').textContent).toBe(
-        'Makati Central Branch',
-      );
-      expect(screen.getByTestId('operator-name').textContent).toBe(
-        'Maria Santos',
-      );
-      expect(screen.getByTestId('operator-role').textContent).toBe(
-        'Front Desk (CRM)',
-      );
 
+      // Exactly 8 navigation items
       const expectedNav = [
         'today',
         'bookings',
@@ -225,9 +217,15 @@ describe('Stage 01 UI Components', () => {
       for (const navId of expectedNav) {
         expect(screen.getByTestId(`nav-item-${navId}`)).toBeDefined();
       }
+
+      // Sidebar must NOT duplicate branch or operator
+      expect(screen.queryByTestId('sidebar-branch-context')).toBeNull();
+      expect(screen.queryByTestId('active-branch-name')).toBeNull();
+      expect(screen.queryByTestId('operator-name')).toBeNull();
+      expect(screen.queryByTestId('operator-role')).toBeNull();
     });
 
-    it('renders truthful in-memory session badge and does not claim RLS Verified', () => {
+    it('renders branch context and truthful session status in the top bar, without module title or direct sign-out', () => {
       render(
         <CanonicalShell
           authContext={mockAuthContext}
@@ -237,10 +235,44 @@ describe('Stage 01 UI Components', () => {
         />,
       );
 
-      expect(
-        screen.getByTestId('in-memory-session-badge').textContent,
-      ).toContain('In-memory session');
-      expect(screen.queryByText(/RLS Verified/i)).toBeNull();
+      // Single location for branch in top bar
+      expect(screen.getByTestId('top-branch-indicator')).toBeDefined();
+      expect(screen.getByTestId('top-branch-name').textContent).toBe(
+        'Makati Central Branch',
+      );
+
+      // Truthful session status
+      expect(screen.getByTestId('status-chip').textContent).toContain(
+        'Session Active',
+      );
+
+      // Top bar must not have direct Sign Out button
+      expect(screen.queryByTestId('signout-button')).toBeNull();
+
+      // Module title is in workspace canvas, not top bar
+      const moduleTitle = screen.getByTestId('active-module-title');
+      expect(moduleTitle.textContent).toBe('Today');
+      expect(moduleTitle.closest('header')).toBeNull();
+      expect(moduleTitle.closest('main')).toBeDefined();
+    });
+
+    it('contains no developer or engineering terminology in normal runtime', () => {
+      const { container } = render(
+        <CanonicalShell
+          authContext={mockAuthContext}
+          onSignOut={vi.fn()}
+          isSigningOut={false}
+          signOutError={null}
+        />,
+      );
+
+      const text = container.textContent || '';
+      expect(text).not.toMatch(/Stage 01 Scope/i);
+      expect(text).not.toMatch(/Canonical Shell/i);
+      expect(text).not.toMatch(/Session Authority/i);
+      expect(text).not.toMatch(/RLS Verified/i);
+      expect(text).not.toMatch(/Active Operator/i);
+      expect(text).not.toMatch(/In-Memory Active/i);
     });
 
     it('renders sign-out error banner if sign-out fails in shell', () => {
@@ -258,7 +290,7 @@ describe('Stage 01 UI Components', () => {
       );
     });
 
-    it('switches active module and shows truthful unavailable state', async () => {
+    it('switches active module and shows truthful unavailable state in module canvas', async () => {
       const user = userEvent.setup();
       render(
         <CanonicalShell
@@ -275,7 +307,9 @@ describe('Stage 01 UI Components', () => {
       );
       expect(screen.getByTestId('module-unavailable-panel')).toBeDefined();
       expect(
-        screen.getByText(/Today is not yet available in the desktop client/i),
+        screen.getByText(
+          /This module is not yet available in the desktop client/i,
+        ),
       ).toBeDefined();
 
       // Click Bookings
@@ -283,40 +317,15 @@ describe('Stage 01 UI Components', () => {
       expect(screen.getByTestId('active-module-title').textContent).toBe(
         'Bookings',
       );
-      expect(
-        screen.getByText(
-          /Bookings is not yet available in the desktop client/i,
-        ),
-      ).toBeDefined();
 
       // Click Customers
       await user.click(screen.getByTestId('nav-item-customers'));
       expect(screen.getByTestId('active-module-title').textContent).toBe(
         'Customers',
       );
-      expect(
-        screen.getByText(
-          /Customers is not yet available in the desktop client/i,
-        ),
-      ).toBeDefined();
     });
 
-    it('renders truthful status chip indicating Session Active', () => {
-      render(
-        <CanonicalShell
-          authContext={mockAuthContext}
-          onSignOut={vi.fn()}
-          isSigningOut={false}
-          signOutError={null}
-        />,
-      );
-
-      expect(screen.getByTestId('status-chip').textContent).toContain(
-        'Session Active',
-      );
-    });
-
-    it('toggles notification popover with truthful empty state', async () => {
+    it('toggles notification popover with truthful empty state and no stage badges', async () => {
       const user = userEvent.setup();
       render(
         <CanonicalShell
@@ -334,17 +343,16 @@ describe('Stage 01 UI Components', () => {
       expect(screen.getByTestId('notification-panel')).toBeDefined();
       expect(screen.getByText('No Notifications')).toBeDefined();
       expect(
-        screen.getByText(
-          /Desktop notifications are not yet available in this stage/i,
-        ),
+        screen.getByText(/Desktop notifications are not yet available/i),
       ).toBeDefined();
+      expect(screen.queryByText(/Stage 01/i)).toBeNull();
 
       // Close notification panel by clicking trigger again
       await user.click(screen.getByTestId('notification-trigger'));
       expect(screen.queryByTestId('notification-panel')).toBeNull();
     });
 
-    it('opens user avatar dropdown menu and supports dropdown sign-out', async () => {
+    it('opens user avatar dropdown menu and supports dropdown sign-out as exclusive sign-out point', async () => {
       const handleSignOut = vi.fn().mockResolvedValue(undefined);
       const user = userEvent.setup();
 
@@ -359,31 +367,22 @@ describe('Stage 01 UI Components', () => {
 
       expect(screen.queryByTestId('user-menu-dropdown')).toBeNull();
 
-      // Click user menu button to open dropdown
+      // Click avatar button to open dropdown
       await user.click(screen.getByTestId('user-menu-trigger'));
       expect(screen.getByTestId('user-menu-dropdown')).toBeDefined();
+      expect(screen.getByTestId('dropdown-user-name').textContent).toBe(
+        'Maria Santos',
+      );
       expect(screen.getByText('maria@cradlehub.com')).toBeDefined();
-      expect(screen.getAllByText('In-Memory Active').length).toBeGreaterThan(0);
+      expect(screen.getByTestId('dropdown-user-role').textContent).toBe(
+        'Front Desk (CRM)',
+      );
+      expect(screen.getByTestId('dropdown-branch-name').textContent).toBe(
+        'Makati Central Branch',
+      );
 
       // Click sign out inside dropdown
       await user.click(screen.getByTestId('dropdown-signout-button'));
-      expect(handleSignOut).toHaveBeenCalled();
-    });
-
-    it('triggers real sign-out when clicking Sign Out in the header', async () => {
-      const handleSignOut = vi.fn().mockResolvedValue(undefined);
-      const user = userEvent.setup();
-
-      render(
-        <CanonicalShell
-          authContext={mockAuthContext}
-          onSignOut={handleSignOut}
-          isSigningOut={false}
-          signOutError={null}
-        />,
-      );
-
-      await user.click(screen.getByTestId('signout-button'));
       expect(handleSignOut).toHaveBeenCalled();
     });
   });
@@ -394,7 +393,7 @@ describe('Stage 01 UI Components', () => {
       vi.spyOn(supabaseLib, 'isSupabaseConfigured').mockReturnValue(true);
     });
 
-    it('transitions from Login to CanonicalShell on successful authentication and context resolution', async () => {
+    it('transitions from Login to CanonicalShell on successful authentication and context resolution, and signs out via avatar menu', async () => {
       const mockUser = {
         id: 'usr-1',
         email: 'user@example.com',
@@ -439,15 +438,17 @@ describe('Stage 01 UI Components', () => {
         expect(screen.getByTestId('canonical-shell')).toBeDefined();
       });
 
-      expect(screen.getByTestId('active-branch-name').textContent).toBe(
+      expect(screen.getByTestId('top-branch-name').textContent).toBe(
         'Cebu Branch',
       );
-      expect(screen.getByTestId('operator-name').textContent).toBe(
-        'Alex Reyes',
-      );
 
-      // Click Sign Out
-      fireEvent.click(screen.getByTestId('signout-button'));
+      // Open avatar menu to sign out
+      fireEvent.click(screen.getByTestId('user-menu-trigger'));
+      await waitFor(() => {
+        expect(screen.getByTestId('dropdown-signout-button')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('dropdown-signout-button'));
 
       await waitFor(() => {
         expect(screen.getByTestId('login-view')).toBeDefined();
@@ -499,8 +500,12 @@ describe('Stage 01 UI Components', () => {
         expect(screen.getByTestId('canonical-shell')).toBeDefined();
       });
 
-      // Click Sign Out which will fail
-      fireEvent.click(screen.getByTestId('signout-button'));
+      // Open avatar menu and click Sign Out which will fail
+      fireEvent.click(screen.getByTestId('user-menu-trigger'));
+      await waitFor(() => {
+        expect(screen.getByTestId('dropdown-signout-button')).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId('dropdown-signout-button'));
 
       await waitFor(() => {
         expect(screen.getByTestId('shell-signout-error')).toBeDefined();

@@ -45,7 +45,7 @@ describe('Stage 01 authority and security boundaries', () => {
     expect(combinedSources).not.toMatch(/console\.log\([^)]*token/i);
   });
 
-  it('contains no unsupported runtime claims (RLS Verified, Production Verified, Live Verified, Sync Verified)', () => {
+  it('contains no unsupported runtime claims or leaked developer terminology', () => {
     function scanDir(dir: string): string[] {
       const entries = readdirSync(dir, { withFileTypes: true });
       let files: string[] = [];
@@ -69,6 +69,10 @@ describe('Stage 01 authority and security boundaries', () => {
     expect(combinedSources).not.toMatch(/Production Verified/i);
     expect(combinedSources).not.toMatch(/Live Verified/i);
     expect(combinedSources).not.toMatch(/Sync Verified/i);
+    expect(combinedSources).not.toMatch(/Stage 01 Scope/i);
+    expect(combinedSources).not.toMatch(/Canonical Shell/i);
+    expect(combinedSources).not.toMatch(/Session Authority/i);
+    expect(combinedSources).not.toMatch(/Active Operator/i);
   });
 
   it('configures in-memory session with autoRefreshToken enabled and URL session detection disabled', () => {
