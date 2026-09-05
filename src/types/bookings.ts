@@ -127,6 +127,8 @@ export interface QuickBookingOptionService {
   name: string;
   durationMinutes: number;
   price: number;
+  availableInSpa?: boolean;
+  availableHomeService?: boolean;
   isActive?: boolean;
 }
 
@@ -134,6 +136,7 @@ export interface QuickBookingOptionStaff {
   id: string;
   name: string;
   nickname?: string | null;
+  serviceIds?: string[];
 }
 
 export interface QuickBookingOptionResource {
@@ -164,4 +167,12 @@ export interface CreateBookingInput {
   homeServiceAddress?: string;
   homeServiceBarangay?: string;
   homeServiceCity?: string;
+}
+
+export interface CreateBookingResult {
+  ok: boolean;
+  bookingId?: string;
+  code?: string;
+  error?: string;
+  warning?: string;
 }

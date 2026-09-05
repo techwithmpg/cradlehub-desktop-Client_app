@@ -332,6 +332,61 @@ export function computeBookingEndTime(
   return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
 }
 
+const NON_SERVICE_SYSTEM_ROLES = new Set([
+  'owner',
+  'manager',
+  'assistant_manager',
+  'store_manager',
+  'crm',
+  'digital_marketer',
+  'driver',
+  'utility',
+]);
+
+const HARD_EXCLUDED_SYSTEM_ROLES = new Set([
+  'digital_marketer',
+  'driver',
+  'utility',
+]);
+
+const SERVICE_STAFF_TYPES = new Set([
+  'therapist',
+  'nail_tech',
+  'aesthetician',
+  'salon_head',
+]);
+
+export function canActAsBookingServiceProvider(
+  member: {
+    is_active?: boolean | null;
+    staff_type?: string | null;
+    system_role?: string | null;
+  },
+  hasMatchingServiceCapability = false,
+): boolean {
+  if (member.is_active === false) return false;
+
+  const role = member.system_role
+    ? member.system_role.trim().toLowerCase()
+    : '';
+  if (HARD_EXCLUDED_SYSTEM_ROLES.has(role)) {
+    return false;
+  }
+
+  if (hasMatchingServiceCapability) return true;
+
+  const staffType = member.staff_type
+    ? member.staff_type.trim().toLowerCase()
+    : '';
+  if (staffType && SERVICE_STAFF_TYPES.has(staffType)) {
+    return true;
+  }
+
+  if (NON_SERVICE_SYSTEM_ROLES.has(role)) return false;
+
+  return false;
+}
+
 export async function fetchBranchBookingOptions(
   branchId: string,
   client?: SupabaseClient,
@@ -342,17 +397,49 @@ export async function fetchBranchBookingOptions(
 }> {
   const supabase = client ?? getSupabaseClient();
 
-  const [servicesRes, staffRes, resourcesRes] = await Promise.all([
+  const [branchServicesRes, staffRes, resourcesRes] = await Promise.all([
     supabase
-      .from('services')
-      .select('id, name, duration_minutes, price, is_active')
-      .eq('is_active', true)
-      .order('name', { ascending: true }),
+      .from('branch_services')
+      .select(
+        `
+        id,
+        branch_id,
+        service_id,
+        custom_price,
+        custom_duration_minutes,
+        available_in_spa,
+        available_home_service,
+        is_active,
+        services (
+          id,
+          name,
+          duration_minutes,
+          price,
+          is_active
+        )
+      `,
+      )
+      .eq('branch_id', branchId)
+      .eq('is_active', true),
     supabase
       .from('staff')
-      .select('id, full_name, nickname, is_active')
+      .select(
+        `
+        id,
+        full_name,
+        nickname,
+        is_active,
+        staff_type,
+        system_role,
+        archived_at,
+        merged_into_staff_id,
+        staff_services ( service_id )
+      `,
+      )
       .eq('branch_id', branchId)
       .eq('is_active', true)
+      .is('archived_at', null)
+      .is('merged_into_staff_id', null)
       .order('full_name', { ascending: true }),
     supabase
       .from('branch_resources')
@@ -362,18 +449,54 @@ export async function fetchBranchBookingOptions(
       .order('name', { ascending: true }),
   ]);
 
-  interface RawServiceRow {
-    id: string;
-    name: string;
-    duration_minutes: number | string | null;
-    price: number | string | null;
-    is_active: boolean | null;
+  if (branchServicesRes.error) {
+    throw new Error(
+      `Failed to load branch services: ${branchServicesRes.error.message}`,
+    );
   }
-  interface RawStaffRow {
+  if (staffRes.error) {
+    throw new Error(`Failed to load branch staff: ${staffRes.error.message}`);
+  }
+  if (resourcesRes.error) {
+    throw new Error(
+      `Failed to load branch resources: ${resourcesRes.error.message}`,
+    );
+  }
+
+  interface RawBranchServiceRow {
+    id: string;
+    custom_price: number | string | null;
+    custom_duration_minutes: number | string | null;
+    available_in_spa: boolean | null;
+    available_home_service: boolean | null;
+    services:
+      | {
+          id: string;
+          name: string;
+          duration_minutes: number | string | null;
+          price: number | string | null;
+          is_active: boolean | null;
+        }
+      | Array<{
+          id: string;
+          name: string;
+          duration_minutes: number | string | null;
+          price: number | string | null;
+          is_active: boolean | null;
+        }>
+      | null;
+  }
+
+  interface RawStaffMemberRow {
     id: string;
     full_name: string;
     nickname: string | null;
+    is_active: boolean | null;
+    staff_type: string | null;
+    system_role: string | null;
+    staff_services: { service_id: string }[] | null;
   }
+
   interface RawResourceRow {
     id: string;
     name: string;
@@ -381,21 +504,63 @@ export async function fetchBranchBookingOptions(
     capacity: number | string | null;
   }
 
-  const rawServices = (servicesRes.data ?? []) as unknown as RawServiceRow[];
-  const services: QuickBookingOptionService[] = rawServices.map((s) => ({
-    id: s.id,
-    name: s.name,
-    durationMinutes: Number(s.duration_minutes || 60),
-    price: Number(s.price || 0),
-    isActive: s.is_active ?? true,
-  }));
+  let services: QuickBookingOptionService[];
+  const rawBranchServices = (branchServicesRes.data ??
+    []) as unknown as RawBranchServiceRow[];
 
-  const rawStaff = (staffRes.data ?? []) as unknown as RawStaffRow[];
-  const staff: QuickBookingOptionStaff[] = rawStaff.map((st) => ({
-    id: st.id,
-    name: st.full_name,
-    nickname: st.nickname || null,
-  }));
+  if (rawBranchServices.length > 0) {
+    services = rawBranchServices
+      .map((row): QuickBookingOptionService | null => {
+        const s = extractFirst(row.services);
+        if (!s?.id || !s.name || s.is_active === false) return null;
+        return {
+          id: s.id,
+          name: s.name,
+          durationMinutes: Number(
+            row.custom_duration_minutes ?? s.duration_minutes ?? 60,
+          ),
+          price: Number(row.custom_price ?? s.price ?? 0),
+          availableInSpa: row.available_in_spa ?? true,
+          availableHomeService: row.available_home_service ?? false,
+          isActive: true,
+        };
+      })
+      .filter((s): s is QuickBookingOptionService => Boolean(s));
+  } else {
+    // Fallback if branch_services has no rows configured
+    const { data: globalServices, error: gsError } = await supabase
+      .from('services')
+      .select('id, name, duration_minutes, price, is_active')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (gsError) {
+      throw new Error(`Failed to load services: ${gsError.message}`);
+    }
+
+    services = (globalServices ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      durationMinutes: Number(s.duration_minutes || 60),
+      price: Number(s.price || 0),
+      availableInSpa: true,
+      availableHomeService: false,
+      isActive: s.is_active ?? true,
+    }));
+  }
+
+  const rawStaff = (staffRes.data ?? []) as unknown as RawStaffMemberRow[];
+  const staff: QuickBookingOptionStaff[] = rawStaff
+    .filter((member) => {
+      const hasMatchingCapability = (member.staff_services ?? []).length > 0;
+      return canActAsBookingServiceProvider(member, hasMatchingCapability);
+    })
+    .map((st) => ({
+      id: st.id,
+      name: st.full_name,
+      nickname: st.nickname || null,
+      serviceIds: (st.staff_services ?? []).map((ss) => ss.service_id),
+    }));
 
   const rawResources = (resourcesRes.data ?? []) as unknown as RawResourceRow[];
   const resources: QuickBookingOptionResource[] = rawResources.map((r) => ({
@@ -426,166 +591,24 @@ export async function searchBranchCustomers(
   return data as unknown as BookingCustomer[];
 }
 
+/**
+ * Authoritative Booking Creation Boundary:
+ *
+ * In accordance with the CradleHub architecture and security contracts:
+ * Authoritative booking creation requires server-side validation, multi-service sequencing,
+ * customer upsert, exact availability check, payment audit logging, and notification dispatches
+ * executed within a trusted hosted server boundary.
+ *
+ * Direct table mutations from the desktop renderer are explicitly disallowed.
+ */
 export async function createBranchBooking(
-  input: CreateBookingInput,
-  client?: SupabaseClient,
-): Promise<{ ok: boolean; bookingId?: string; error?: string }> {
-  const supabase = client ?? getSupabaseClient();
-
-  if (!input.fullName?.trim()) {
-    return { ok: false, error: "Enter the customer's full name." };
-  }
-  if (!input.phone?.trim() || input.phone.trim().length < 7) {
-    return {
-      ok: false,
-      error: 'Enter a valid phone number (at least 7 digits).',
-    };
-  }
-  if (!input.serviceIds || input.serviceIds.length === 0) {
-    return { ok: false, error: 'Select at least one service.' };
-  }
-  if (!input.date) {
-    return { ok: false, error: 'Select a booking date.' };
-  }
-  if (!input.startTime) {
-    return { ok: false, error: 'Select a booking start time.' };
-  }
-  if (input.mode === 'home_service' && !input.homeServiceAddress?.trim()) {
-    return {
-      ok: false,
-      error: 'Enter the complete home-service destination address.',
-    };
-  }
-
-  // 1. Resolve Customer ID
-  let customerId = input.customerId;
-  if (!customerId) {
-    const cleanPhone = input.phone.trim();
-    // Try to find existing customer by phone
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('phone', cleanPhone)
-      .maybeSingle();
-
-    if (existingCustomer?.id) {
-      customerId = existingCustomer.id;
-    } else {
-      // Insert new customer
-      const { data: newCustomer, error: custError } = await supabase
-        .from('customers')
-        .insert({
-          full_name: input.fullName.trim(),
-          phone: cleanPhone,
-          email: input.email?.trim() || null,
-        })
-        .select('id')
-        .single();
-
-      if (custError || !newCustomer) {
-        return {
-          ok: false,
-          error: `Could not save customer: ${custError?.message || 'Customer creation rejected.'}`,
-        };
-      }
-      customerId = newCustomer.id;
-    }
-  }
-
-  // 2. Compute Timing
-  const primaryServiceId = input.serviceIds[0];
-  const totalDuration = input.totalDurationMinutes || 60;
-  const computedEnd = computeBookingEndTime(input.startTime, totalDuration);
-  const endTime = input.endTime || computedEnd;
-
-  const deliveryType =
-    input.mode === 'home_service' ? 'home_service' : 'in_spa';
-  const bookingType =
-    input.mode === 'home_service'
-      ? 'home_service'
-      : input.mode === 'phone'
-        ? 'phone'
-        : 'walkin';
-  const initialStatus = input.mode === 'walkin' ? 'confirmed' : 'pending';
-
-  const metadata: Record<string, unknown> = {};
-  if (input.notes?.trim()) {
-    metadata.customer_notes = input.notes.trim();
-  }
-  if (input.serviceIds.length > 1) {
-    metadata.all_service_ids = input.serviceIds;
-  }
-  if (input.mode === 'home_service') {
-    metadata.home_service = {
-      address: input.homeServiceAddress?.trim(),
-      barangay: input.homeServiceBarangay?.trim(),
-      city: input.homeServiceCity?.trim(),
-    };
-  }
-
-  // 3. Insert Booking Row
-  const { data: booking, error: bookingError } = await supabase
-    .from('bookings')
-    .insert({
-      branch_id: input.branchId,
-      customer_id: customerId,
-      service_id: primaryServiceId,
-      staff_id: input.staffId || null,
-      resource_id:
-        input.mode === 'home_service' ? null : input.resourceId || null,
-      booking_date: input.date,
-      start_time:
-        input.startTime.length === 5
-          ? `${input.startTime}:00`
-          : input.startTime,
-      end_time: endTime.length === 5 ? `${endTime}:00` : endTime,
-      type: bookingType,
-      delivery_type: deliveryType,
-      status: initialStatus,
-      payment_status: input.paymentReceived ? 'paid' : 'pending',
-      payment_method: input.paymentReceived
-        ? input.paymentMethod || 'cash'
-        : 'pay_on_site',
-      amount_paid: input.paymentReceived ? input.totalPrice || 0 : 0,
-      metadata: Object.keys(metadata).length > 0 ? metadata : null,
-    })
-    .select('id')
-    .single();
-
-  if (bookingError || !booking) {
-    const errorMsg = bookingError?.message || '';
-    if (
-      bookingError?.code === '23P01' ||
-      errorMsg.includes('BOOKING_STAFF_TIME_CONFLICT')
-    ) {
-      return {
-        ok: false,
-        error:
-          'The selected therapist already has a booking during this time slot. Please choose another time or therapist.',
-      };
-    }
-    if (
-      bookingError?.code === '23P01' ||
-      errorMsg.includes('BOOKING_RESOURCE_TIME_CONFLICT')
-    ) {
-      return {
-        ok: false,
-        error:
-          'The selected room is occupied at this time. Please choose another room or time.',
-      };
-    }
-    if (errorMsg.includes('BOOKING_SERVICE_NOT_AVAILABLE_AT_BRANCH')) {
-      return {
-        ok: false,
-        error:
-          'The selected service is not currently available at this branch.',
-      };
-    }
-    return {
-      ok: false,
-      error: `Could not create booking: ${errorMsg || 'Database rejected booking'}`,
-    };
-  }
-
-  return { ok: true, bookingId: booking.id };
+  input?: CreateBookingInput,
+): Promise<{ ok: boolean; bookingId?: string; code?: string; error?: string }> {
+  void input;
+  return {
+    ok: false,
+    code: 'HOSTED_WRITE_BOUNDARY_REQUIRED',
+    error:
+      'Authoritative booking creation requires a hosted server-side write boundary. Direct database mutations from the desktop renderer are disabled pending owner authorization of a hosted endpoint.',
+  };
 }

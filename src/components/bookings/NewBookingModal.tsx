@@ -121,6 +121,35 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
 
   const searchDebounceRef = useRef<number | null>(null);
 
+  // Reset form to canonical defaults
+  const resetForm = () => {
+    setMode('walkin');
+    setSelectedCustomer(null);
+    setCustomerSearchQuery('');
+    setCustomerSearchResults([]);
+    setIsSearchingCustomers(false);
+    setFullName('');
+    setPhone('');
+    setEmail('');
+    setStaffId('');
+    setResourceId('');
+    setDate(getTodayDateString());
+    setStartTime(getCurrentQuarterTime());
+    setNotes('');
+    setHomeServiceAddress('');
+    setHomeServiceBarangay('');
+    setHomeServiceCity('');
+    setPaymentReceived(true);
+    setPaymentMethod('cash');
+    setErrorMessage(null);
+    setShowDiscardConfirm(false);
+    if (services.length > 0) {
+      setSelectedServiceIds([services[0].id]);
+    } else {
+      setSelectedServiceIds([]);
+    }
+  };
+
   // Load branch options when modal opens
   useEffect(() => {
     if (!isOpen || !branchId) return;
@@ -267,26 +296,45 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
 
   // Is form dirty?
   const isDirty = useMemo(() => {
+    const isServiceChanged =
+      selectedServiceIds.length > 1 ||
+      (services.length > 0 && selectedServiceIds[0] !== services[0]?.id);
     return (
       fullName.trim() !== '' ||
       phone.trim() !== '' ||
       email.trim() !== '' ||
       notes.trim() !== '' ||
       homeServiceAddress.trim() !== '' ||
-      selectedCustomer !== null
+      selectedCustomer !== null ||
+      staffId !== '' ||
+      resourceId !== '' ||
+      isServiceChanged
     );
-  }, [fullName, phone, email, notes, homeServiceAddress, selectedCustomer]);
+  }, [
+    fullName,
+    phone,
+    email,
+    notes,
+    homeServiceAddress,
+    selectedCustomer,
+    staffId,
+    resourceId,
+    selectedServiceIds,
+    services,
+  ]);
 
   const handleRequestClose = () => {
     if (isDirty) {
       setShowDiscardConfirm(true);
     } else {
+      resetForm();
       onClose();
     }
   };
 
   const handleConfirmDiscard = () => {
     setShowDiscardConfirm(false);
+    resetForm();
     onClose();
   };
 
@@ -430,6 +478,21 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
               </button>
             );
           })}
+        </div>
+
+        {/* Write Boundary Notice */}
+        <div
+          className="new-booking-write-boundary-notice"
+          role="note"
+          data-testid="write-boundary-notice"
+        >
+          <div className="notice-badge">Hosted Write Boundary Required</div>
+          <p className="notice-text">
+            Desktop booking creation is currently disabled pending owner
+            authorization of a hosted API endpoint. Real branch service catalog,
+            staff provider capabilities, and pricing are previewed
+            authoritatively.
+          </p>
         </div>
 
         {/* Error Alert */}

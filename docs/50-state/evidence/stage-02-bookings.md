@@ -1,86 +1,106 @@
-# Stage 02 — Evidence: Bookings Module Greenfield Functional Rebuild & Refinement
+# Stage 02 — Evidence: Bookings Module Contract Correction & Alignment
 
 **Target:** CradleHub Desktop (`https://github.com/techwithmpg/cradlehub-desktop-Client_app`)
 
-**Stage / Task:** Stage 02 — Bookings Module Greenfield Functional Rebuild & Owner-Requested Correction Pass
+**Stage / Task:** Stage 02 — Bookings Module Contract Correction Pass
 
-**Status:** `READY FOR INDEPENDENT REVIEW`
+**Status:** `STAGE 02 CORRECTION PUSHED — STOPPED FOR INDEPENDENT REVIEW — NOT ACCEPTED OR MERGED`
 
 **Branch:** `stage/02-bookings`
 
 **Accepted Main Baseline (BASE_SHA):** `c9720805975004dbe11367f1ad9999270ad4ae7c`
 
-**Starting Branch HEAD Before Correction:** `2940f44e3c043c85ac97c9a9a37a4e6c9e553693`
+**Starting Reviewed Branch HEAD Before Correction:** `8eda71c46ccac5e637e203f06643671be129bc7d`
 
-**Hosted Canonical Reference SHA Inspected:** `feda4600f37e93084fdb672bd0c2612e9872bb43`
+**Hosted Canonical Reference Inspected:** `https://github.com/techwithmpg/Cradlehub` @ `feda4600f37e93084fdb672bd0c2612e9872bb43`
+
+---
+
+## REPOSITORY-RECORDED PRODUCTION EVIDENCE
+
+### 1. Hosted Booking Contract Inspection
+
+Inspection of `https://github.com/techwithmpg/Cradlehub` at commit `feda4600f37e93084fdb672bd0c2612e9872bb43` revealed:
+
+- **Canonical Route & Form**:
+  - `src/app/(dashboard)/crm/bookings/new/page.tsx` renders `QuickBookingForm` from `src/components/features/bookings/quick-booking-form.tsx`.
+- **Authoritative Booking Creation Action**:
+  - Hosted CRM invokes `createInhouseBookingMultiAction` in `src/lib/actions/inhouse-booking.ts`.
+  - It is a Next.js Server Action running in a server-only execution environment.
+  - Uses `createAdminClient()` (`SUPABASE_SERVICE_ROLE_KEY`) to bypass RLS and perform authoritative CRM operations.
+- **Hosted Authoritative Behaviors & Side Effects**:
+  - **Auth / Role / Branch Authority**: Validates authenticated session, canonical CRM role (`requirePermission('bookings:create')`), and verified branch membership server-side.
+  - **Customer Creation / Upsert**: Authoritatively finds existing customer or creates a new customer row using server-side deduplication.
+  - **Multi-Service Semantics**: Creates authoritative sequential individual `bookings` rows for each selected service (sharing a group identifier or sequentially scheduled start/end times), rather than a single booking with secondary IDs crammed into metadata.
+  - **Branch Service Catalog & Overrides**: Options loaded via `getQuickBookingOptions` in `src/lib/queries/quick-booking-options.ts` querying `branch_services` with branch price (`custom_price`), duration (`custom_duration_minutes`), and service mode availability (`available_in_spa`, `available_home_service`).
+  - **Staff Eligibility**: Filters staff via `canActAsBookingServiceProvider` logic (`role`, `is_service_provider`, `is_merged === false`, `status === 'active'`) and includes provider service capabilities.
+  - **Resource Assignment**: Validates and assigns branch resources (`branch_resources`) for the booking timeframe.
+  - **Home Service Location & Distance**: Calculates distance/travel fee and address metadata from authoritative geocoding/branch configuration.
+  - **Side Effects**: Writes payment audit records (`booking_payment_logs`), creates notifications, writes operational logs, and triggers Next.js cache revalidation (`revalidatePath`).
+- **Network Write Boundary Inspection**:
+  - Inspected all routes under `src/app/api/**`.
+  - `src/app/api/crm/bookings/route.ts` only exports a `GET` handler for listing bookings.
+  - No `POST` / mutation endpoint exists in `src/app/api/**` for creating bookings.
+  - No safe desktop-callable network boundary (REST/RPC) currently exists in the hosted codebase.
 
 ---
 
 ## OWNER-PROVIDED MANUAL RUNTIME EVIDENCE
 
-The owner tested the real native Windows desktop runtime of Stage 02 and observed the following defects:
+The owner previously tested the native Windows desktop runtime of Stage 02 and noted:
 
-1. **Cramped body width**: The entire Bookings body was cramped into a narrow area (`max-width: 900px`) even though substantial workspace width was available.
-2. **Weak / invisible New Booking action**: The New Booking button had poor contrast and appeared almost invisible.
-3. **New Booking flow**: New Booking previously did not perform the real hosted booking creation flow.
-4. **PostgREST relation error**: Real booking loading failed with:
-   `Failed to load branch bookings: Could not embed because more than one relationship was found for 'bookings' and 'branch_resources'`
-5. **Scope tabs horizontal scrolling**: The Bookings scope tabs unnecessarily used horizontal scrolling even at large desktop widths.
-6. **Responsive space utilization**: The tabs, list, and inspector needed to expand gracefully across available space while preserving the approved three-card composition.
+- The Bookings workspace layout and visual presentation were approved after the responsive layout, high-contrast button, distributed scope tabs, and `bookings_resource_id_fkey` relation fix were applied.
+- Independent review determined that the New Booking workflow in the desktop renderer previously performed direct table inserts (`createBranchBooking` writing directly to `customers` and `bookings` tables), which did NOT reproduce the hosted server action contract and multi-service semantics.
 
 ---
 
-## Authorized Corrections Applied
+## Critical Stop Condition & Write Boundary Decision
 
-1. **Wide Workspace Layout Modifier**:
-   - Added `.workspace-canvas-wide` (`max-width: 100%; width: 100%;`) applied selectively to `activeModule === 'bookings'` without breaking standard max-widths of other module placeholders.
-   - 1440×900: Bookings body gracefully utilizes available width; KPI card spans across; list card takes dominant width (~1fr); inspector occupies stable 380px right panel.
-   - 1366×768: Side-by-side list + 340px inspector layout preserved without control crushing or horizontal page scroll.
-   - 1024×768: Responsive layout cleanly stacks inspector below list.
+**Decision:** `BLOCKED — HOSTED WRITE BOUNDARY REQUIRES OWNER AUTHORIZATION`
 
-2. **Scope Tabs Layout**:
-   - Set `.bookings-scope-tab-btn` with `flex: 1 1 0` and reduced safe padding so all 8 scope tabs distribute evenly across desktop widths without horizontal scrolling.
+1. **Reason**: The desktop renderer cannot safely reproduce the hosted server action (`createInhouseBookingMultiAction`) without a network-callable server boundary. Exposing `SUPABASE_SERVICE_ROLE_KEY` or privileged admin server code to the desktop renderer violates security rules.
+2. **Action Taken**:
+   - Removed the false direct-write equivalence from `src/lib/bookings-service.ts`.
+   - `createBranchBooking` now explicitly fails closed, returning:
+     `{ ok: false, code: 'HOSTED_WRITE_BOUNDARY_REQUIRED', error: 'Stage 02 requires owner authorization to add a hosted server-side desktop-callable booking creation boundary.' }`
+   - `NewBookingModal` displays a truthful notice stating that booking creation requires a hosted server boundary and refuses to simulate success.
+3. **Required Hosted Addition**:
+   - Owner authorization is required to implement a secure, authenticated API route (e.g. `POST /api/crm/bookings/create` or a dedicated Supabase Edge Function) in the hosted repository.
+   - The endpoint must accept the authenticated user token, verify branch/role permissions, execute canonical multi-service creation with customer upsert, assign resources, write payment/audit logs, and return the created booking records.
 
-3. **New Booking Button Contrast**:
-   - Styled `.bookings-header-primary-btn` with dark CradleHub brand green (`background: #0d2b20`, `border: 1px solid #164332`, `color: #ffffff`, `hover: #143d2e`, `active: #081d15`, `focus: 2px solid var(--color-accent)`).
+---
 
-4. **Foreign Key Relationship Fix for `branch_resources`**:
-   - **Root Cause**: Two foreign keys link `bookings` to `branch_resources`: `bookings.resource_id -> branch_resources.id` (`bookings_resource_id_fkey`) and `bookings.session_started_from_resource_id -> branch_resources.id` (`bookings_session_started_from_resource_id_fkey`).
-   - **Constraint Selected**: `bookings_resource_id_fkey` on column `resource_id`.
-   - **Authoritative Source**: Inspected Supabase database schema (`information_schema.table_constraints` and hosted query in `src/app/actions/calendar-actions.ts`).
-   - **Corrected PostgREST Hint**: `branch_resources!bookings_resource_id_fkey ( id, name, type )`.
+## Authorized Corrections Made
 
-5. **Authoritative Booking Creation Workflow (`NewBookingModal`)**:
-   - Inspected hosted modal in `components/modals/QuickBookingModal.tsx` and action `createBooking` in `src/app/actions/booking-actions.ts`.
-   - Replicated full client-safe form flow using canonical desktop controls:
-     - Booking mode selector (Walk-in, Phone, Future, Home Service) with automatic defaults (date, quarter-hour start time, advance payment toggle).
-     - Customer lookup by name/phone with debounced search (`searchBranchCustomers`) and inline selection/clearing; manual name/phone/email inputs.
-     - Multi-service selection with dynamic duration and price calculation.
-     - Therapist picker (staff list) and room/resource picker (`branch_resources`).
-     - Home service address, barangay, and city fields when `mode === 'home_service'`.
-     - Advance payment toggle, payment method selector (`cash`, `gcash`, `bank_transfer`, `credit_card`).
-     - Notes field and calculated end time.
-     - Validation for required fields, phone format, and date/time.
-     - Authoritative creation via `createBranchBooking` into `customers` and `bookings`, relying on PostgreSQL server triggers (`fn_on_booking_created`, `guard_booking_assignment_overlap`, `prepare_booking_timing_snapshots`) for overlap prevention (`23P01`) and audit logging without requiring privileged secrets.
-     - On success: closes modal, triggers list and KPI refetch, and selects the new booking.
-     - Unsaved changes confirmation dialog if user attempts to dismiss a dirty modal.
+1. **Branch Service Catalog & Option Loading**:
+   - `fetchBranchBookingOptions` in `src/lib/bookings-service.ts` now queries `branch_services` with explicit overrides (`custom_price`, `custom_duration_minutes`, `available_in_spa`, `available_home_service`), matching hosted `getQuickBookingOptions`.
+   - Staff list queries `branch_staff` joined to `staff` and applies `canActAsBookingServiceProvider` filtering.
+   - Distinguishes empty data from query / network / auth errors.
+2. **Modal Form Lifecycle & Dirty State**:
+   - Clean reset on close, discard, or submission.
+   - Robust `isDirty` calculation covering customer changes, notes, address, staff selection, resource selection, and multi-service changes.
+   - Discard confirmation modal prevents accidental loss of edits.
+   - Search debounce ref cleaned up on unmount.
+3. **Preserved Visual & Layout Corrections**:
+   - Wide Bookings workspace (`.workspace-canvas-wide`).
+   - Responsive layouts at 1440×900, 1366×768, and degraded 1024×768.
+   - Evenly distributed 8 scope tabs (`flex: 1 1 0`).
+   - High-contrast New Booking button (`#0d2b20`).
+   - Explicit `branch_resources!bookings_resource_id_fkey` relation hint.
 
 ---
 
 ## Changed Files
 
-- `src/types/bookings.ts`: Added types for `QuickBookingMode`, `QuickBookingOptionService`, `QuickBookingOptionStaff`, `QuickBookingOptionResource`, `CreateBranchBookingParams`, and `CreateBookingResult`.
-- `src/lib/bookings-service.ts`: Fixed PostgREST embed hint with `branch_resources!bookings_resource_id_fkey`; added `fetchBranchBookingOptions`, `searchBranchCustomers`, `computeBookingEndTime`, `createBranchBooking`, and centralized `formatCurrency`.
-- `src/components/CanonicalShell.tsx`: Applied `.workspace-canvas-wide` when `activeModule === 'bookings'`.
-- `src/components/bookings/BookingsHeader.tsx`: Updated New Booking primary button styling and wired real modal open state.
-- `src/components/bookings/BookingsView.tsx`: Integrated `NewBookingModal`, refetch callback, and wide workspace layout.
-- `src/components/bookings/NewBookingModal.tsx`: Complete canonical desktop booking creation dialog.
-- `src/styles.css`: Added styles for wide workspace canvas, distributed scope tabs, high-contrast primary button, and new booking modal.
-- `tests/bookings-service.test.ts`: Added unit tests for explicit FK hint, booking option fetching, customer search, end-time calculation, and booking creation.
-- `tests/bookings-components.test.tsx`: Added component tests for `NewBookingModal` rendering, mode switching, validation, and submission.
+- `src/types/bookings.ts`: Updated `QuickBookingOptionService`, `QuickBookingOptionStaff`, `CreateBookingResult`.
+- `src/lib/bookings-service.ts`: Implemented `canActAsBookingServiceProvider`, branch-specific service queries with overrides, staff filtering, and write boundary rejection in `createBranchBooking`.
+- `src/components/bookings/NewBookingModal.tsx`: Updated with truthful write-boundary banner, comprehensive `isDirty` tracking, discard dialog, and clean reset.
+- `src/styles.css`: Added styles for `.new-booking-write-boundary-notice`.
+- `tests/bookings-service.test.ts`: Added tests for branch option loading with overrides, provider filtering, query error distinction, and write-boundary rejection.
+- `tests/bookings-components.test.tsx`: Added tests for NewBookingModal write-boundary notice, discard flow, and option loading.
 - `docs/50-state/CURRENT_STATE.md`: Updated state documentation.
 - `docs/50-state/CURRENT_TASK.md`: Updated task documentation.
-- `docs/50-state/evidence/stage-02-bookings.md`: Recorded full evidence and test results.
+- `docs/50-state/evidence/stage-02-bookings.md`: Recorded full evidence.
 
 ---
 
@@ -91,7 +111,7 @@ The owner tested the real native Windows desktop runtime of Stage 02 and observe
 | `pnpm format:check`                                  | PASS   | All files formatted with Prettier                         |
 | `pnpm lint`                                          | PASS   | `eslint . --max-warnings 0` exited with 0 warnings/errors |
 | `pnpm typecheck`                                     | PASS   | `tsc --noEmit` passed with 0 errors                       |
-| `pnpm test`                                          | PASS   | 78 tests passing across 6 test suites                     |
+| `pnpm test`                                          | PASS   | 77 tests passing across 6 test suites                     |
 | `pnpm build`                                         | PASS   | Vite production bundle built successfully                 |
 | `cargo fmt --check`                                  | PASS   | Rust code formatted                                       |
 | `cargo check --locked`                               | PASS   | Rust backend check passed                                 |
@@ -106,29 +126,12 @@ The owner tested the real native Windows desktop runtime of Stage 02 and observe
 - **Production data changed?** NO.
 - **Schema/migration changed?** NO.
 - **Auth/RLS/Storage policy changed?** NO.
-- **Secrets introduced?** NO.
-- **Privileged server behavior changed?** NO. Client uses authenticated Supabase user token to insert into `customers` and `bookings`, protected by database RLS and triggers.
+- **Secrets introduced?** NO (no service-role key or admin client in renderer).
+- **Direct table mutation removed?** YES (removed direct renderer insert into `customers` and `bookings`).
 - **Hosted repository changed?** NO (inspected read-only).
-
----
-
-## Limitations
-
-1. **Dormant Modules**: Payments mutations, Finance, Reconciliation, and Reports remain dormant.
-2. **Reschedule & Cancel Actions**: Quick actions in the inspector remain informational dialogs.
-3. **Owner Visual Review**: Owner must visually confirm the runtime behavior in native Windows desktop.
-
----
-
-## Rollback
-
-```bash
-git checkout main
-git branch -D stage/02-bookings
-```
 
 ---
 
 ## Gate
 
-`READY FOR INDEPENDENT REVIEW — NOT MERGED — NEXT STAGE NOT AUTHORIZED`
+`STAGE 02 CORRECTION PUSHED — STOPPED FOR INDEPENDENT REVIEW — NOT ACCEPTED OR MERGED`

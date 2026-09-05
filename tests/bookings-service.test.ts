@@ -456,19 +456,48 @@ describe('Bookings Service', () => {
   });
 
   describe('fetchBranchBookingOptions', () => {
-    it('fetches active services, active branch staff, and active branch resources', async () => {
-      const mockServices = [
+    it('loads branch_services and filters staff by service provider eligibility', async () => {
+      const mockBranchServices = [
         {
-          id: 's-1',
-          name: 'Massage',
-          duration_minutes: 60,
-          price: 1000,
+          id: 'bs-1',
+          branch_id: 'branch-1',
+          service_id: 'svc-1',
+          custom_price: 1800,
+          custom_duration_minutes: 75,
+          available_in_spa: true,
+          available_home_service: true,
           is_active: true,
+          services: {
+            id: 'svc-1',
+            name: 'Aromatherapy Massage',
+            duration_minutes: 60,
+            price: 1500,
+            is_active: true,
+          },
         },
       ];
+
       const mockStaff = [
-        { id: 'st-1', full_name: 'Ana Cruz', nickname: 'Ana', is_active: true },
+        {
+          id: 'st-1',
+          full_name: 'Ana Cruz',
+          nickname: 'Ana',
+          is_active: true,
+          staff_type: 'therapist',
+          system_role: 'therapist',
+          staff_services: [{ service_id: 'svc-1' }],
+        },
+        {
+          id: 'st-2',
+          full_name: 'David Driver',
+          nickname: 'Dave',
+          is_active: true,
+          staff_type: null,
+          system_role: 'driver',
+          staff_services: [],
+        },
       ];
+
       const mockResources = [
         {
           id: 'r-1',
@@ -479,32 +508,37 @@ describe('Bookings Service', () => {
         },
       ];
 
-      const servicesOrderMock = vi
+      const bsEqMock = vi
         .fn()
-        .mockResolvedValue({ data: mockServices, error: null });
-      const servicesEqMock = vi
-        .fn()
-        .mockReturnValue({ order: servicesOrderMock });
-      const servicesSelectMock = vi
-        .fn()
-        .mockReturnValue({ eq: servicesEqMock });
+        .mockResolvedValue({ data: mockBranchServices, error: null });
+      const bsSelectMock = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({ eq: bsEqMock }),
+      });
 
       const staffOrderMock = vi
         .fn()
         .mockResolvedValue({ data: mockStaff, error: null });
-      const staffEq2Mock = vi.fn().mockReturnValue({ order: staffOrderMock });
-      const staffEq1Mock = vi.fn().mockReturnValue({ eq: staffEq2Mock });
-      const staffSelectMock = vi.fn().mockReturnValue({ eq: staffEq1Mock });
+      const staffSelectMock = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            is: vi.fn().mockReturnValue({
+              is: vi.fn().mockReturnValue({
+                order: staffOrderMock,
+              }),
+            }),
+          }),
+        }),
+      });
 
-      const resOrderMock = vi
+      const resOrder1Mock = vi
         .fn()
         .mockResolvedValue({ data: mockResources, error: null });
-      const resEq2Mock = vi.fn().mockReturnValue({ order: resOrderMock });
+      const resEq2Mock = vi.fn().mockReturnValue({ order: resOrder1Mock });
       const resEq1Mock = vi.fn().mockReturnValue({ eq: resEq2Mock });
       const resSelectMock = vi.fn().mockReturnValue({ eq: resEq1Mock });
 
       const fromMock = vi.fn().mockImplementation((table: string) => {
-        if (table === 'services') return { select: servicesSelectMock };
+        if (table === 'branch_services') return { select: bsSelectMock };
         if (table === 'staff') return { select: staffSelectMock };
         if (table === 'branch_resources') return { select: resSelectMock };
         return { select: vi.fn() };
@@ -514,8 +548,10 @@ describe('Bookings Service', () => {
 
       const opts = await fetchBranchBookingOptions('branch-1', client);
       expect(opts.services.length).toBe(1);
-      expect(opts.services[0].name).toBe('Massage');
-      expect(opts.staff.length).toBe(1);
+      expect(opts.services[0].name).toBe('Aromatherapy Massage');
+      expect(opts.services[0].price).toBe(1800); // custom price override
+      expect(opts.services[0].durationMinutes).toBe(75); // custom duration override
+      expect(opts.staff.length).toBe(1); // driver excluded
       expect(opts.staff[0].name).toBe('Ana Cruz');
       expect(opts.resources.length).toBe(1);
       expect(opts.resources[0].name).toBe('Room 1');
@@ -523,118 +559,25 @@ describe('Bookings Service', () => {
   });
 
   describe('createBranchBooking', () => {
-    it('validates required fields before calling database', async () => {
-      const res1 = await createBranchBooking({
-        branchId: 'b-1',
-        fullName: '',
+    it('returns truthful hosted write boundary required result and prevents direct renderer mutations', async () => {
+      const res = await createBranchBooking({
+        branchId: 'branch-1',
+        fullName: 'Maria Santos',
         phone: '09171234567',
-        serviceIds: ['s-1'],
+        serviceIds: ['svc-1'],
+        staffId: 'staff-1',
         date: '2026-09-05',
-        startTime: '10:00',
+        startTime: '14:00',
+        totalDurationMinutes: 60,
+        totalPrice: 1500,
         mode: 'walkin',
+        paymentReceived: true,
+        paymentMethod: 'cash',
       });
-      expect(res1.ok).toBe(false);
-      expect(res1.error).toContain('full name');
-
-      const res2 = await createBranchBooking({
-        branchId: 'b-1',
-        fullName: 'Test User',
-        phone: '123',
-        serviceIds: ['s-1'],
-        date: '2026-09-05',
-        startTime: '10:00',
-        mode: 'walkin',
-      });
-      expect(res2.ok).toBe(false);
-      expect(res2.error).toContain('valid phone number');
-
-      const res3 = await createBranchBooking({
-        branchId: 'b-1',
-        fullName: 'Test User',
-        phone: '09171234567',
-        serviceIds: [],
-        date: '2026-09-05',
-        startTime: '10:00',
-        mode: 'walkin',
-      });
-      expect(res3.ok).toBe(false);
-      expect(res3.error).toContain('at least one service');
-    });
-
-    it('creates booking successfully with existing customer and returns bookingId', async () => {
-      const singleMock = vi
-        .fn()
-        .mockResolvedValue({ data: { id: 'new-b-1' }, error: null });
-      const selectMock = vi.fn().mockReturnValue({ single: singleMock });
-      const insertMock = vi.fn().mockReturnValue({ select: selectMock });
-      const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
-
-      const client = { from: fromMock } as unknown as SupabaseClient;
-
-      const res = await createBranchBooking(
-        {
-          branchId: 'branch-1',
-          customerId: 'cust-10',
-          fullName: 'Maria Santos',
-          phone: '09171234567',
-          serviceIds: ['svc-1'],
-          staffId: 'staff-1',
-          date: '2026-09-05',
-          startTime: '14:00',
-          totalDurationMinutes: 60,
-          totalPrice: 1500,
-          mode: 'walkin',
-          paymentReceived: true,
-          paymentMethod: 'cash',
-        },
-        client,
-      );
-
-      expect(res.ok).toBe(true);
-      expect(res.bookingId).toBe('new-b-1');
-      expect(fromMock).toHaveBeenCalledWith('bookings');
-      expect(insertMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          branch_id: 'branch-1',
-          customer_id: 'cust-10',
-          service_id: 'svc-1',
-          status: 'confirmed',
-          payment_status: 'paid',
-        }),
-      );
-    });
-
-    it('handles therapist time conflict error gracefully', async () => {
-      const singleMock = vi.fn().mockResolvedValue({
-        data: null,
-        error: {
-          code: '23P01',
-          message: 'BOOKING_STAFF_TIME_CONFLICT: overlapping slot',
-        },
-      });
-      const selectMock = vi.fn().mockReturnValue({ single: singleMock });
-      const insertMock = vi.fn().mockReturnValue({ select: selectMock });
-      const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
-
-      const client = { from: fromMock } as unknown as SupabaseClient;
-
-      const res = await createBranchBooking(
-        {
-          branchId: 'branch-1',
-          customerId: 'cust-10',
-          fullName: 'Maria Santos',
-          phone: '09171234567',
-          serviceIds: ['svc-1'],
-          staffId: 'staff-1',
-          date: '2026-09-05',
-          startTime: '14:00',
-          mode: 'walkin',
-        },
-        client,
-      );
 
       expect(res.ok).toBe(false);
-      expect(res.error).toContain('therapist already has a booking');
+      expect(res.code).toBe('HOSTED_WRITE_BOUNDARY_REQUIRED');
+      expect(res.error).toContain('hosted server-side write boundary');
     });
   });
 });

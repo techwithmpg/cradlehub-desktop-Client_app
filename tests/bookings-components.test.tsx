@@ -441,11 +441,105 @@ describe('Stage 02 Bookings UI Components', () => {
       ).toBeDefined();
       expect(screen.getByText('Walk-in')).toBeDefined();
       expect(screen.getByText('Home Service')).toBeDefined();
+      await screen.findByText('Swedish Massage');
     });
   });
 
   describe('NewBookingModal', () => {
-    it('switches modes, updates defaults, and handles form submission', async () => {
+    it('renders write boundary notice, calculates options, and handles discard lifecycle', async () => {
+      vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
+        services: [
+          {
+            id: 's-1',
+            name: 'Swedish Massage',
+            durationMinutes: 60,
+            price: 700,
+            availableInSpa: true,
+            availableHomeService: false,
+          },
+          {
+            id: 's-2',
+            name: 'Deep Tissue',
+            durationMinutes: 90,
+            price: 950,
+            availableInSpa: true,
+            availableHomeService: true,
+          },
+        ],
+        staff: [{ id: 'st-1', name: 'Ana Cruz', nickname: 'Ana' }],
+        resources: [{ id: 'r-1', name: 'Room 1', type: 'room', capacity: 1 }],
+      });
+
+      const onBookingCreated = vi.fn();
+      const onClose = vi.fn();
+
+      const { rerender } = render(
+        <NewBookingModal
+          isOpen={true}
+          onClose={onClose}
+          branchId="branch-1"
+          branchName="Makati Branch"
+          onBookingCreated={onBookingCreated}
+        />,
+      );
+
+      // Wait for options to load
+      await screen.findByText('Swedish Massage');
+
+      // Verify write boundary notice
+      expect(screen.getByText('Hosted Write Boundary Required')).toBeDefined();
+
+      // Verify mode tabs
+      expect(screen.getByText('Walk-in')).toBeDefined();
+      expect(screen.getByText('Phone')).toBeDefined();
+      expect(screen.getByText('Future')).toBeDefined();
+      expect(screen.getByText('Home Service')).toBeDefined();
+
+      // Enter customer info to make form dirty
+      const nameInput = screen.getByPlaceholderText(/e\.g\. Maria Santos/i);
+      fireEvent.change(nameInput, { target: { value: 'Elena Santos' } });
+
+      // Click Close button -> should trigger discard confirmation
+      const closeBtn = screen.getByLabelText('Close modal');
+      fireEvent.click(closeBtn);
+
+      expect(screen.getByText('Discard unfinished booking?')).toBeDefined();
+
+      // Confirm discard
+      const discardBtn = screen.getByRole('button', { name: 'Discard' });
+      fireEvent.click(discardBtn);
+
+      expect(onClose).toHaveBeenCalled();
+
+      // Rerender as closed then open again -> should be pristine
+      rerender(
+        <NewBookingModal
+          isOpen={false}
+          onClose={onClose}
+          branchId="branch-1"
+          branchName="Makati Branch"
+          onBookingCreated={onBookingCreated}
+        />,
+      );
+
+      rerender(
+        <NewBookingModal
+          isOpen={true}
+          onClose={onClose}
+          branchId="branch-1"
+          branchName="Makati Branch"
+          onBookingCreated={onBookingCreated}
+        />,
+      );
+
+      await screen.findByText('Swedish Massage');
+      const freshNameInput = screen.getByPlaceholderText(
+        /e\.g\. Maria Santos/i,
+      ) as HTMLInputElement;
+      expect(freshNameInput.value).toBe('');
+    });
+
+    it('submits form and displays truthful error when write boundary is required', async () => {
       vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
         services: [
           {
@@ -454,15 +548,10 @@ describe('Stage 02 Bookings UI Components', () => {
             durationMinutes: 60,
             price: 700,
           },
-          { id: 's-2', name: 'Deep Tissue', durationMinutes: 90, price: 950 },
         ],
         staff: [{ id: 'st-1', name: 'Ana Cruz', nickname: 'Ana' }],
         resources: [{ id: 'r-1', name: 'Room 1', type: 'room', capacity: 1 }],
       });
-
-      const createSpy = vi
-        .spyOn(bookingsService, 'createBranchBooking')
-        .mockResolvedValue({ ok: true, bookingId: 'b-created-1' });
 
       const onBookingCreated = vi.fn();
       const onClose = vi.fn();
@@ -477,39 +566,25 @@ describe('Stage 02 Bookings UI Components', () => {
         />,
       );
 
-      // Wait for options to load
       await screen.findByText('Swedish Massage');
 
-      // Verify mode tabs
-      expect(screen.getByText('Walk-in')).toBeDefined();
-      expect(screen.getByText('Phone')).toBeDefined();
-      expect(screen.getByText('Future')).toBeDefined();
-      expect(screen.getByText('Home Service')).toBeDefined();
-
-      // Enter customer info
       const nameInput = screen.getByPlaceholderText(/e\.g\. Maria Santos/i);
       const phoneInput = screen.getByPlaceholderText(/e\.g\. 09171234567/i);
 
       fireEvent.change(nameInput, { target: { value: 'Elena Santos' } });
       fireEvent.change(phoneInput, { target: { value: '09179998877' } });
 
-      // Click submit
       const submitBtn = screen.getByRole('button', { name: /save walk-in/i });
       fireEvent.click(submitBtn);
 
       await waitFor(() => {
-        expect(createSpy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            branchId: 'branch-1',
-            fullName: 'Elena Santos',
-            phone: '09179998877',
-            mode: 'walkin',
-          }),
-        );
+        expect(
+          screen.getByText(/hosted server-side write boundary/i),
+        ).toBeDefined();
       });
 
-      expect(onBookingCreated).toHaveBeenCalled();
-      expect(onClose).toHaveBeenCalled();
+      expect(onBookingCreated).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 });
