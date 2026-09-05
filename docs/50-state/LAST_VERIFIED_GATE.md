@@ -5,9 +5,9 @@ Stage 01 = **OWNER CONFIRMED / ACCEPTED PENDING MERGE** on `stage/01-auth-branch
 
 ## Verification Record
 
-- **Owner-Approved Implementation HEAD**: `01419e4ff2bc354b734f36b4b78e1240a84b1034`.
-- **Current Stage 01 Branch Tip**: `stage/01-auth-branch-shell` (includes documentation-only acceptance and reconciliation commits).
 - **Accepted Main**: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (Stage 00).
+- **Owner-Approved Implementation HEAD**: `01419e4ff2bc354b734f36b4b78e1240a84b1034`.
+- **Current Stage 01 Branch Tip**: `f6165ae2493f48d45518c93e589516e508aca849` (stage/01-auth-branch-shell; includes documentation-only acceptance and reconciliation commits).
 - Independent review of implementation HEAD `01419e4ff2bc354b734f36b4b78e1240a84b1034` returned **ACCEPTABLE FOR OWNER CONFIRMATION**.
 - Native authentication was owner verified on Windows on 2026-09-05.
 - Authoritative branch presentation was owner verified.

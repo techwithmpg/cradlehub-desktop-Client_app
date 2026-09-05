@@ -1,9 +1,9 @@
 # Handoff
 
 Stage 01 on `stage/01-auth-branch-shell`.
-BASE_SHA: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (Accepted Main).
+Accepted Main: `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13` (BASE_SHA).
 Owner-Approved Implementation HEAD: `01419e4ff2bc354b734f36b4b78e1240a84b1034`.
-Current Stage 01 Branch Tip: `stage/01-auth-branch-shell` (includes documentation-only acceptance and reconciliation commits).
+Current Stage 01 Branch Tip: `f6165ae2493f48d45518c93e589516e508aca849` (includes documentation-only acceptance and reconciliation commits).
 Status: **OWNER CONFIRMED / ACCEPTED PENDING MERGE**.
 
 Consult `docs/50-state/evidence/stage-01-auth-branch-shell.md` for full implementation, checks, boundary scan, and owner runtime evidence.

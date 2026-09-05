@@ -36,7 +36,7 @@ Do not include service-role keys, passwords, or privileged secrets. Real environ
 
 ## Development & Build
 
-Requires Node 20+, pnpm 10.33.2, Rust/Cargo (MSVC toolchain on Windows), Windows SDK, and WebView2.
+Requires Node >=24 <26, pnpm 10.33.2, Rust/Cargo (MSVC toolchain on Windows), Windows SDK, and WebView2.
 
 ```powershell
 pnpm install --frozen-lockfile
