@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-09-05T10:35:50.545Z",
+  "window": {
+    "app": "process:E:\\Cradle-Destop-Client\\src-tauri\\target\\debug\\cradlehub-desktop.exe",
+    "id": 68034,
+    "title": "CradleHub Desktop"
+  },
+  "screenshot": {
+    "width": 1102,
+    "height": 792
+  },
+  "accessibility": {
+    "document_text": "CradleHub Desktop\nApplication initialized\nCradleHub Desktop\nCRM is unavailable until authentication is introduced in a later authorized stage.\nAuthentication\nNot authenticated\nConnection\nNot established",
+    "focused_element": "16 document CradleHub Desktop ID: RootWebArea",
+    "tree": "Window: \"CradleHub Desktop\", App: cradlehub-desktop.exe.\n\t0 window CradleHub Desktop Secondary Actions: Raise\n\t\t1 pane\n\t\t\t8 pane CradleHub Desktop\n\t\t\t\t15 pane (disabled)\n\t\t\t\t9 region CradleHub Desktop - Web content\n\t\t\t\t\t10 region\n\t\t\t\t\t\t11 region\n\t\t\t\t\t\t12 region\n\t\t\t\t\t\t\t13 region\n\t\t\t\t\t\t\t\t16 document CradleHub Desktop ID: RootWebArea\n\t\t\t\t\t\t\t\t\t17 group ID: root\n\t\t\t\t\t\t\t\t\t\t18 main CradleHub Desktop\n\t\t\t\t\t\t\t\t\t\t\t19 text CradleHub\n\t\t\t\t\t\t\t\t\t\t\t20 text Desktop\n\t\t\t\t\t\t\t\t\t\t\t21 text Application initialized\n\t\t\t\t\t\t\t\t\t\t\t22 heading CradleHub Desktop ID: app-title\n\t\t\t\t\t\t\t\t\t\t\t23 text CRM is unavailable until authentication is introduced in a later authorized stage.\n\t\t\t\t\t\t\t\t\t\t\t24 list\n\t\t\t\t\t\t\t\t\t\t\t\t25 term Authentication\n\t\t\t\t\t\t\t\t\t\t\t\t\t26 text Authentication\n\t\t\t\t\t\t\t\t\t\t\t\t27 text Not authenticated\n\t\t\t\t\t\t\t\t\t\t\t\t28 term Connection\n\t\t\t\t\t\t\t\t\t\t\t\t\t29 text Connection\n\t\t\t\t\t\t\t\t\t\t\t\t30 text Not established\n\t\t\t\t\t\t\t\t14 region\n\t\t2 title bar\n\t\t\t3 menu bar System ID: MenuBar\n\t\t\t\t4 menu item System\n\t\t\t5 button Minimize\n\t\t\t6 button Maximize\n\t\t\t7 button Close\n\nDocument text: ```\nCradleHub Desktop\nApplication initialized\nCradleHub Desktop\nCRM is unavailable until authentication is introduced in a later authorized stage.\nAuthentication\nNot authenticated\nConnection\nNot established\n```"
+  }
+}
