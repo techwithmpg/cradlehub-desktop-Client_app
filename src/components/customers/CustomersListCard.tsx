@@ -165,8 +165,8 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
             className="bookings-search-input"
             placeholder={
               isFollowupTab
-                ? 'Search follow-up waitlist by name, phone, or service...'
-                : 'Search customers by name, phone, or email...'
+                ? 'Search follow-up requests by name or phone...'
+                : 'Search customers by name or phone...'
             }
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -200,7 +200,7 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
       </div>
 
       {/* 3. Data Table */}
-      <div className="bookings-table-container">
+      <div className="bookings-datagrid-wrapper">
         {isLoading ? (
           <div className="bookings-loading-state" aria-live="polite">
             <div className="bookings-loading-spinner" />
@@ -211,17 +211,43 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
         ) : isFollowupTab ? (
           /* Follow-up waitlist table */
           waitlistItems.length === 0 ? (
-            <div className="bookings-empty-state" role="status">
-              <p className="empty-state-title">
+            <div className="bookings-table-empty-state" role="status">
+              <div className="bookings-empty-icon-circle">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <h4 className="bookings-empty-heading">
                 {searchQuery
-                  ? 'No matching follow-up requests.'
-                  : 'No follow-up requests.'}
-              </p>
-              <p className="empty-state-subtext">
+                  ? 'No matching follow-up requests'
+                  : 'No follow-up requests'}
+              </h4>
+              <p className="bookings-empty-text">
                 {searchQuery
                   ? 'Try modifying your search keywords.'
                   : 'Waitlist entries for this branch will appear here.'}
               </p>
+              {searchQuery.trim() !== '' && (
+                <button
+                  type="button"
+                  className="bookings-empty-reset-btn"
+                  onClick={onResetSearch}
+                >
+                  Clear Search
+                </button>
+              )}
             </div>
           ) : (
             <table className="bookings-table" role="grid">
@@ -271,12 +297,22 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
                     >
                       <td>
                         <div className="customer-cell">
-                          <span className="customer-avatar" aria-hidden="true">
+                          <div
+                            className="customer-avatar-pill"
+                            aria-hidden="true"
+                          >
                             {initials}
-                          </span>
-                          <span className="customer-name">
-                            {item.customerName}
-                          </span>
+                          </div>
+                          <div className="customer-info">
+                            <div className="customer-name">
+                              {item.customerName}
+                            </div>
+                            {item.customerPhone && (
+                              <div className="customer-subtext">
+                                {item.customerPhone}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="cell-muted">
@@ -299,17 +335,43 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
           )
         ) : /* Normal Customer table (all / repeat / lapsed) */
         customers.length === 0 ? (
-          <div className="bookings-empty-state" role="status">
-            <p className="empty-state-title">
+          <div className="bookings-table-empty-state" role="status">
+            <div className="bookings-empty-icon-circle">
+              <svg
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            <h4 className="bookings-empty-heading">
               {searchQuery
-                ? 'No matching customers found.'
-                : 'No customers in this segment.'}
-            </p>
-            <p className="empty-state-subtext">
+                ? 'No matching customers found'
+                : 'No customers in this segment'}
+            </h4>
+            <p className="bookings-empty-text">
               {searchQuery
                 ? 'Try modifying your search keywords.'
                 : 'Customer records for this branch will appear here.'}
             </p>
+            {searchQuery.trim() !== '' && (
+              <button
+                type="button"
+                className="bookings-empty-reset-btn"
+                onClick={onResetSearch}
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         ) : (
           <table className="bookings-table" role="grid">
@@ -356,10 +418,18 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
                   >
                     <td>
                       <div className="customer-cell">
-                        <span className="customer-avatar" aria-hidden="true">
+                        <div
+                          className="customer-avatar-pill"
+                          aria-hidden="true"
+                        >
                           {initials}
-                        </span>
-                        <span className="customer-name">{c.fullName}</span>
+                        </div>
+                        <div className="customer-info">
+                          <div className="customer-name">{c.fullName}</div>
+                          {c.phone && (
+                            <div className="customer-subtext">{c.phone}</div>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="cell-muted">{c.phone || '—'}</td>
@@ -382,23 +452,27 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
         )}
       </div>
 
-      {/* 4. Pagination */}
-      <div className="bookings-pagination-container">
-        <div className="pagination-info">
-          Showing {startRecord} to {endRecord} of {totalItems}{' '}
+      {/* 4. Pagination Footer */}
+      <div className="bookings-table-footer">
+        <div className="footer-count-text">
+          Showing <span className="count-highlight">{startRecord}</span>–
+          <span className="count-highlight">{endRecord}</span> of{' '}
+          <span className="count-highlight">{totalItems}</span>{' '}
           {isFollowupTab ? 'requests' : 'customers'}
         </div>
 
-        <div className="pagination-controls">
-          <div className="page-size-selector">
-            <label htmlFor="customer-page-size" className="page-size-label">
-              Rows per page:
-            </label>
+        <div className="footer-pagination-controls">
+          <div className="page-size-selector-wrapper">
+            <span className="page-size-label">Rows per page:</span>
             <select
               id="customer-page-size"
               className="page-size-select"
               value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+              onChange={(e) => {
+                onPageSizeChange(Number(e.target.value));
+                onPageChange(1);
+              }}
+              aria-label="Rows per page"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
@@ -406,27 +480,29 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
             </select>
           </div>
 
-          <div className="page-nav-buttons">
+          <div className="pagination-buttons">
             <button
               type="button"
-              className="page-nav-btn"
+              className="pagination-btn"
               disabled={currentPage <= 1 || isLoading}
-              onClick={() => onPageChange(currentPage - 1)}
+              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
               aria-label="Previous Page"
             >
-              &lsaquo; Prev
+              &larr; Prev
             </button>
-            <span className="page-current-indicator">
+            <span className="pagination-page-indicator">
               Page {currentPage} of {totalPages}
             </span>
             <button
               type="button"
-              className="page-nav-btn"
+              className="pagination-btn"
               disabled={currentPage >= totalPages || isLoading}
-              onClick={() => onPageChange(currentPage + 1)}
+              onClick={() =>
+                onPageChange(Math.min(totalPages, currentPage + 1))
+              }
               aria-label="Next Page"
             >
-              Next &rsaquo;
+              Next &rarr;
             </button>
           </div>
         </div>

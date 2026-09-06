@@ -673,17 +673,17 @@ export async function searchBranchCustomers(
 
   let body: {
     ok?: boolean;
-    data?: {
-      customers?: Array<{
-        id: string;
-        fullName: string;
-        phone: string | null;
-        email: string | null;
-        totalVisits: number;
-        firstVisit: string | null;
-        lastVisit: string | null;
-      }>;
-    };
+    data?: Array<{
+      id: string;
+      fullName: string;
+      phone: string | null;
+      email: string | null;
+      totalBookings: number;
+      firstBookingDate: string | null;
+      lastBookingDate: string | null;
+      preferredStaffId?: string | null;
+      preferredStaffName?: string | null;
+    }>;
     error?: string;
     message?: string;
   };
@@ -704,15 +704,15 @@ export async function searchBranchCustomers(
     throw new Error(msg);
   }
 
-  const list = body?.data?.customers ?? [];
+  const list = Array.isArray(body?.data) ? body.data : [];
   return list.map((c) => ({
     id: c.id,
     full_name: c.fullName,
     phone: c.phone || null,
     email: c.email || null,
-    total_bookings: c.totalVisits ?? 0,
-    first_booking_date: c.firstVisit || null,
-    last_booking_date: c.lastVisit || null,
+    total_bookings: c.totalBookings ?? 0,
+    first_booking_date: c.firstBookingDate || null,
+    last_booking_date: c.lastBookingDate || null,
   }));
 }
 
@@ -772,9 +772,19 @@ export function validateHostedApiBaseUrl(rawUrl: string | undefined | null):
 
 export function getHostedApiBaseUrl(): string | null {
   const envUrl =
-    (typeof import.meta !== 'undefined' &&
-      import.meta.env?.VITE_CRADLEHUB_API_URL) ||
-    '';
+    typeof import.meta !== 'undefined'
+      ? import.meta.env?.VITE_CRADLEHUB_API_URL
+      : undefined;
+
+  if (
+    !envUrl ||
+    typeof envUrl !== 'string' ||
+    !envUrl.trim() ||
+    envUrl === 'undefined'
+  ) {
+    return EXPECTED_HOSTED_API_ORIGIN;
+  }
+
   const validation = validateHostedApiBaseUrl(envUrl);
   return validation.valid ? validation.url : null;
 }

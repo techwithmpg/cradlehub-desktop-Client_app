@@ -25,7 +25,6 @@ export interface WaitlistFollowupItem {
   status: string;
   notes: string | null;
   createdAt: string;
-  email?: string | null;
 }
 
 export interface CustomerKpis {
@@ -49,7 +48,6 @@ export interface CustomerBookingHistoryItem {
   startTime: string;
   status: string;
   type: string;
-  deliveryType?: string | null;
   serviceName: string;
   staffName: string;
   branchName: string;

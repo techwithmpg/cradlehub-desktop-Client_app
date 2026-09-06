@@ -3467,3 +3467,30 @@ body {
   font-style: italic;
   margin: 8px 0;
 }
+
+/* Layout & Grid Overrides for Customers Workspace */
+.customers-view-container .bookings-main-grid {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.customers-kpi-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1024px) {
+  .customers-view-container .bookings-main-grid {
+    grid-template-columns: 1fr;
+  }
+  .customers-view-container .bookings-inspector-column {
+    position: static;
+  }
+  .customers-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .customers-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

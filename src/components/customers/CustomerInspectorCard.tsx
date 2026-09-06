@@ -199,12 +199,6 @@ export const CustomerInspectorCard: React.FC<CustomerInspectorCardProps> = ({
                   {formatTime(selectedWaitlistItem.preferredTime)}
                 </span>
               </div>
-              <div className="info-item full-width">
-                <span className="info-label">Email</span>
-                <span className="info-value">
-                  {selectedWaitlistItem.email || '—'}
-                </span>
-              </div>
               {selectedWaitlistItem.notes && (
                 <div className="info-item full-width">
                   <span className="info-label">Customer Request Notes</span>
@@ -237,9 +231,9 @@ export const CustomerInspectorCard: React.FC<CustomerInspectorCardProps> = ({
             <span className="booking-badge badge-confirmed">
               {customer.totalBookings > 1 ? 'Repeat Customer' : 'Customer'}
             </span>
-            {customer.loyaltyTier && (
+            {customerDetail?.loyaltyTier && (
               <span className="inspector-type-pill loyalty-tier-pill">
-                {customer.loyaltyTier}
+                {customerDetail.loyaltyTier}
               </span>
             )}
           </div>
@@ -415,9 +409,7 @@ export const CustomerInspectorCard: React.FC<CustomerInspectorCardProps> = ({
                             Staff: {item.staffName || 'Unassigned'}
                           </span>
                           <span className="history-type-badge">
-                            {item.deliveryType === 'home_service'
-                              ? 'Home Service'
-                              : item.type || 'In-Spa'}
+                            {item.type || 'In-Spa'}
                           </span>
                         </div>
                       </div>

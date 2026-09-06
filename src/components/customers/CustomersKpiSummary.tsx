@@ -17,7 +17,7 @@ export const CustomersKpiSummary: React.FC<CustomersKpiSummaryProps> = ({
       key: 'totalCustomers',
       label: 'Total Customers',
       count: kpis.totalCustomers,
-      subtext: 'Branch roster',
+      subtext: 'Branch customer roster',
       tabTarget: 'all' as CustomerTabType,
       icon: (
         <svg
@@ -42,7 +42,7 @@ export const CustomersKpiSummary: React.FC<CustomersKpiSummaryProps> = ({
       key: 'repeatClients',
       label: 'Repeat Clients',
       count: kpis.repeatClients,
-      subtext: '2+ completed visits',
+      subtext: '2+ recorded visits',
       tabTarget: 'repeat' as CustomerTabType,
       icon: (
         <svg
@@ -64,7 +64,7 @@ export const CustomersKpiSummary: React.FC<CustomersKpiSummaryProps> = ({
       key: 'lapsedClients',
       label: 'Lapsed Clients',
       count: kpis.lapsedClients,
-      subtext: 'No visit in 90+ days',
+      subtext: 'No visit in 30+ days',
       tabTarget: 'lapsed' as CustomerTabType,
       icon: (
         <svg
@@ -87,7 +87,7 @@ export const CustomersKpiSummary: React.FC<CustomersKpiSummaryProps> = ({
       key: 'newThisMonth',
       label: 'New This Month',
       count: kpis.newThisMonth,
-      subtext: 'First visit in 30 days',
+      subtext: 'First visit this month',
       tabTarget: 'all' as CustomerTabType,
       icon: (
         <svg
@@ -112,7 +112,7 @@ export const CustomersKpiSummary: React.FC<CustomersKpiSummaryProps> = ({
       key: 'totalVisits',
       label: 'Total Visits',
       count: kpis.totalVisits,
-      subtext: 'Completed branch visits',
+      subtext: 'Aggregate recorded visits',
       tabTarget: 'all' as CustomerTabType,
       icon: (
         <svg
@@ -139,7 +139,7 @@ export const CustomersKpiSummary: React.FC<CustomersKpiSummaryProps> = ({
       role="region"
       aria-label="Customers KPI Summary"
     >
-      <div className="bookings-kpi-grid">
+      <div className="bookings-kpi-grid customers-kpi-grid">
         {items.map((item) => {
           const isSelected =
             activeTab === item.tabTarget &&

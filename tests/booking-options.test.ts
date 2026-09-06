@@ -234,10 +234,20 @@ describe('customer lookup hosted API boundary', () => {
     expect(res).toEqual([]);
   });
 
-  it('fails if API configuration is missing', async () => {
-    await expect(searchBranchCustomers('branch-1', 'Maria')).rejects.toThrow(
-      /Customer lookup service is not configured/,
-    );
+  it('fails if API configuration is invalid override', async () => {
+    const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+    try {
+      import.meta.env.VITE_CRADLEHUB_API_URL = 'https://invalid-host.example';
+      await expect(searchBranchCustomers('branch-1', 'Maria')).rejects.toThrow(
+        /Customer lookup service is not configured/,
+      );
+    } finally {
+      if (originalEnv === undefined) {
+        delete import.meta.env.VITE_CRADLEHUB_API_URL;
+      } else {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    }
   });
 
   it('fails if session is missing', async () => {
@@ -247,11 +257,77 @@ describe('customer lookup hosted API boundary', () => {
       },
     } as unknown as SupabaseClient;
 
-    // Provide mock env base url
     const customFetch = vi.fn();
-    // Since getHostedApiBaseUrl checks import.meta.env, if no env it throws config error
     await expect(
       searchBranchCustomers('branch-1', 'Maria', fakeClient, customFetch),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/session has expired/);
+  });
+
+  it('queries hosted customer API and maps top-level data array correctly', async () => {
+    const fakeClient = {
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: { access_token: 'auth-token-123' } },
+        }),
+      },
+    } as unknown as SupabaseClient;
+
+    const customFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        tab: 'all',
+        data: [
+          {
+            id: 'c-10',
+            fullName: 'Corazon Aquino',
+            phone: '09171234567',
+            email: 'cory@test.ph',
+            totalBookings: 8,
+            firstBookingDate: '2024-01-01',
+            lastBookingDate: '2026-08-01',
+            preferredStaffId: 'staff-9',
+            preferredStaffName: 'Staff 9',
+          },
+        ],
+        waitlist: [],
+        pagination: { page: 1, pageSize: 20, totalCount: 1, totalPages: 1 },
+        kpis: {
+          totalCustomers: 1,
+          repeatClients: 1,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 8,
+        },
+      }),
+    } as unknown as Response);
+
+    const customers = await searchBranchCustomers(
+      'branch-1',
+      'Corazon',
+      fakeClient,
+      customFetch,
+    );
+
+    expect(customFetch).toHaveBeenCalledOnce();
+    const [url, init] = customFetch.mock.calls[0];
+    expect(url).toContain('branchId=branch-1');
+    expect(url).toContain('q=Corazon');
+    expect((init?.headers as Record<string, string>)['Authorization']).toBe(
+      'Bearer auth-token-123',
+    );
+
+    expect(customers).toEqual([
+      {
+        id: 'c-10',
+        full_name: 'Corazon Aquino',
+        phone: '09171234567',
+        email: 'cory@test.ph',
+        total_bookings: 8,
+        first_booking_date: '2024-01-01',
+        last_booking_date: '2026-08-01',
+      },
+    ]);
   });
 });

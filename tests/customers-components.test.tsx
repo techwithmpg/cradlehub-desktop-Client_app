@@ -230,6 +230,8 @@ describe('Customers Workspace Component Suite', () => {
   it('switches tabs to Follow-up and displays waitlist entries and follow-up inspector', async () => {
     render(<CustomersView authContext={mockAuthContext} />);
 
+    await screen.findAllByText('Maria Santos');
+
     // Click Follow-up tab
     const followupTab = screen.getByRole('tab', { name: 'Follow-up' });
     fireEvent.click(followupTab);
@@ -250,7 +252,74 @@ describe('Customers Workspace Component Suite', () => {
     });
   });
 
-  it('renders error banner when hosted API returns failure', async () => {
+  it('renders canonical layout structure, DataGrid, KPI grid, and footer classes', async () => {
+    const { container } = render(
+      <CustomersView authContext={mockAuthContext} />,
+    );
+
+    await screen.findAllByText('Maria Santos');
+
+    // 1. KPI grid uses customers-kpi-grid
+    const kpiGrid = container.querySelector('.customers-kpi-grid');
+    expect(kpiGrid).not.toBeNull();
+    expect(kpiGrid?.classList.contains('bookings-kpi-grid')).toBe(true);
+
+    // 2. Main content uses canonical bookings-main-grid with sibling columns
+    const mainGrid = container.querySelector('.bookings-main-grid');
+    expect(mainGrid).not.toBeNull();
+    const listCol = mainGrid?.querySelector('.bookings-list-column');
+    const inspectorCol = mainGrid?.querySelector('.bookings-inspector-column');
+    expect(listCol).not.toBeNull();
+    expect(inspectorCol).not.toBeNull();
+
+    // 3. DataGrid uses bookings-datagrid-wrapper
+    const datagridWrapper = container.querySelector(
+      '.bookings-datagrid-wrapper',
+    );
+    expect(datagridWrapper).not.toBeNull();
+
+    // 4. Footer uses canonical Bookings footer & pagination classes
+    const footer = container.querySelector('.bookings-table-footer');
+    expect(footer).not.toBeNull();
+    expect(footer?.querySelector('.footer-count-text')).not.toBeNull();
+    expect(footer?.querySelector('.footer-pagination-controls')).not.toBeNull();
+    expect(footer?.querySelector('.page-size-selector-wrapper')).not.toBeNull();
+    expect(footer?.querySelector('.pagination-buttons')).not.toBeNull();
+  });
+
+  it('renders truthful KPI semantic descriptions and search placeholders', async () => {
+    render(<CustomersView authContext={mockAuthContext} />);
+
+    await screen.findAllByText('Maria Santos');
+
+    // Truthful KPI subtext descriptions
+    expect(screen.getByText('Branch customer roster')).toBeDefined();
+    expect(screen.getByText('2+ recorded visits')).toBeDefined();
+    expect(screen.getByText('No visit in 30+ days')).toBeDefined();
+    expect(screen.getByText('First visit this month')).toBeDefined();
+    expect(screen.getByText('Aggregate recorded visits')).toBeDefined();
+
+    // Truthful search placeholder (no email search claim)
+    const searchInput = screen.getByLabelText(
+      'Search customers',
+    ) as HTMLInputElement;
+    expect(searchInput.placeholder).toBe(
+      'Search customers by name or phone...',
+    );
+
+    // Switch to Follow-up tab and check placeholder
+    const followupTab = screen.getByRole('tab', { name: 'Follow-up' });
+    fireEvent.click(followupTab);
+
+    const followupSearchInput = screen.getByLabelText(
+      'Search follow-up waitlist',
+    ) as HTMLInputElement;
+    expect(followupSearchInput.placeholder).toBe(
+      'Search follow-up requests by name or phone...',
+    );
+  });
+
+  it('handles authoritative list error truthfully without rendering fake empty state or zero KPIs', async () => {
     vi.mocked(customersService.fetchBranchCustomers).mockResolvedValueOnce({
       ok: false,
       code: 'CRM_PERMISSION_DENIED',
@@ -259,10 +328,48 @@ describe('Customers Workspace Component Suite', () => {
 
     render(<CustomersView authContext={mockAuthContext} />);
 
+    // Error banner is displayed
     expect(await screen.findByRole('alert')).toBeDefined();
     expect(
-      screen.getByText('Access to customer roster denied for this branch.'),
-    ).toBeDefined();
+      screen.getAllByText('Access to customer roster denied for this branch.')
+        .length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // Unavailable workspace placeholder is displayed
+    expect(screen.getByText('Customer Service Unavailable')).toBeDefined();
+
+    // Fake empty messages are NOT rendered
+    expect(screen.queryByText('No customers in this segment')).toBeNull();
+    expect(screen.queryByText('No matching customers found')).toBeNull();
+
+    // Normal KPI cells are NOT rendered
+    expect(screen.queryByLabelText('Total Customers: 0')).toBeNull();
+
+    // Retry button is available
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
+  });
+
+  it('clears stale customer detail and shows detail error on detail fetch failure', async () => {
+    vi.mocked(customersService.fetchCustomerDetail).mockResolvedValueOnce({
+      ok: false,
+      code: 'CUSTOMER_NOT_FOUND',
+      message: 'Customer record not found for this branch.',
+    });
+
+    render(<CustomersView authContext={mockAuthContext} />);
+
+    await screen.findAllByText('Maria Santos');
+
+    // Detail error banner is displayed
+    await waitFor(() => {
+      expect(
+        screen.getByText('Customer record not found for this branch.'),
+      ).toBeDefined();
+      // Stale details (like birthday / notes) are not displayed
+      expect(
+        screen.queryByText('Prefers peppermint essential oil.'),
+      ).toBeNull();
+    });
   });
 
   it('renders CustomersView in CanonicalShell when active module is customers', async () => {

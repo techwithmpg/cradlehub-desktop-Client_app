@@ -137,6 +137,12 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
           setListError(res.message);
           setCustomers([]);
           setWaitlistItems([]);
+          setSelectedCustomer(null);
+          setSelectedWaitlistItem(null);
+          setCustomerDetail(null);
+          setDetailError(null);
+          setKpis(INITIAL_KPIS);
+          setPagination(INITIAL_PAGINATION);
           return;
         }
 
@@ -180,6 +186,14 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
         const msg =
           err instanceof Error ? err.message : 'Failed to load customers';
         setListError(msg);
+        setCustomers([]);
+        setWaitlistItems([]);
+        setSelectedCustomer(null);
+        setSelectedWaitlistItem(null);
+        setCustomerDetail(null);
+        setDetailError(null);
+        setKpis(INITIAL_KPIS);
+        setPagination(INITIAL_PAGINATION);
       } finally {
         if (currentVersion === listVersionRef.current) {
           setIsLoadingList(false);
@@ -212,6 +226,12 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
           setListError(res.message);
           setCustomers([]);
           setWaitlistItems([]);
+          setSelectedCustomer(null);
+          setSelectedWaitlistItem(null);
+          setCustomerDetail(null);
+          setDetailError(null);
+          setKpis(INITIAL_KPIS);
+          setPagination(INITIAL_PAGINATION);
           return;
         }
 
@@ -254,6 +274,14 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
         const msg =
           err instanceof Error ? err.message : 'Failed to load customers';
         setListError(msg);
+        setCustomers([]);
+        setWaitlistItems([]);
+        setSelectedCustomer(null);
+        setSelectedWaitlistItem(null);
+        setCustomerDetail(null);
+        setDetailError(null);
+        setKpis(INITIAL_KPIS);
+        setPagination(INITIAL_PAGINATION);
       } finally {
         if (isMounted && currentVersion === listVersionRef.current) {
           setIsLoadingList(false);
@@ -276,6 +304,10 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
     const currentVersion = detailVersionRef.current;
 
     void (async () => {
+      setIsLoadingDetail(true);
+      setDetailError(null);
+      setCustomerDetail(null);
+
       try {
         const res = await fetchCustomerDetail(
           selectedCustomer.id,
@@ -301,6 +333,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
             ? err.message
             : 'Failed to load customer details';
         setDetailError(msg);
+        setCustomerDetail(null);
       } finally {
         if (isMounted && currentVersion === detailVersionRef.current) {
           setIsLoadingDetail(false);
@@ -325,17 +358,22 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
   const handleSelectCustomer = (customer: CustomerListItem) => {
     setSelectedCustomer(customer);
     setSelectedWaitlistItem(null);
+    setCustomerDetail(null);
+    setDetailError(null);
   };
 
   const handleSelectWaitlistItem = (item: WaitlistFollowupItem) => {
     setSelectedWaitlistItem(item);
     setSelectedCustomer(null);
+    setCustomerDetail(null);
+    setDetailError(null);
   };
 
   const handleCloseInspector = () => {
     setSelectedCustomer(null);
     setSelectedWaitlistItem(null);
     setCustomerDetail(null);
+    setDetailError(null);
   };
 
   const selectedId = selectedWaitlistItem
@@ -355,85 +393,140 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
         isRefreshing={isRefreshing}
       />
 
-      {/* 2. Error Banner */}
-      {listError && (
-        <div
-          className="bookings-error-banner"
-          role="alert"
-          aria-live="assertive"
-        >
-          <svg
-            className="bookings-error-icon"
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      {/* 2. Authoritative Error State */}
+      {listError ? (
+        <>
+          <div
+            className="bookings-error-banner"
+            role="alert"
+            aria-live="assertive"
           >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <div className="bookings-error-content">
-            <h4 className="bookings-error-title">Customer Service Error</h4>
-            <p className="bookings-error-message">{listError}</p>
+            <svg
+              className="bookings-error-icon"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <div className="bookings-error-content">
+              <h4 className="bookings-error-title">Customer Service Error</h4>
+              <p className="bookings-error-message">{listError}</p>
+            </div>
+            <button
+              type="button"
+              className="bookings-retry-btn"
+              onClick={() => void fetchList(true)}
+            >
+              Retry
+            </button>
           </div>
-          <button
-            type="button"
-            className="bookings-error-dismiss"
-            onClick={() => setListError(null)}
-            aria-label="Dismiss error"
+
+          <div
+            className="workspace-placeholder"
+            role="status"
+            style={{ margin: '32px auto' }}
           >
-            &times;
-          </button>
+            <div
+              className="placeholder-icon-wrapper"
+              style={{ background: '#fef2f2', borderColor: '#fecaca' }}
+            >
+              <svg
+                className="placeholder-icon"
+                style={{ color: '#b91c1c' }}
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <h3 className="placeholder-title">Customer Service Unavailable</h3>
+            <p className="placeholder-desc">{listError}</p>
+            <button
+              type="button"
+              className="bookings-empty-reset-btn"
+              style={{ marginTop: '16px' }}
+              onClick={() => void fetchList(true)}
+            >
+              Retry Request
+            </button>
+          </div>
+        </>
+      ) : isLoadingList ? (
+        /* Loading Skeleton */
+        <div
+          className="bookings-loading-state"
+          aria-busy="true"
+          aria-label="Loading customers"
+          data-testid="customers-skeleton"
+        >
+          <div className="bookings-skeleton-kpi" />
+          <div className="bookings-skeleton-body-grid">
+            <div className="bookings-skeleton-list" />
+            <div className="bookings-skeleton-inspector" />
+          </div>
         </div>
-      )}
-
-      {/* 3. KPI Summary Strip */}
-      <CustomersKpiSummary
-        kpis={kpis}
-        activeTab={activeTab}
-        onKpiClick={handleKpiClick}
-      />
-
-      {/* 4. Main Two-Column Layout */}
-      <div className="bookings-main-content">
-        <div className="bookings-list-column">
-          <CustomersListCard
+      ) : (
+        <>
+          {/* 3. KPI Summary Strip */}
+          <CustomersKpiSummary
+            kpis={kpis}
             activeTab={activeTab}
-            onTabChange={handleTabChange}
-            searchQuery={searchQuery}
-            onSearchChange={handleSearchChange}
-            onResetSearch={handleResetSearch}
-            customers={customers}
-            waitlistItems={waitlistItems}
-            selectedId={selectedId}
-            onSelectCustomer={handleSelectCustomer}
-            onSelectWaitlistItem={handleSelectWaitlistItem}
-            pagination={pagination}
-            onPageChange={(p) => setCurrentPage(p)}
-            onPageSizeChange={(ps) => {
-              setPageSize(ps);
-              setCurrentPage(1);
-            }}
-            isLoading={isLoadingList}
+            onKpiClick={handleKpiClick}
           />
-        </div>
 
-        <div className="bookings-inspector-column">
-          <CustomerInspectorCard
-            selectedCustomer={selectedCustomer}
-            selectedWaitlistItem={selectedWaitlistItem}
-            customerDetail={customerDetail}
-            isLoadingDetail={isLoadingDetail}
-            detailError={detailError}
-            onClose={handleCloseInspector}
-          />
-        </div>
-      </div>
+          {/* 4. Main Two-Column Layout */}
+          <div className="bookings-main-grid">
+            <div className="bookings-list-column">
+              <CustomersListCard
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchChange}
+                onResetSearch={handleResetSearch}
+                customers={customers}
+                waitlistItems={waitlistItems}
+                selectedId={selectedId}
+                onSelectCustomer={handleSelectCustomer}
+                onSelectWaitlistItem={handleSelectWaitlistItem}
+                pagination={pagination}
+                onPageChange={(p) => setCurrentPage(p)}
+                onPageSizeChange={(ps) => {
+                  setPageSize(ps);
+                  setCurrentPage(1);
+                }}
+                isLoading={isLoadingList}
+              />
+            </div>
+
+            <div className="bookings-inspector-column">
+              <CustomerInspectorCard
+                selectedCustomer={selectedCustomer}
+                selectedWaitlistItem={selectedWaitlistItem}
+                customerDetail={customerDetail}
+                isLoadingDetail={isLoadingDetail}
+                detailError={detailError}
+                onClose={handleCloseInspector}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

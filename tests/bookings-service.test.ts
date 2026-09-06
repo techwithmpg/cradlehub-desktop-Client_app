@@ -540,7 +540,10 @@ describe('Bookings Service', () => {
         expect(getHostedApiBaseUrl()).toBeNull();
 
         import.meta.env.VITE_CRADLEHUB_API_URL = '';
-        expect(getHostedApiBaseUrl()).toBeNull();
+        expect(getHostedApiBaseUrl()).toBe(EXPECTED_HOSTED_API_ORIGIN);
+
+        import.meta.env.VITE_CRADLEHUB_API_URL = '   ';
+        expect(getHostedApiBaseUrl()).toBe(EXPECTED_HOSTED_API_ORIGIN);
       } finally {
         import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
       }
@@ -551,7 +554,6 @@ describe('Bookings Service', () => {
     const validConfigUrl = EXPECTED_HOSTED_API_ORIGIN;
 
     it.each([
-      { label: 'missing URL', envVal: '' },
       { label: 'non-HTTPS URL', envVal: 'http://www.cradlewellnessliving.com' },
       { label: 'unauthorized domain', envVal: 'https://attacker.example' },
       {
