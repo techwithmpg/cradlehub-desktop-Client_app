@@ -4,7 +4,7 @@ Stage 00 = **ACCEPTED / MERGED — CLOSED** on `main` at `79ef30b9da7267b6f01a6b
 Stage 01 = **ACCEPTED / MERGED — CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 Stage 02 = **ACCEPTED / MERGED — CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03 = **ACCEPTED / MERGED — CLOSED** on `main` at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
-Stage 04 (Staff) = **AUDIT CHECK ACCOUNTING FIX COMPLETE — PUSHED AND STOPPED FOR REVIEW**.
+Stage 04 (Staff) = **UI REFINEMENT GATE — OWNER DESIGN REVIEW REQUIRED**.
 
 Other Modules = **NOT STARTED / NOT AUTHORIZED**.
 
@@ -12,25 +12,24 @@ Other Modules = **NOT STARTED / NOT AUTHORIZED**.
 
 - **Base Baseline (BASE_SHA)**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4` on `main`.
 - **Initial Audit Commit (INITIAL_AUDIT_SHA)**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`.
-- **Correction Base (CORRECTION_BASE_SHA)**: `2bcab03bbeb9bd391f0ba88e5d1f38d1ec1c9305`.
+- **Audit Confirmed Commit (AUDIT_CONFIRMED_SHA)**: `1fcd2b892d39a8b611a49825511bd34740fd2f7a`.
 - **Active Branch**: `stage/04-staff`.
 - **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`.
-- **Checks Record (Current Documentation-Only Correction)**:
-  - `pnpm format:check` — PASSED
-  - `git diff --check` — PASSED
-- **Checks Record (Previously Recorded JavaScript Validation within Stage 04 - Predecessor Checkpoint)**:
+- **Checks Record (Current Stage 04 Functional Implementation)**:
+  - `pnpm format:check` — PASSED (Prettier clean across all files)
   - `pnpm lint` — PASSED (0 errors, 0 warnings across all files)
   - `pnpm typecheck` — PASSED (`tsc --noEmit` clean)
-  - `pnpm test` — PASSED (11 test files, 192/192 vitest tests passed)
-  - `pnpm build` — PASSED (Vite production bundle built cleanly)
+  - `pnpm test` — PASSED (13 test files, 220/220 vitest tests passed)
+  - `pnpm build` — PASSED (Vite production bundle built cleanly in 1.16s)
+  - `git diff --check` — PASSED (0 whitespace / conflict errors)
 - **Checks Record (Previously Recorded Cargo Validation within Stage 04 - Historical)**:
   - `cargo fmt --check` — PASSED
   - `cargo clippy -- -D warnings` — PASSED
   - `cargo test` — PASSED
 - **Scope Integrity**:
-  - Audit and check accounting precision corrections only.
-  - Zero functional UI changes introduced in this pass.
+  - Read-only operational Staff workspace implemented.
+  - Zero mutation controls introduced.
   - Zero schema or migration modifications.
-- **Stage Status**: Stage 04 Audit check accounting fix complete; awaiting independent review before functional UI implementation.
+- **Stage Status**: Stage 04 Functional build complete; ready for owner UI refinement review.
 
-Consult `docs/50-state/evidence/stage-04-staff.md` for full discovery findings.
+Consult `docs/50-state/evidence/stage-04-staff.md` for full discovery and implementation evidence.
