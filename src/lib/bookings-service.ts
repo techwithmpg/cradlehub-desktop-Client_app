@@ -612,32 +612,108 @@ export async function fetchBranchBookingOptions(
   return { services, staff, resources };
 }
 
-const CUSTOMER_LOOKUP_UNAVAILABLE_MESSAGE =
-  'Customer lookup is unavailable until a branch-scoped hosted read boundary is available.';
-
-// This is a fixed read-safety decision, not an environment/user toggle. The
-// configured project's live booking/customer policies could not be inspected.
 export function getCustomerLookupUnavailableReason(): string | null {
-  return CUSTOMER_LOOKUP_UNAVAILABLE_MESSAGE;
+  return null;
 }
 
 export class CustomerLookupUnavailableError extends Error {
   readonly code = 'CUSTOMER_LOOKUP_UNAVAILABLE';
-  constructor() {
-    super(CUSTOMER_LOOKUP_UNAVAILABLE_MESSAGE);
+  constructor(message = 'Customer lookup is currently unavailable.') {
+    super(message);
     this.name = 'CustomerLookupUnavailableError';
   }
 }
 
-// Preserve the call contract for the guarded lookup lifecycle, but never touch
-// the client until a separately reviewed branch-authorized read is available.
+/**
+ * Search branch customers via the authoritative hosted Desktop Customers API.
+ */
 export async function searchBranchCustomers(
+  branchId: string,
   query: string,
   client?: SupabaseClient,
+  customFetch?: typeof fetch,
 ): Promise<BookingCustomer[]> {
-  void query;
-  void client;
-  throw new CustomerLookupUnavailableError();
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const baseUrl = getHostedApiBaseUrl();
+  if (!baseUrl) {
+    throw new Error(
+      'Customer lookup service is not configured for this desktop installation.',
+    );
+  }
+
+  const supabase = client ?? getSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error(
+      'Your session has expired. Sign in again to search customers.',
+    );
+  }
+
+  const endpoint = `${baseUrl}/api/desktop/v1/customers?tab=all&q=${encodeURIComponent(trimmed)}&branchId=${encodeURIComponent(branchId)}&page=1&pageSize=20`;
+  const fetchFn = customFetch ?? tauriFetch;
+
+  let response: Response;
+  try {
+    response = await fetchFn(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+  } catch {
+    throw new Error(
+      'Customer search requires a connection. Please check your network and try again.',
+    );
+  }
+
+  let body: {
+    ok?: boolean;
+    data?: {
+      customers?: Array<{
+        id: string;
+        fullName: string;
+        phone: string | null;
+        email: string | null;
+        totalVisits: number;
+        firstVisit: string | null;
+        lastVisit: string | null;
+      }>;
+    };
+    error?: string;
+    message?: string;
+  };
+
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error(
+      `Server responded with status ${response.status}, but the response could not be parsed.`,
+    );
+  }
+
+  if (!response.ok || body?.ok === false) {
+    const msg =
+      body?.message ||
+      body?.error ||
+      `Customer search failed with status ${response.status}.`;
+    throw new Error(msg);
+  }
+
+  const list = body?.data?.customers ?? [];
+  return list.map((c) => ({
+    id: c.id,
+    full_name: c.fullName,
+    phone: c.phone || null,
+    email: c.email || null,
+    total_bookings: c.totalVisits ?? 0,
+    first_booking_date: c.firstVisit || null,
+    last_booking_date: c.lastVisit || null,
+  }));
 }
 
 export const EXPECTED_HOSTED_API_ORIGIN =

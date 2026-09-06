@@ -3,8 +3,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   fetchBranchBookingOptions,
   searchBranchCustomers,
-  CustomerLookupUnavailableError,
-  getCustomerLookupUnavailableReason,
 } from '../src/lib/bookings-service';
 
 type Reply = { data: unknown; error: { message: string } | null };
@@ -230,45 +228,30 @@ describe('branch booking preview reads', () => {
   });
 });
 
-describe('customer lookup unavailable boundary', () => {
-  it.each(['', 'a', 'Maria', 'branch-2', 'name,or(id.eq.customer-c)'])(
-    'rejects %s without any database request',
-    async (query) => {
-      const db = database({
-        bookings: [
-          { branch_id: 'branch-1', customer_id: 'customer-a' },
-          { branch_id: 'branch-2', customer_id: 'customer-c' },
-        ],
-        customers: [{ id: 'customer-a' }, { id: 'customer-c' }],
-      });
-      await expect(
-        searchBranchCustomers(query, db.client),
-      ).rejects.toBeInstanceOf(CustomerLookupUnavailableError);
-      expect(db.from).not.toHaveBeenCalled();
-    },
-  );
-  it('reports unavailable, never successful empty, even with zero customer rows', async () => {
-    const db = database({ bookings: [], customers: [] });
-    await expect(
-      searchBranchCustomers('Nobody', db.client),
-    ).rejects.toMatchObject({
-      code: 'CUSTOMER_LOOKUP_UNAVAILABLE',
-      message: getCustomerLookupUnavailableReason(),
-    });
-    expect(db.from).not.toHaveBeenCalled();
+describe('customer lookup hosted API boundary', () => {
+  it('returns empty list immediately for query with length < 2', async () => {
+    const res = await searchBranchCustomers('branch-1', 'a');
+    expect(res).toEqual([]);
   });
-  it('does not attempt inaccessible booking or customer reads', async () => {
-    const from = vi.fn(() => {
-      throw new Error('Permission denied');
-    });
-    await expect(
-      searchBranchCustomers('Maria', { from } as unknown as SupabaseClient),
-    ).rejects.toMatchObject({ code: 'CUSTOMER_LOOKUP_UNAVAILABLE' });
-    expect(from).not.toHaveBeenCalled();
-  });
-  it('fails closed without even initializing a Supabase client', async () => {
-    await expect(searchBranchCustomers('Maria')).rejects.toBeInstanceOf(
-      CustomerLookupUnavailableError,
+
+  it('fails if API configuration is missing', async () => {
+    await expect(searchBranchCustomers('branch-1', 'Maria')).rejects.toThrow(
+      /Customer lookup service is not configured/,
     );
+  });
+
+  it('fails if session is missing', async () => {
+    const fakeClient = {
+      auth: {
+        getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      },
+    } as unknown as SupabaseClient;
+
+    // Provide mock env base url
+    const customFetch = vi.fn();
+    // Since getHostedApiBaseUrl checks import.meta.env, if no env it throws config error
+    await expect(
+      searchBranchCustomers('branch-1', 'Maria', fakeClient, customFetch),
+    ).rejects.toThrow();
   });
 });

@@ -215,7 +215,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     const version = searchVersion.current;
     setIsSearchingCustomers(true);
     searchDebounceRef.current = window.setTimeout(() => {
-      searchBranchCustomers(query)
+      searchBranchCustomers(branchId, query)
         .then((results) => {
           if (version !== searchVersion.current) return;
           setCustomerSearchResults(results);

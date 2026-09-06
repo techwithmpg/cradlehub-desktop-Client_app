@@ -516,16 +516,16 @@ describe('isolated mocked lookup lifecycle (not an enabled production read)', ()
       expect(screen.queryByText('Searching...')).toBeNull();
     },
   );
-  it('renders a boundary rejection as unavailable rather than error or empty', async () => {
+  it('renders a boundary rejection as unavailable when lookup error is returned', async () => {
     vi.mocked(service.searchBranchCustomers).mockRejectedValue(
-      new service.CustomerLookupUnavailableError(),
+      new service.CustomerLookupUnavailableError(
+        'Customer lookup boundary offline.',
+      ),
     );
     mount();
     await ready();
     change('customer-search-input', 'Lookup');
-    await screen.findByText(
-      'Customer lookup is unavailable until a branch-scoped hosted read boundary is available.',
-    );
+    await screen.findByText('Customer lookup boundary offline.');
     expect(input('customer-search-input').disabled).toBe(true);
     expect(screen.queryByText('No matching customers.')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
@@ -584,54 +584,35 @@ describe('isolated mocked lookup lifecycle (not an enabled production read)', ()
   });
 });
 
-describe('customer lookup unavailable UI', () => {
-  it.each(['branch-1', 'branch-2'])(
-    'never starts a lookup or exposes another branch customer in %s',
-    async (branchId) => {
-      vi.mocked(service.searchBranchCustomers).mockResolvedValue([
-        {
-          id: 'customer-c',
-          full_name: 'Other branch customer',
-          phone: null,
-          email: null,
-        },
-      ]);
-      const view = mount();
-      view.change({ branchId });
-      await ready();
-      expect(input('customer-search-input').disabled).toBe(true);
-      expect(
-        screen.getByText(service.getCustomerLookupUnavailableReason()!),
-      ).toBeDefined();
-      // Even a synthetic change event cannot bypass the unavailable UI guard.
-      change('customer-search-input', 'Other branch');
-      expect(service.searchBranchCustomers).not.toHaveBeenCalled();
-      expect(screen.queryByText('Searching...')).toBeNull();
-      expect(screen.queryByText('No matching customers.')).toBeNull();
-      expect(screen.queryByText('Other branch customer')).toBeNull();
-      expect(screen.queryByRole('alert')).toBeNull();
-      change('customer-fullname', 'Manual preview');
-      expect(input('customer-fullname').value).toBe('Manual preview');
-      expect(
-        (
-          screen.getByRole('button', {
-            name: 'Create Booking',
-          }) as HTMLButtonElement
-        ).disabled,
-      ).toBe(true);
-    },
-  );
-  it('stays unavailable after close/reopen and branch change, with clean manual fields', async () => {
-    const view = mount();
+describe('customer lookup active search UI', () => {
+  it('enables customer search input by default and queries branch customers', async () => {
+    vi.mocked(service.searchBranchCustomers).mockResolvedValue([
+      {
+        id: 'cust-1',
+        full_name: 'Branch Customer',
+        phone: '09171234567',
+        email: 'customer@cradlehub.test',
+      },
+    ]);
+    mount();
     await ready();
-    change('customer-fullname', 'Manual preview');
-    view.change({ isOpen: false });
-    view.change({ isOpen: true, branchId: 'branch-2' });
-    await ready();
-    expect(input('customer-search-input').disabled).toBe(true);
-    expect(input('customer-fullname').value).toBe('');
-    expect(input('customer-search-input').value).toBe('');
-    expect(service.searchBranchCustomers).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+    expect(input('customer-search-input').disabled).toBe(false);
+
+    change('customer-search-input', 'Branch');
+    await waitFor(() => {
+      expect(service.searchBranchCustomers).toHaveBeenCalledWith(
+        'branch-1',
+        'Branch',
+      );
+    });
+
+    const result = await screen.findByRole('button', {
+      name: /Branch Customer/,
+    });
+    fireEvent.click(result);
+
+    expect(input('customer-fullname').value).toBe('Branch Customer');
+    expect(input('customer-phone').value).toBe('09171234567');
+    expect(input('customer-email').value).toBe('customer@cradlehub.test');
   });
 });

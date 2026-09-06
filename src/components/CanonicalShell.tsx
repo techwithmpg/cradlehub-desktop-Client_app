@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { BookingsView } from './bookings/BookingsView';
+import { CustomersView } from './customers/CustomersView';
 import type { AuthContext, NavModuleId } from '../types/auth';
 import { formatRoleLabel } from '../lib/roles';
 import { AUTHORIZED_NAV_ITEMS, type NavItemConfig } from '../lib/navigation';
@@ -333,7 +334,7 @@ export function CanonicalShell({
         {/* Operational Workspace Canvas */}
         <main id="main-content" className="workspace-content" tabIndex={-1}>
           <div
-            className={`workspace-canvas ${activeModule === 'bookings' ? 'workspace-canvas-wide' : ''}`}
+            className={`workspace-canvas ${activeModule === 'bookings' || activeModule === 'customers' ? 'workspace-canvas-wide' : ''}`}
           >
             {activeModule === 'bookings' ? (
               <div className="bookings-module-wrapper">
@@ -346,6 +347,18 @@ export function CanonicalShell({
                   </h1>
                 </div>
                 <BookingsView authContext={authContext} />
+              </div>
+            ) : activeModule === 'customers' ? (
+              <div className="bookings-module-wrapper customers-module-wrapper">
+                <div className="workspace-page-header visually-hidden-module-header">
+                  <h1
+                    className="workspace-page-title"
+                    data-testid="active-module-title"
+                  >
+                    {currentNavConfig.label}
+                  </h1>
+                </div>
+                <CustomersView authContext={authContext} />
               </div>
             ) : (
               <>
