@@ -1,22 +1,19 @@
 # Current Task
 
-Stage 02 — Bookings: Owner Runtime Verification Evidence and Closeout Preparation.
+Stage 02 — Bookings: **ACCEPTED / MERGED / CLOSED** on `main` at `379d460ebce14f09d90db910f8e321711e5dcea6`.
 
-**OWNER RUNTIME VERIFIED / MERGE AUTHORIZED — AWAITING FINAL INDEPENDENT REVIEW.** Desktop `main` is **NOT YET MERGED** in this evidence pass. Stage 03 remains **NOT AUTHORIZED**.
+Stage 03 (Customers) remains **NOT STARTED / NOT AUTHORIZED**. A separate explicit owner authorization is required before creating `stage/03-customers`.
 
-- Branch: `stage/02-bookings`.
-- BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-- Reviewed Implementation HEAD: `9268a95d1ada8b2d963cceb56f0b0b5a1d69e83f`.
-- Current Stage HEAD: `d3410986533368ba0c15649f66580f128109c2cc`.
-- Canonical Hosted Main: `f8455078d212b55595c277c577a80d89995c7585`.
-- Hosted Endpoint on Main: `POST /api/desktop/v1/bookings` (Vercel/GitHub deployment check succeeded).
-- Exact Verified Origin: `https://www.cradlewellnessliving.com`.
+- **Stage 02 Merged Implementation/Evidence SHA**: `379d460ebce14f09d90db910f8e321711e5dcea6` on `main`.
+- **Merged Source Branch**: `stage/02-bookings` (fast-forward merged into `main`).
+- **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **Hosted Endpoint on Main**: `POST /api/desktop/v1/bookings` (Vercel/GitHub deployment check succeeded).
+- **Exact Verified Origin**: `https://www.cradlewellnessliving.com`.
 
-Closeout status details:
+Closeout status summary:
 
-1. **Owner Runtime Evidence**: Owner verified the Stage 02 Bookings workflow in the actual native Windows Desktop application runtime, visually inspected the interface, confirmed acceptable behavior, and explicitly authorized proceeding to the Desktop merge step.
-2. **Hosted Boundary Alignment**: Hosted authoritative booking endpoint is merged to canonical hosted `main` (`f8455078d212b55595c277c577a80d89995c7585`) with successful production deployment.
-3. **Desktop Native HTTP & Security Integrity**: Official `@tauri-apps/plugin-http` / `tauri-plugin-http` transport with single exact capability rule `https://www.cradlewellnessliving.com/api/desktop/v1/*` (zero wildcards), fail-closed origin validation, Bearer token passed per-request from Supabase session, zero service-role keys in renderer, and zero offline optimistic writes.
-4. **Error & Success Contracts**: Authoritative `body.message` parsing, domain error code preservation, strict `bookingId` validation, modal payment defaults, and disabled Home Service mode.
-5. **Quality & Evidence Gates**: Full local suite verified (vitest 157/157 tests, prettier, eslint 0 warnings, tsc noEmit, cargo check/test/clippy/fmt). Evidence recorded in `docs/50-state/evidence/stage-02-bookings.md`.
-6. **Next Gate**: Push evidence commit to `stage/02-bookings` and stop for final independent merge review. Do NOT merge Desktop main or start Stage 03 in this step.
+1. **Owner Runtime Verification & Authorization**: Visual inspection and booking workflow completed in real native Windows Desktop runtime. Owner confirmation and merge authorization received prior to merging.
+2. **Main Fast-Forward Merge**: `stage/02-bookings` fast-forward merged into `main` with 0 divergence and 0 conflicts. Remote `origin/main` updated.
+3. **Full Post-Merge Validation**: All gates re-verified on `main` — vitest (157/157 passed), prettier, eslint (0 warnings), tsc (0 errors), vite production build, and Rust backend (cargo fmt, cargo check, cargo test, cargo clippy clean).
+4. **Security & Governance Boundaries**: Native Tauri HTTP transport with single exact capability rule `https://www.cradlewellnessliving.com/api/desktop/v1/*`, zero service-role keys, fail-closed auth session check, and strict domain error/success handling. Home Service and Customer Lookup remain disabled.
+5. **Next Stage Protocol**: Stage 03 is NOT STARTED. Do NOT create `stage/03-customers` or edit customer modules until explicit owner authorization is received.
