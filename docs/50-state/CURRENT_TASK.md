@@ -1,19 +1,19 @@
 # Current Task
 
-Stage 02 — Bookings: **ACCEPTED / MERGED / CLOSED** on `main` at `379d460ebce14f09d90db910f8e321711e5dcea6`.
+Stage 03 — Customers: Contract Audit & Safe Hosted Read Boundary Specification.
 
-Stage 03 (Customers) remains **NOT STARTED / NOT AUTHORIZED**. A separate explicit owner authorization is required before creating `stage/03-customers`.
+**STAGE 03 CUSTOMER CONTRACT AUDITED — SAFE HOSTED CUSTOMER READ BOUNDARY REQUIRED — NO UNSAFE DESKTOP READ IMPLEMENTED — STOPPED.** Stage 04 remains **NOT AUTHORIZED**.
 
-- **Stage 02 Merged Implementation/Evidence SHA**: `379d460ebce14f09d90db910f8e321711e5dcea6` on `main`.
-- **Merged Source Branch**: `stage/02-bookings` (fast-forward merged into `main`).
-- **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585` (`https://github.com/techwithmpg/Cradlehub.git`).
-- **Hosted Endpoint on Main**: `POST /api/desktop/v1/bookings` (Vercel/GitHub deployment check succeeded).
-- **Exact Verified Origin**: `https://www.cradlewellnessliving.com`.
+- **Branch**: `stage/03-customers`.
+- **BASE_SHA**: `59f69fc7e321c32f040f6f9a79aca47e77547675`.
+- **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585`.
+- **Desktop Main**: `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 
-Closeout status summary:
+Audit & Next Steps summary:
 
-1. **Owner Runtime Verification & Authorization**: Visual inspection and booking workflow completed in real native Windows Desktop runtime. Owner confirmation and merge authorization received prior to merging.
-2. **Main Fast-Forward Merge**: `stage/02-bookings` fast-forward merged into `main` with 0 divergence and 0 conflicts. Remote `origin/main` updated.
-3. **Full Post-Merge Validation**: All gates re-verified on `main` — vitest (157/157 passed), prettier, eslint (0 warnings), tsc (0 errors), vite production build, and Rust backend (cargo fmt, cargo check, cargo test, cargo clippy clean).
-4. **Security & Governance Boundaries**: Native Tauri HTTP transport with single exact capability rule `https://www.cradlewellnessliving.com/api/desktop/v1/*`, zero service-role keys, fail-closed auth session check, and strict domain error/success handling. Home Service and Customer Lookup remain disabled.
-5. **Next Stage Protocol**: Stage 03 is NOT STARTED. Do NOT create `stage/03-customers` or edit customer modules until explicit owner authorization is received.
+1. **Privacy Invariant Grounding**: The hosted database `customers` table does not contain `branch_id`. Branch scoping is enforced on the hosted server via `branchCustomerIds(supabase, branchId)` (joining against bookings). Client-side filtering in the Desktop renderer is strictly avoided to prevent cross-branch privacy leaks.
+2. **Missing Desktop Read Boundary**: The hosted repository currently contains only `POST /api/desktop/v1/bookings`. Existing customer routes (`/api/customers/lookup`, `/api/customers/search`) use cookie-based web session auth, not Bearer token authentication.
+3. **Hosted Boundary Specification**: Defined `GET /api/desktop/v1/customers` (paginated customer list with tabs `all`, `repeat`, `lapsed`, `followup`, search `q`, and KPI summary) and `GET /api/desktop/v1/customers/[customerId]` (single profile + booking history) authenticated via `verifyDesktopBearerAuth`.
+4. **Desktop UI Direction**: Fully specified to reuse the canonical Stages 01–02 shell, DataGrid, KPI cards, filter toolbar, and right-side inspector pattern without introducing a second UI system.
+5. **Quality & Evidence**: Local validation passed (vitest 157/157, prettier, eslint 0 warnings, tsc noEmit, cargo check/test/clippy/fmt). Evidence recorded in `docs/50-state/evidence/stage-03-customers.md`.
+6. **Next Gate**: Push `stage/03-customers` and stop for independent review. Implementation of Desktop customer reads awaits the authoritative hosted customer boundary.
