@@ -3,14 +3,14 @@
 ## Status & Governance
 
 - **Target**: CradleHub Desktop
-- **Stage**: Stage 04 — Staff (Audit & Architecture Checkpoint Finalization)
+- **Stage**: Stage 04 — Staff (Audit Roster Contract Alignment)
 - **Branch**: `stage/04-staff`
 - **Accepted Main BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
 - **INITIAL_AUDIT_SHA**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`
-- **CORRECTION_BASE_SHA**: `b89f812a1022407e483392dece11798dea1b3093`
+- **CORRECTION_BASE_SHA**: `63e3e585d4a2210caa870c05008ef69c88a854ff`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
-- **Current Status**: **STAGE 04 AUDIT FINAL CORRECTIONS READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
+- **Current Status**: **STAGE 04 AUDIT ROSTER CONTRACT CORRECTION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
 - **Stage 04 Functional UI Implementation**: **NOT YET STARTED / AWAITING CHECKPOINT REVIEW**.
 - **Stage Authorization**: Only Stage 04 is authorized. Other modules remain separate or dormant.
 
@@ -24,12 +24,13 @@ The desktop client must integrate with the hosted database and application contr
 
 1. **One canonical UI design system**: Reusing the accepted desktop architecture (tokens, DataGrid, inspector, skeletons, error states from Stages 01–03).
 2. **Single-branch desktop authority**: Reusing the single authoritative branch resolved in desktop `AuthContext` (`branchId`, `branchName`).
-3. **Defense-in-depth security**: Server-side Row Level Security (RLS) and authenticated user claims enforce branch isolation; client query filtering provides workspace scoping.
-4. **Authoritative status derivation**: Runtime derived statuses are strictly `active`, `awaiting`, and `invited`. `"inactive"` exists in the hosted type/label vocabulary but is not emitted by `getStaffStatus()`, and is therefore not exposed in Stage 04 filters or badges.
-5. **Deterministic summary metrics**: Summary statistics align 1:1 with hosted Staff semantics (`Total Staff`, `Active`, `Awaiting Approval`, `Invites Sent`) rather than invented provider/support groupings.
-6. **Data minimization**: Service capability lookups retrieve only minimal operational fields (`id`, `name`), avoiding unnecessary pricing or duration data.
-7. **Read-only initial vertical slice**: Stage 04 implementation delivers an authoritative read-only staff roster and operational inspector. Zero mutations are authorized for Prompt 2 implementation.
-8. **No fake or speculative local fallback data**: All state surfaces reflect genuine database and transport responses.
+3. **Hosted Staff-management roster authority**: The desktop roster mirrors the hosted Staff management reads (`.eq('branch_id', branchId)`), returning all branch staff and deriving operational status per record.
+4. **Distinction between Staff Management and Schedulable Staff**: `isOperationalStaff()` in `src/lib/staff/operational-staff.ts` is an operational scheduling helper for booking availability; it is NOT the general Staff-management roster because it excludes invited and awaiting staff.
+5. **Authoritative status derivation**: Runtime derived statuses are strictly `active`, `awaiting`, and `invited`. `"inactive"` exists in the hosted type/label vocabulary but is not emitted by `getStaffStatus()`, and is therefore not exposed in Stage 04 filters or badges.
+6. **Deterministic summary metrics**: Summary statistics align 1:1 with hosted Staff semantics (`Total Staff`, `Active`, `Awaiting Approval`, `Invites Sent`) rather than invented provider/support groupings.
+7. **Data minimization**: Service capability lookups retrieve only minimal operational fields (`id`, `name`), avoiding unnecessary pricing or duration data.
+8. **Read-only initial vertical slice**: Stage 04 implementation delivers an authoritative read-only staff roster and operational inspector. Zero mutations are authorized for Prompt 2 implementation.
+9. **No fake or speculative local fallback data**: All state surfaces reflect genuine database and transport responses.
 
 ---
 
@@ -54,12 +55,41 @@ Inspection of hosted `techwithmpg/Cradlehub` at `HOSTED_SHA` (`aac89fb49d5c5fe87
 | `is_head`              | `boolean`     | NO       | Department head / lead therapist supervisor flag. (Default `false`).                                                                                                           |
 | `is_active`            | `boolean`     | NO       | Raw operational boolean flag.                                                                                                                                                  |
 | `is_cross_branch`      | `boolean`     | NO       | Flag indicating if staff can take shifts/appointments at other branches.                                                                                                       |
-| `archived_at`          | `timestamptz` | YES      | Soft-delete timestamp. `NULL` for active roster members; non-null rows excluded from roster.                                                                                   |
-| `merged_into_staff_id` | `uuid`        | YES      | Pointer if duplicate record was merged. Non-null rows excluded from roster.                                                                                                    |
+| `archived_at`          | `timestamptz` | YES      | Soft-delete timestamp. Used by scheduling/availability helpers.                                                                                                                |
+| `merged_into_staff_id` | `uuid`        | YES      | Pointer if duplicate record was merged. Used by scheduling/availability helpers.                                                                                               |
 | `created_at`           | `timestamptz` | NO       | Creation timestamp.                                                                                                                                                            |
 | `updated_at`           | `timestamptz` | NO       | Last update timestamp.                                                                                                                                                         |
 
-### B. Authoritative Staff Status Derivation
+### B. Hosted Staff-Management Roster Authority vs Operational Staff
+
+In the hosted CRM Staff workspace (`src/app/(dashboard)/crm/staff/page.tsx` and `src/lib/queries/staff.ts`), the Staff-management reads are:
+
+1. **Active Staff**: `getStaffByBranchWithBranches(branchId)`
+   ```ts
+   supabase
+     .from('staff')
+     .select('*, branches ( id, name )')
+     .eq('branch_id', branchId)
+     .eq('is_active', true)
+     .order('tier')
+     .order('full_name');
+   ```
+2. **Pending Staff**: `getPendingStaffByBranch(branchId)`
+   ```ts
+   supabase
+     .from('staff')
+     .select('*, branches ( id, name )')
+     .eq('branch_id', branchId)
+     .eq('is_active', false)
+     .order('created_at', { ascending: false });
+   ```
+
+Neither of these authoritative Staff-management queries filters on `archived_at` or `merged_into_staff_id`.
+
+> [!IMPORTANT]
+> The current hosted CRM Staff-management reads divide branch Staff by `is_active`. Separate operational/schedulability helpers (`isOperationalStaff()` in `src/lib/staff/operational-staff.ts`) use stricter archive/merge/metadata exclusions for appointment scheduling contexts. Stage 04 Desktop mirrors the current Staff-management contract rather than introducing a Desktop-only roster rule.
+
+### C. Authoritative Staff Status Derivation
 
 Hosted source `src/components/features/staff/staff-management-utils.ts` defines the canonical runtime status derivation:
 
@@ -84,16 +114,6 @@ The runtime derivation produces exactly three possible statuses:
 
 > [!NOTE]
 > `"inactive"` exists in the hosted `StaffStatus` TypeScript type and label dictionary (`"Inactive"`), but the current authoritative `getStaffStatus()` function does NOT emit it. Stage 04 must therefore NOT expose an `Inactive` filter or badge.
-
-### C. Roster Membership Rule
-
-The authoritative branch staff roster includes rows matching the following criteria:
-
-- **Assigned Branch**: `branch_id = authContext.branchId` (scoped by RLS and client query).
-- **Non-Archived**: `archived_at IS NULL` (soft-deleted records are excluded).
-- **Non-Merged**: `merged_into_staff_id IS NULL` (merged duplicate pointers are excluded).
-
-All roster members evaluate to one of the three runtime derived statuses: `active`, `awaiting`, or `invited`.
 
 ### D. Secondary Data Model (`public.staff_services`)
 
@@ -235,8 +255,8 @@ Stage 04 Staff will strictly reuse existing accepted desktop infrastructure from
 
 1. **Service Layer (`src/lib/staff-service.ts`)**:
    - Reuses accepted `getSupabaseClient()` from `src/lib/supabase.ts`.
-   - `fetchBranchStaff(branchId: string)`: Queries `public.staff` with joined `branches` and `staff_services(service_id, services(id, name))` where `branch_id = branchId`, `archived_at IS NULL`, and `merged_into_staff_id IS NULL`, ordered by `tier, full_name`.
-   - Includes backward-compatibility fallback if `staff_type`/`is_head` columns are missing in legacy DB schema.
+   - `fetchBranchStaff(branchId: string)`: Queries `public.staff` with joined `branches` and `staff_services(service_id, services(id, name))` where `branch_id = branchId`, ordered by `tier, full_name`.
+   - **Legacy Schema Handling**: Attempts the modern authoritative schema first (`id, branch_id, auth_user_id, full_name, nickname, phone, avatar_url, tier, system_role, staff_type, is_head, is_active, is_cross_branch, created_at, updated_at, branches(id, name)`). If the database returns a missing-column error, it falls back to the legacy column set with explicit compatibility mapping, tested to ensure job functions are not misrepresented.
    - Contract validator type guards (`isStaffMember`, `isStaffServiceCapability`) ensuring malformed data cannot masquerade as valid roster data.
    - Comprehensive error mapping distinguishing session expiry, RLS permission errors, PostgREST errors, and network disconnects.
 2. **Components (`src/components/staff/`)**:
@@ -269,3 +289,9 @@ Stage 04 Staff will strictly reuse existing accepted desktop infrastructure from
 - `BASE_SHA`: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
 - Rollback command: `git checkout main && git branch -D stage/04-staff`
 - Implementation files modified in this checkpoint: **NONE** (Documentation and audit corrections only).
+
+---
+
+## 12. Hosted Contract Follow-Up
+
+- **Archive / Merge Handling in Staff Management**: In the current hosted codebase, `archived_at` and `merged_into_staff_id` filters are applied in scheduling/availability queries (`isOperationalStaff()`) rather than general CRM Staff-management views (`getStaffByBranchWithBranches`, `getPendingStaffByBranch`). If general Staff management is later updated on hosted to filter archived/merged rows, Stage 04 Desktop will adapt to that updated hosted contract.
