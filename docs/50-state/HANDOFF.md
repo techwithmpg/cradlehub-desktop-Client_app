@@ -2,11 +2,13 @@
 
 Stage 00: **ACCEPTED / MERGED / CLOSED** on `main`.
 Stage 01: **ACCEPTED / MERGED / CLOSED** on `main`.
-Stage 02 (Bookings): **IMPLEMENTED ON BRANCH `stage/02-bookings` — STOPPED FOR INDEPENDENT REVIEW**.
+Stage 02 (Bookings): **OWNER RUNTIME VERIFIED / MERGE AUTHORIZED — PUSHED FOR FINAL INDEPENDENT MERGE REVIEW**. Desktop `main` is **NOT YET MERGED** in this pass. Stage 03 remains **NOT AUTHORIZED**.
 
 - **Base Baseline (BASE_SHA)**: `c9720805975004dbe11367f1ad9999270ad4ae7c` on `main`.
 - **Active Branch**: `stage/02-bookings`.
-- **Hosted Reference SHA**: `feda4600f37e93084fdb672bd0c2612e9872bb43`.
+- **Implementation HEAD**: `9268a95d1ada8b2d963cceb56f0b0b5a1d69e83f`.
+- **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **Hosted Endpoint on Main**: `POST /api/desktop/v1/bookings` (Vercel/GitHub deployment check succeeded).
 
 Summary of Stage 02 deliverable:
 
@@ -18,22 +20,26 @@ Summary of Stage 02 deliverable:
    - Pagination: configurable rows per page (10, 25, 50), page selector, total record counts.
 3. **Card C (Booking Inspector Card)**:
    - Selected booking sticky panel with status header, customer identity, and quick actions (Reschedule, Cancel, Add Payment [Dormant]).
-   - 5 inspector tabs:
-     - Overview: Session details, therapist, channel, amounts, quick actions, customer snapshot card.
-     - Customer: Complete profile details, contact information, loyalty classification, visit history.
-     - Timeline: Lifecycle tracking (created at, updated at, current status).
-     - Payments: Read-only financial metadata (payment status, method, amount, reference) with explicit dormant scope notice.
-     - Notes: Customer profile notes and special health considerations.
-4. **Canonical Shell Preservation**: Zero alteration to Stage 01 sidebar, top bar, avatar menu, or session indicators.
+   - 5 inspector tabs (Overview, Customer, Timeline, Payments, Notes).
+4. **Authoritative Booking Creation Boundary**:
+   - Official Tauri v2 `@tauri-apps/plugin-http` / `tauri-plugin-http` transport.
+   - Single exact capability allow rule: `https://www.cradlewellnessliving.com/api/desktop/v1/*` (zero wildcards).
+   - Strict origin validation matching `https://www.cradlewellnessliving.com`.
+   - Per-request Supabase session Bearer token authentication.
+   - Authoritative domain error code parsing and non-empty `bookingId` validation.
+   - Modal payment defaults (`paymentReceived: false`, `paymentMethod: ''`) and Home Service tab disabled with explanatory tooltip.
 5. **Quality Gate Verification**:
    - `pnpm format:check` — PASSED
    - `pnpm lint` — PASSED (`--max-warnings 0`)
    - `pnpm typecheck` — PASSED
-   - `pnpm test` — PASSED (71/71 tests passing)
+   - `pnpm test` — PASSED (157/157 tests passing across 8 test suites)
    - `pnpm build` — PASSED (Vite production bundle built cleanly)
    - `cargo fmt --check; cargo check --locked; cargo test --locked; cargo clippy --locked --all-targets -- -D warnings` — PASSED (100% Rust backend clean)
    - `git diff --check` — PASSED
+6. **Owner Runtime Evidence**:
+   - Visual inspection and booking workflow verified by owner in real native Windows Desktop application runtime.
+   - Owner confirmation and merge authorization received.
 
 Consult `docs/50-state/evidence/stage-02-bookings.md` for full implementation details and evidence.
 
-Work is stopped for independent review. Do NOT merge into `main` or start Stage 03 until explicit authorization.
+Work is stopped for final independent merge review. Do NOT merge into Desktop `main` or start Stage 03 in this step.

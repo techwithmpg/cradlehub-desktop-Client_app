@@ -3,12 +3,17 @@
 Stage 00 is ACCEPTED / MERGED / CLOSED at `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
 Stage 01 is ACCEPTED / MERGED / CLOSED at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 
-Stage 02 — Bookings: **NOT ACCEPTED / NOT MERGED / HARDENED HOSTED INTEGRATION IMPLEMENTED — AWAITING INDEPENDENT REVIEW**. Stage 03 is **NOT AUTHORIZED**.
+Stage 02 — Bookings: **OWNER RUNTIME VERIFIED / MERGE AUTHORIZED — AWAITING FINAL INDEPENDENT REVIEW**. Desktop `main` is **NOT YET MERGED** in this evidence pass. Stage 03 remains **NOT AUTHORIZED**.
 
 - Existing branch: `stage/02-bookings`.
 - BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-- Desktop integration HEAD before correction: `3e441030ccb2152d6f60f1cff3f2cf722fbbc40e`.
-- Reviewed hosted booking API boundary HEAD: `f37f84feeb5a33d132c500a3369beab5904c695a` (`stage/02-desktop-booking-api`).
+- Implementation HEAD: `9268a95d1ada8b2d963cceb56f0b0b5a1d69e83f`.
+- **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **Hosted Booking Boundary Status**: Merged to hosted `main` at `f8455078d212b55595c277c577a80d89995c7585`; production Vercel/GitHub deployment check succeeded.
+- **OWNER-PROVIDED MANUAL RUNTIME EVIDENCE**:
+  - Visual inspection completed in real native Windows Desktop application.
+  - Stage 02 Bookings runtime and authoritative booking-creation flow verified by owner.
+  - Owner confirmed workflow acceptable and explicitly authorized proceeding to Desktop merge step following independent review.
 - **Exact Verified Hosted API Origin**: `https://www.cradlewellnessliving.com`.
 - **Source of Authority**: Hosted repository `.env.example` (`APP_URL=https://www.cradlewellnessliving.com`, `NEXT_PUBLIC_APP_URL=https://www.cradlewellnessliving.com`), `src/lib/attendance/qr-url.ts`, `tests/lib/attendance/qr-url.test.ts`, `tests/lib/http/request-origin.test.ts`, and `docs/03-CURRENT-SYSTEM-TRUTH.md` live verification record.
 - **Native Tauri HTTP Transport**: Uses `@tauri-apps/plugin-http` / `tauri-plugin-http` v2. Registered in Rust `src-tauri/src/lib.rs`.
@@ -19,6 +24,6 @@ Stage 02 — Bookings: **NOT ACCEPTED / NOT MERGED / HARDENED HOSTED INTEGRATION
 - **Payment Defaults**: Defaults to `paymentReceived = false` and `paymentMethod = ''`. Payment method is only sent after explicit operator confirmation and selection.
 - **Home Service Disabled**: Home Service tab is disabled in Desktop Stage 02 UI with accessible tooltip/title explaining precise-location support is required. `createBranchBooking` fails closed with `HOME_SERVICE_LOCATION_REQUIRED` before network call. No fake geocoordinates or place IDs.
 - **Success Warning UX**: Server warning survives modal close and is displayed in the parent `BookingsView` status banner upon authoritative list refresh.
-- **No Production Booking Created**: Verification conducted via mock/unit/typecheck/build/cargo suites without creating live production data.
+- **No Schema / Migration Changes**: Zero database migrations, schema alterations, or RLS changes in Desktop Stage 02.
 
-See [Stage 02 evidence](evidence/stage-02-bookings.md) for detailed evidence and test results. Stop after the authorized same-branch integration push; do not merge or start Stage 03.
+See [Stage 02 evidence](evidence/stage-02-bookings.md) for detailed evidence and test results. Stop after this authorized evidence push; Desktop is not merged and Stage 03 is not started.

@@ -1,17 +1,33 @@
 # Stage 02 — Bookings Hosted API Integration Evidence
 
-**NOT ACCEPTED / NOT MERGED / HARDENED HOSTED INTEGRATION IMPLEMENTED — AWAITING INDEPENDENT REVIEW.**
-Stage 03 remains **NOT AUTHORIZED**.
+## Status & Governance
 
-## Repository identity and preflight
+- **Target**: CradleHub Desktop
+- **Stage**: Stage 02 — Bookings
+- **Branch**: `stage/02-bookings`
+- **Accepted Main BASE_SHA**: `c9720805975004dbe11367f1ad9999270ad4ae7c`
+- **Reviewed Implementation HEAD_SHA**: `9268a95d1ada8b2d963cceb56f0b0b5a1d69e83f`
+- **Status**: Implementation complete on `stage/02-bookings`. Owner runtime verification confirmed. Desktop `main` is NOT YET MERGED in this evidence-only pass. Final independent merge review is the immediate gate. Stage 03 remains **NOT AUTHORIZED**.
 
-- Desktop: `https://github.com/techwithmpg/cradlehub-desktop-Client_app.git`, local `E:\Cradle-Destop-Client`.
-- Authorized branch: `stage/02-bookings`.
-- Accepted main BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-- Desktop integration HEAD before correction: `3e441030ccb2152d6f60f1cff3f2cf722fbbc40e`.
-- Hosted reference repository: `https://github.com/techwithmpg/Cradlehub.git` (READ-ONLY in this pass).
-- Reviewed hosted boundary HEAD: `f37f84feeb5a33d132c500a3369beab5904c695a` (`stage/02-desktop-booking-api`).
-- Endpoint implemented on reviewed hosted branch: `POST /api/desktop/v1/bookings`.
+## Canonical Hosted Repository Truth
+
+- **Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
+- **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585`
+- **Hosted Endpoint on Main**: `POST /api/desktop/v1/bookings`
+- **Exact Verified Origin**: `https://www.cradlewellnessliving.com`
+- **REPOSITORY-RECORDED PRODUCTION EVIDENCE**:
+  - The authoritative hosted booking boundary (`stage/02-desktop-booking-api`) has been fast-forward merged into hosted `main` at commit `f8455078d212b55595c277c577a80d89995c7585`.
+  - The production Vercel/GitHub deployment check succeeded for this merged hosted main.
+  - _Note_: Repository and deployment records document hosted platform availability; they do not replace owner runtime verification.
+
+## OWNER-PROVIDED MANUAL RUNTIME EVIDENCE
+
+- **Runtime Environment**: Real native Windows Desktop application runtime.
+- **Visual Inspection**: Stage 02 Bookings interface, forms, and workflow were visually inspected in the actual native Windows Desktop application.
+- **Workflow Verification**: The Stage 02 Bookings runtime and authoritative booking-creation flow were verified by the owner.
+- **Owner Evaluation**: The owner reports the authoritative booking workflow was verified and considers Stage 02 acceptable.
+- **Merge Authorization**: The owner has explicitly authorized proceeding to the Stage 02 merge step following final independent review.
+- **Limitation**: Exact booking ID was not supplied for the evidence record.
 
 ## Exact Hosted API Origin & Proof of Authority
 
@@ -93,32 +109,58 @@ Stage 03 remains **NOT AUTHORIZED**.
 - Customer lookup remains disabled (`CUSTOMER_LOOKUP_UNAVAILABLE`) with truthful message: `"Customer lookup is unavailable until a branch-scoped hosted read boundary is available."`.
 - Manual customer entry fields remain active for booking creation.
 
-## Preserved Work & Exact Changed Files
+## Preserved Work & Complete Changed Files in Stage 02
 
 - `src-tauri/capabilities/desktop-api.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock`
+- `src-tauri/src/lib.rs`
+- `src-tauri/tauri.conf.json`
+- `src/components/bookings/NewBookingModal.tsx`
 - `src/lib/bookings-service.ts`
-- `tests/boundary.test.ts`
+- `src/views/BookingsView.tsx`
 - `tests/bookings-service.test.ts`
+- `tests/boundary.test.ts`
+- `tests/components/bookings/NewBookingModal.test.tsx`
 - `docs/50-state/CURRENT_STATE.md`
 - `docs/50-state/CURRENT_TASK.md`
+- `docs/50-state/HANDOFF.md`
+- `docs/50-state/LAST_VERIFIED_GATE.md`
 - `docs/50-state/evidence/stage-02-bookings.md`
 
-## Exact Local Validation Results
+## Previously Executed Validation Results
 
 - `pnpm format:check`: 0 formatting issues.
-- `pnpm lint`: 0 errors, 0 warnings.
-- `pnpm typecheck`: 0 errors.
+- `pnpm lint`: 0 errors, 0 warnings (`--max-warnings 0`).
+- `pnpm typecheck`: 0 errors (`tsc --noEmit`).
 - `pnpm test`: 8 test files passed, 157 tests passed.
-- `pnpm build`: Successful production bundle.
+- `pnpm build`: Successful production bundle (Vite).
 - `cargo fmt --check`: Clean formatting in `src-tauri`.
 - `cargo check --locked`: Clean check in `src-tauri`.
 - `cargo test --locked`: 0 errors in `src-tauri`.
 - `cargo clippy --locked --all-targets -- -D warnings`: 0 warnings/errors in `src-tauri`.
 - `git diff --check`: 0 whitespace errors.
 
+## Security & Data Impact
+
+- Bearer token retrieved at request time from active Supabase session; no token persistence in storage or SQLite.
+- Zero service-role keys or privileged credentials in Desktop renderer or bundle.
+- Hosted server remains the sole authorization, validation, scheduling, and database authority.
+- Native HTTP transport scoped strictly to single verified host origin `https://www.cradlewellnessliving.com`.
+- No optimistic or offline booking mutations; network or session errors fail closed.
+- Home Service remains disabled until precise-location support is implemented.
+- Customer search remains disabled pending safe hosted branch-scoped read boundary.
+- Zero database migrations, schema alterations, or RLS changes in Desktop Stage 02.
+
 ## Limitations & Remaining Gate
 
-- Hosted branch `stage/02-desktop-booking-api` remains unmerged on hosted repository.
-- Live hosted integration is blocked until the reviewed hosted boundary is merged and deployed.
-- Stage 02 remains unaccepted and unmerged.
-- Stage 03 is NOT started.
+- Exact booking ID was not supplied for the evidence record.
+- Repository/deployment records document hosted availability but do not replace owner runtime verification.
+- Desktop Stage 02 remains unmerged on Desktop repository pending final independent review.
+- Stage 03 is **NOT STARTED / NOT AUTHORIZED**.
+
+## Rollback Plan
+
+If required, Desktop `main` can be restored to the accepted Stage 01 baseline:
+`c9720805975004dbe11367f1ad9999270ad4ae7c`.
+_(No rollback is requested or performed)._

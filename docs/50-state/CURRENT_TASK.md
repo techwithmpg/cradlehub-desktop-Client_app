@@ -1,23 +1,21 @@
 # Current Task
 
-Stage 02 — Bookings Hosted API Integration Correction: exact verified hosted API origin (`https://www.cradlewellnessliving.com`), single exact native Tauri HTTP capability rule (no host wildcards), strict origin validation, and comprehensive test assertions.
+Stage 02 — Bookings: Owner Runtime Verification Evidence and Closeout Preparation.
 
-**NOT ACCEPTED / NOT MERGED / HARDENED HOSTED INTEGRATION IMPLEMENTED — AWAITING INDEPENDENT REVIEW.** Stage 03 remains **NOT AUTHORIZED**.
+**OWNER RUNTIME VERIFIED / MERGE AUTHORIZED — AWAITING FINAL INDEPENDENT REVIEW.** Desktop `main` is **NOT YET MERGED** in this evidence pass. Stage 03 remains **NOT AUTHORIZED**.
 
 - Branch: `stage/02-bookings`.
 - BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-- Desktop integration HEAD before correction: `3e441030ccb2152d6f60f1cff3f2cf722fbbc40e`.
-- Reviewed hosted boundary HEAD: `f37f84feeb5a33d132c500a3369beab5904c695a` (`stage/02-desktop-booking-api`).
+- Implementation HEAD: `9268a95d1ada8b2d963cceb56f0b0b5a1d69e83f`.
+- Canonical Hosted Main: `f8455078d212b55595c277c577a80d89995c7585`.
+- Hosted Endpoint on Main: `POST /api/desktop/v1/bookings` (Vercel/GitHub deployment check succeeded).
 - Exact Verified Origin: `https://www.cradlewellnessliving.com`.
 
-Correction details:
+Closeout status details:
 
-1. **Native HTTP Transport**: `@tauri-apps/plugin-http` and `tauri-plugin-http` (Tauri v2) registered in `src-tauri/src/lib.rs`.
-2. **Exact Capability Scope**: `src-tauri/capabilities/desktop-api.json` permits only `https://www.cradlewellnessliving.com/api/desktop/v1/*`. Exactly one rule. Zero host wildcards. No wildcard domain guesses.
-3. **Fail-Closed Base URL & Strict Origin Check**: `validateHostedApiBaseUrl()` validates HTTPS, rejects embedded credentials, trims trailing slash, and enforces `origin === 'https://www.cradlewellnessliving.com'`. Returns `API_CONFIG_REQUIRED` for unset, invalid, or mismatched hosts without network requests.
-4. **Hosted Error Contract**: Parses `body.message` (not `body.error`). Preserves domain error codes (`CRM_BRANCH_FORBIDDEN`, `SLOT_UNAVAILABLE`, `EXACT_TIME_UNAVAILABLE`, `NO_SCHEDULE_AT_START`, `UNAUTHORIZED`, `BOOKING_INSERT_FAILED`).
-5. **Success Contract**: Requires non-empty string `bookingId`. Missing/blank `bookingId` fails closed with `SERVER_ERROR`.
-6. **Payment Default**: Defaults `paymentReceived: false` and `paymentMethod: ''`. `paymentMethod` is omitted when paymentReceived is false. Selecting payment requires explicit method choice.
-7. **Home Service Disabled**: Tab disabled in Desktop Stage 02 UI with accessible explanation. `createBranchBooking` fails closed before network with `HOME_SERVICE_LOCATION_REQUIRED`. No fake coordinates or place IDs.
-8. **Success Warning UX**: Server warning survives modal unmount and displays in the parent workspace banner upon authoritative refresh.
-9. **Delivery**: Local suite verified (157/157 vitest, prettier check, eslint 0 warnings, tsc noEmit, cargo check/test/clippy). Commit and push on `stage/02-bookings`, then stop for independent review.
+1. **Owner Runtime Evidence**: Owner verified the Stage 02 Bookings workflow in the actual native Windows Desktop application runtime, visually inspected the interface, confirmed acceptable behavior, and explicitly authorized proceeding to the Desktop merge step.
+2. **Hosted Boundary Alignment**: Hosted authoritative booking endpoint is merged to canonical hosted `main` (`f8455078d212b55595c277c577a80d89995c7585`) with successful production deployment.
+3. **Desktop Native HTTP & Security Integrity**: Official `@tauri-apps/plugin-http` / `tauri-plugin-http` transport with single exact capability rule `https://www.cradlewellnessliving.com/api/desktop/v1/*` (zero wildcards), fail-closed origin validation, Bearer token passed per-request from Supabase session, zero service-role keys in renderer, and zero offline optimistic writes.
+4. **Error & Success Contracts**: Authoritative `body.message` parsing, domain error code preservation, strict `bookingId` validation, modal payment defaults, and disabled Home Service mode.
+5. **Quality & Evidence Gates**: Full local suite verified (vitest 157/157 tests, prettier, eslint 0 warnings, tsc noEmit, cargo check/test/clippy/fmt). Evidence recorded in `docs/50-state/evidence/stage-02-bookings.md`.
+6. **Next Gate**: Push evidence commit to `stage/02-bookings` and stop for final independent merge review. Do NOT merge Desktop main or start Stage 03 in this step.
