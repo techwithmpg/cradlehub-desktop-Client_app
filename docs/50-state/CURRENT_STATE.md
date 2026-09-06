@@ -5,12 +5,12 @@ Stage 01 is **ACCEPTED / MERGED / CLOSED** at `c9720805975004dbe11367f1ad9999270
 Stage 02 is **ACCEPTED / MERGED / CLOSED** at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03 is **ACCEPTED / MERGED / CLOSED** at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
 
-Stage 04 (Staff): **AUDIT EVIDENCE PRECISION FIX COMPLETE — PUSHED AND STOPPED FOR REVIEW**. Functional UI implementation has NOT yet started.
+Stage 04 (Staff): **AUDIT CHECK ACCOUNTING FIX COMPLETE — PUSHED AND STOPPED FOR REVIEW**. Functional UI implementation has NOT yet started.
 
 - **Active Branch**: `stage/04-staff`.
 - **Accepted Main BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`.
 - **Initial Audit Commit (INITIAL_AUDIT_SHA)**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`.
-- **Correction Base (CORRECTION_BASE_SHA)**: `a97746772e49ffa443f38a740786afd73110f10a`.
+- **Correction Base (CORRECTION_BASE_SHA)**: `2bcab03bbeb9bd391f0ba88e5d1f38d1ec1c9305`.
 - **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
 - **Audit Findings & Evidence Precision**:
   - Full discovery of `public.staff` and `public.staff_services` data models and RLS policies.
@@ -22,6 +22,8 @@ Stage 04 (Staff): **AUDIT EVIDENCE PRECISION FIX COMPLETE — PUSHED AND STOPPED
   - Legacy schema compatibility fallback is a future implementation/testing requirement, not an already-tested Desktop behavior.
   - Single branch desktop authority in `AuthContext`; strict read-only initial vertical slice.
   - Explicit scope boundaries: Attendance, Schedule, Payroll, Finance, and Web Onboarding rejected from Stage 04.
-- **Verification Baseline**: 192/192 vitest tests passing across 11 test files, ESLint 0 errors / 0 warnings, TypeScript clean, Vite production build clean.
+- **Verification Baseline**:
+  - Current correction pre-commit checks: `pnpm format:check`, `git diff --check`.
+  - Previously recorded Stage 04 checks (predecessor checkpoint): 192/192 vitest tests passing across 11 test files, ESLint 0 errors / 0 warnings, TypeScript clean, Vite production build clean.
 
 See [Stage 04 audit evidence](evidence/stage-04-staff.md) for full discovery details and contract matrices.

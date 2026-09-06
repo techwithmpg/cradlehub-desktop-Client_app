@@ -3,14 +3,14 @@
 ## Status & Governance
 
 - **Target**: CradleHub Desktop
-- **Stage**: Stage 04 — Staff (Audit Evidence Precision Fix)
+- **Stage**: Stage 04 — Staff (Audit Check Accounting Fix)
 - **Branch**: `stage/04-staff`
 - **Accepted Main BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
 - **INITIAL_AUDIT_SHA**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`
-- **CORRECTION_BASE_SHA**: `a97746772e49ffa443f38a740786afd73110f10a`
+- **CORRECTION_BASE_SHA**: `2bcab03bbeb9bd391f0ba88e5d1f38d1ec1c9305`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
-- **Current Status**: **STAGE 04 AUDIT EVIDENCE PRECISION FIX READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
+- **Current Status**: **STAGE 04 AUDIT CHECK ACCOUNTING FIX READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
 - **Stage 04 Functional UI Implementation**: **NOT YET STARTED / AWAITING CHECKPOINT REVIEW**.
 - **Stage Authorization**: Only Stage 04 is authorized. Other modules remain separate or dormant.
 
@@ -288,16 +288,21 @@ Stage 04 Staff will strictly reuse existing accepted desktop infrastructure from
 
 ### A. Current Correction Pre-Commit Validation
 
-The following checks were executed against the final documentation working tree immediately before commit. No source files changed in the subsequent commit operation:
+The following checks were executed against the documentation working tree immediately before commit:
 
 - `pnpm format:check` — **PASSED** (all files match Prettier style)
+- `git diff --check` — **PASSED** (0 whitespace / conflict errors)
+
+### B. Previously Recorded JavaScript Validation within Stage 04
+
+The following JavaScript/TypeScript validation checks were executed on the preceding Stage 04 documentation checkpoint (`a97746772e49ffa443f38a740786afd73110f10a`) and were NOT rerun for this final check-accounting correction:
+
 - `pnpm lint` — **PASSED** (0 errors, 0 warnings across all files)
 - `pnpm typecheck` — **PASSED** (`tsc --noEmit` clean)
 - `pnpm test` — **PASSED** (11 test files, 192/192 vitest tests passed)
 - `pnpm build` — **PASSED** (Vite production bundle built cleanly)
-- `git diff --check` — **PASSED** (0 whitespace / conflict errors)
 
-### B. Previously Recorded Stage 04 Checks (Historical within Stage 04)
+### C. Previously Recorded Cargo Validation within Stage 04 (Historical)
 
 - `cargo fmt --check` — **PASSED**
 - `cargo clippy -- -D warnings` — **PASSED**
@@ -323,7 +328,7 @@ _(Executed during initial audit checkpoint `2ad6b23357bcf49d1224a34e3cf4219c2122
 - **Rollback**:
   - `BASE_SHA`: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
   - Rollback command: `git checkout main && git branch -D stage/04-staff`
-  - Implementation files modified in this checkpoint: **NONE** (Documentation and evidence precision corrections only).
+  - Implementation files modified in this checkpoint: **NONE** (Documentation and check accounting corrections only).
 
 ---
 
