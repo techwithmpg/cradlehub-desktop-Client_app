@@ -640,7 +640,10 @@ export async function searchBranchCustomers(
   throw new CustomerLookupUnavailableError();
 }
 
-export function validateHostedApiBaseUrl(rawUrl?: string):
+export const EXPECTED_HOSTED_API_ORIGIN =
+  'https://www.cradlewellnessliving.com';
+
+export function validateHostedApiBaseUrl(rawUrl: string | undefined | null):
   | {
       valid: true;
       url: string;
@@ -678,6 +681,13 @@ export function validateHostedApiBaseUrl(rawUrl?: string):
     return {
       valid: false,
       reason: 'Booking service URL must not contain embedded credentials.',
+    };
+  }
+  if (parsed.origin !== EXPECTED_HOSTED_API_ORIGIN) {
+    return {
+      valid: false,
+      reason:
+        'Booking service configuration is invalid. Host origin does not match the authorized CradleHub API origin.',
     };
   }
   const normalized = `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, '');

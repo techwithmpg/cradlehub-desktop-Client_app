@@ -8,6 +8,7 @@ import {
   computeBookingEndTime,
   getHostedApiBaseUrl,
   validateHostedApiBaseUrl,
+  EXPECTED_HOSTED_API_ORIGIN,
   createBranchBooking,
 } from '../src/lib/bookings-service';
 import type { Booking } from '../src/types/bookings';
@@ -457,40 +458,86 @@ describe('Bookings Service', () => {
   });
 
   describe('getHostedApiBaseUrl & validateHostedApiBaseUrl', () => {
-    it('validates HTTPS URLs, normalizes trailing slashes, and rejects invalid configs', () => {
-      const valid = validateHostedApiBaseUrl('https://api.cradlehub.com/v1/');
+    it('validates exact HTTPS origin, normalizes trailing slashes, and rejects invalid configs', () => {
+      // A. Correct exact origin
+      const valid = validateHostedApiBaseUrl(
+        'https://www.cradlewellnessliving.com',
+      );
       expect(valid.valid).toBe(true);
       if (valid.valid) {
-        expect(valid.url).toBe('https://api.cradlehub.com/v1');
+        expect(valid.url).toBe('https://www.cradlewellnessliving.com');
       }
 
+      // B. Correct exact origin with trailing slash
+      const validTrailing = validateHostedApiBaseUrl(
+        'https://www.cradlewellnessliving.com/',
+      );
+      expect(validTrailing.valid).toBe(true);
+      if (validTrailing.valid) {
+        expect(validTrailing.url).toBe('https://www.cradlewellnessliving.com');
+      }
+
+      // C. Missing URL
       const empty = validateHostedApiBaseUrl('');
       expect(empty.valid).toBe(false);
       if (!empty.valid) {
         expect(empty.reason).toContain('not configured');
       }
 
+      // D. HTTP (non-HTTPS)
       const nonHttps = validateHostedApiBaseUrl(
-        'http://insecure.cradlehub.com',
+        'http://www.cradlewellnessliving.com',
       );
       expect(nonHttps.valid).toBe(false);
       if (!nonHttps.valid) {
         expect(nonHttps.reason).toContain('HTTPS');
       }
 
+      // E. Mismatched domain
+      const evil = validateHostedApiBaseUrl('https://evil.example');
+      expect(evil.valid).toBe(false);
+      if (!evil.valid) {
+        expect(evil.reason).toContain('Host origin does not match');
+      }
+
+      // F. Appended domain attack
+      const evilSuffix = validateHostedApiBaseUrl(
+        'https://www.cradlewellnessliving.com.evil.example',
+      );
+      expect(evilSuffix.valid).toBe(false);
+      if (!evilSuffix.valid) {
+        expect(evilSuffix.reason).toContain('Host origin does not match');
+      }
+
+      // G. Unauthorized subdomain
+      const wrongSub = validateHostedApiBaseUrl(
+        'https://sub.cradlewellnessliving.com',
+      );
+      expect(wrongSub.valid).toBe(false);
+      if (!wrongSub.valid) {
+        expect(wrongSub.reason).toContain('Host origin does not match');
+      }
+
+      // H. Embedded credentials
       const withCreds = validateHostedApiBaseUrl(
-        'https://user:pass@api.cradlehub.com',
+        'https://user:pass@www.cradlewellnessliving.com',
       );
       expect(withCreds.valid).toBe(false);
       if (!withCreds.valid) {
         expect(withCreds.reason).toContain('credentials');
       }
 
+      // Environment variable reads
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {
         import.meta.env.VITE_CRADLEHUB_API_URL =
-          'https://api.cradlehub.com/custom/';
-        expect(getHostedApiBaseUrl()).toBe('https://api.cradlehub.com/custom');
+          'https://www.cradlewellnessliving.com/';
+        expect(getHostedApiBaseUrl()).toBe(
+          'https://www.cradlewellnessliving.com',
+        );
+
+        import.meta.env.VITE_CRADLEHUB_API_URL = 'https://unauthorized.org';
+        expect(getHostedApiBaseUrl()).toBeNull();
 
         import.meta.env.VITE_CRADLEHUB_API_URL = '';
         expect(getHostedApiBaseUrl()).toBeNull();
@@ -501,43 +548,61 @@ describe('Bookings Service', () => {
   });
 
   describe('createBranchBooking', () => {
-    const validConfigUrl = 'https://api.cradlehub.app';
+    const validConfigUrl = EXPECTED_HOSTED_API_ORIGIN;
 
-    it('fails closed with API_CONFIG_REQUIRED and makes no fetch call when API URL is missing or invalid', async () => {
-      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
-      try {
-        import.meta.env.VITE_CRADLEHUB_API_URL = '';
-        const customFetch = vi.fn();
-        const client = {
-          auth: {
-            getSession: vi.fn().mockResolvedValue({
-              data: { session: { access_token: 'valid-token' } },
-            }),
-          },
-        } as unknown as SupabaseClient;
+    it.each([
+      { label: 'missing URL', envVal: '' },
+      { label: 'non-HTTPS URL', envVal: 'http://www.cradlewellnessliving.com' },
+      { label: 'unauthorized domain', envVal: 'https://attacker.example' },
+      {
+        label: 'subdomain attack',
+        envVal: 'https://www.cradlewellnessliving.com.attacker.example',
+      },
+      {
+        label: 'unauthorized subdomain',
+        envVal: 'https://sub.cradlewellnessliving.com',
+      },
+      {
+        label: 'embedded credentials',
+        envVal: 'https://user:pass@www.cradlewellnessliving.com',
+      },
+    ])(
+      'fails closed with API_CONFIG_REQUIRED on $label and makes no fetch call',
+      async ({ envVal }) => {
+        const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+        try {
+          import.meta.env.VITE_CRADLEHUB_API_URL = envVal;
+          const customFetch = vi.fn();
+          const client = {
+            auth: {
+              getSession: vi.fn().mockResolvedValue({
+                data: { session: { access_token: 'valid-token' } },
+              }),
+            },
+          } as unknown as SupabaseClient;
 
-        const res = await createBranchBooking(
-          {
-            branchId: 'branch-1',
-            fullName: 'Maria Santos',
-            phone: '09171234567',
-            serviceIds: ['svc-1'],
-            date: '2026-09-05',
-            startTime: '14:00',
-            mode: 'walkin',
-          },
-          client,
-          customFetch,
-        );
+          const res = await createBranchBooking(
+            {
+              branchId: 'branch-1',
+              fullName: 'Maria Santos',
+              phone: '09171234567',
+              serviceIds: ['svc-1'],
+              date: '2026-09-05',
+              startTime: '14:00',
+              mode: 'walkin',
+            },
+            client,
+            customFetch,
+          );
 
-        expect(res.ok).toBe(false);
-        expect(res.code).toBe('API_CONFIG_REQUIRED');
-        expect(res.error).toContain('Booking service is not configured');
-        expect(customFetch).not.toHaveBeenCalled();
-      } finally {
-        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
-      }
-    });
+          expect(res.ok).toBe(false);
+          expect(res.code).toBe('API_CONFIG_REQUIRED');
+          expect(customFetch).not.toHaveBeenCalled();
+        } finally {
+          import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+        }
+      },
+    );
 
     it('fails closed with HOME_SERVICE_LOCATION_REQUIRED and makes no fetch call when mode is home_service', async () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
@@ -614,7 +679,8 @@ describe('Bookings Service', () => {
     it('sends POST request with Authorization Bearer header, omits paymentMethod when paymentReceived is false', async () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {
-        import.meta.env.VITE_CRADLEHUB_API_URL = 'https://api.cradlehub.app/';
+        import.meta.env.VITE_CRADLEHUB_API_URL =
+          'https://www.cradlewellnessliving.com/';
         const customFetch = vi.fn().mockResolvedValue({
           ok: true,
           status: 201,
@@ -657,7 +723,9 @@ describe('Bookings Service', () => {
 
         expect(customFetch).toHaveBeenCalledOnce();
         const [url, init] = customFetch.mock.calls[0];
-        expect(url).toBe('https://api.cradlehub.app/api/desktop/v1/bookings');
+        expect(url).toBe(
+          'https://www.cradlewellnessliving.com/api/desktop/v1/bookings',
+        );
         expect(init?.method).toBe('POST');
         expect((init?.headers as Record<string, string>)['Content-Type']).toBe(
           'application/json',
@@ -700,7 +768,8 @@ describe('Bookings Service', () => {
     it('sends paymentMethod when paymentReceived is true', async () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {
-        import.meta.env.VITE_CRADLEHUB_API_URL = 'https://api.cradlehub.app';
+        import.meta.env.VITE_CRADLEHUB_API_URL =
+          'https://www.cradlewellnessliving.com';
         const customFetch = vi.fn().mockResolvedValue({
           ok: true,
           status: 201,

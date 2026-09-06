@@ -33,11 +33,15 @@ describe('Stage 01/02 authority and security boundaries', () => {
       }
     }
 
-    expect(allowedUrls.length).toBeGreaterThan(0);
+    expect(allowedUrls).toEqual([
+      'https://www.cradlewellnessliving.com/api/desktop/v1/*',
+    ]);
     for (const url of allowedUrls) {
-      expect(url).toMatch(
-        /^https:\/\/(\*\.)?cradlehub\.(com|app|ph)\/api\/desktop\/v1\/\*$/,
-      );
+      expect(url).not.toContain('*com');
+      expect(url).not.toContain('*app');
+      expect(url).not.toContain('*ph');
+      expect(url).not.toContain('*.');
+      expect(url).not.toContain('vercel.app');
       expect(url).not.toBe('https://*');
       expect(url).not.toBe('http://*');
       expect(url).not.toContain('http://');

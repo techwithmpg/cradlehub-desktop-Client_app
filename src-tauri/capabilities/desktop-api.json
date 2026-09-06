@@ -8,13 +8,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "https://*.cradlehub.com/api/desktop/v1/*"
-        },
-        {
-          "url": "https://*.cradlehub.app/api/desktop/v1/*"
-        },
-        {
-          "url": "https://*.cradlehub.ph/api/desktop/v1/*"
+          "url": "https://www.cradlewellnessliving.com/api/desktop/v1/*"
         }
       ]
     }

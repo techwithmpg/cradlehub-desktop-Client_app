@@ -8,10 +8,21 @@ Stage 03 remains **NOT AUTHORIZED**.
 - Desktop: `https://github.com/techwithmpg/cradlehub-desktop-Client_app.git`, local `E:\Cradle-Destop-Client`.
 - Authorized branch: `stage/02-bookings`.
 - Accepted main BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-- Desktop integration HEAD before correction: `8c972d533e72163884c632171242314a46e090ca`.
+- Desktop integration HEAD before correction: `3e441030ccb2152d6f60f1cff3f2cf722fbbc40e`.
 - Hosted reference repository: `https://github.com/techwithmpg/Cradlehub.git` (READ-ONLY in this pass).
 - Reviewed hosted boundary HEAD: `f37f84feeb5a33d132c500a3369beab5904c695a` (`stage/02-desktop-booking-api`).
 - Endpoint implemented on reviewed hosted branch: `POST /api/desktop/v1/bookings`.
+
+## Exact Hosted API Origin & Proof of Authority
+
+- **Exact Verified Origin**: `https://www.cradlewellnessliving.com`
+- **Source of Authority**:
+  1. Hosted `.env.example`: `APP_URL=https://www.cradlewellnessliving.com` and `NEXT_PUBLIC_APP_URL=https://www.cradlewellnessliving.com`.
+  2. Hosted application source: `src/lib/attendance/qr-url.ts`, `tests/lib/attendance/qr-url.test.ts`, `tests/lib/http/request-origin.test.ts`.
+  3. Live audit record in `docs/03-CURRENT-SYSTEM-TRUTH.md` (lines 162-165): A read-only production-web `HEAD` request returned HTTP 200 at `https://www.cradlewellnessliving.com/` identifying Vercel and Next.js response headers.
+- **Candidate Origins Rejected**:
+  - `*.cradlehub.com`, `*.cradlehub.app`, `*.cradlehub.ph`: Rejected as unverified guessed wildcard families not grounded by repository or deployment evidence.
+  - `*.vercel.app`: Rejected as non-canonical preview wildcard.
 
 ## Native HTTP Transport & Capability Scoping
 
@@ -19,18 +30,17 @@ Stage 03 remains **NOT AUTHORIZED**.
    - JS package: `@tauri-apps/plugin-http` (~2.2.0).
    - Rust crate: `tauri-plugin-http` ("2") in `src-tauri/Cargo.toml`.
    - Plugin registration: `tauri::Builder::default().plugin(tauri_plugin_http::init())` in `src-tauri/src/lib.rs`.
-   - Capability: `src-tauri/capabilities/desktop-api.json` references `http:default` with scoped allow list:
-     - `https://*.cradlehub.com/api/desktop/v1/*`
-     - `https://*.cradlehub.app/api/desktop/v1/*`
-     - `https://*.cradlehub.ph/api/desktop/v1/*`
-   - Strict scoping: No wildcard schemes (`https://*`, `http://*`, `*`) and no arbitrary hosts.
+   - Capability: `src-tauri/capabilities/desktop-api.json` references `http:default` with exactly ONE scoped allow rule:
+     - `https://www.cradlewellnessliving.com/api/desktop/v1/*`
+   - Strict scoping: Zero host wildcards. No wildcard schemes (`https://*`, `http://*`, `*`) and no arbitrary subdomains.
    - Capability registered in `src-tauri/tauri.conf.json` under `"capabilities": ["desktop-api"]`.
 
 2. **HTTP Client Boundary (`src/lib/bookings-service.ts`)**:
    - One unified service abstraction (`createBranchBooking`) executing native HTTP POST.
    - Supports dependency-injected / test-mocked `customFetch` or falls back to native `tauriFetch`.
-   - Validates configured base URL using `validateHostedApiBaseUrl()`: requires HTTPS, rejects embedded credentials, and normalizes trailing slashes.
-   - Fails closed with `API_CONFIG_REQUIRED` without initiating any network call if base URL is missing, non-HTTPS, or malformed.
+   - Enforces `EXPECTED_HOSTED_API_ORIGIN = 'https://www.cradlewellnessliving.com'`.
+   - Validates configured base URL using `validateHostedApiBaseUrl()`: requires HTTPS, matches exact verified origin, rejects embedded credentials, and normalizes trailing slashes.
+   - Fails closed with `API_CONFIG_REQUIRED` without initiating any network call if base URL is missing, non-HTTPS, mismatched origin, or malformed.
 
 ## Auth Integration & Token Security
 
@@ -85,20 +95,10 @@ Stage 03 remains **NOT AUTHORIZED**.
 
 ## Preserved Work & Exact Changed Files
 
-- `package.json`
-- `pnpm-lock.yaml`
-- `src-tauri/Cargo.toml`
-- `src-tauri/Cargo.lock`
-- `src-tauri/src/lib.rs`
-- `src-tauri/tauri.conf.json`
 - `src-tauri/capabilities/desktop-api.json`
 - `src/lib/bookings-service.ts`
-- `src/components/bookings/NewBookingModal.tsx`
-- `src/components/bookings/BookingsView.tsx`
-- `src/styles.css`
-- `tests/bookings-service.test.ts`
-- `tests/booking-preview.test.tsx`
 - `tests/boundary.test.ts`
+- `tests/bookings-service.test.ts`
 - `docs/50-state/CURRENT_STATE.md`
 - `docs/50-state/CURRENT_TASK.md`
 - `docs/50-state/evidence/stage-02-bookings.md`
@@ -108,8 +108,8 @@ Stage 03 remains **NOT AUTHORIZED**.
 - `pnpm format:check`: 0 formatting issues.
 - `pnpm lint`: 0 errors, 0 warnings.
 - `pnpm typecheck`: 0 errors.
-- `pnpm test`: 8 test files passed, 152 tests passed.
-- `pnpm build`: Successful production bundle in 1.52s.
+- `pnpm test`: 8 test files passed, 157 tests passed.
+- `pnpm build`: Successful production bundle.
 - `cargo fmt --check`: Clean formatting in `src-tauri`.
 - `cargo check --locked`: Clean check in `src-tauri`.
 - `cargo test --locked`: 0 errors in `src-tauri`.

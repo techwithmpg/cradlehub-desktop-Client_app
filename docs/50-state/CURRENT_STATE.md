@@ -7,11 +7,13 @@ Stage 02 — Bookings: **NOT ACCEPTED / NOT MERGED / HARDENED HOSTED INTEGRATION
 
 - Existing branch: `stage/02-bookings`.
 - BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-- Desktop integration HEAD before correction: `8c972d533e72163884c632171242314a46e090ca`.
+- Desktop integration HEAD before correction: `3e441030ccb2152d6f60f1cff3f2cf722fbbc40e`.
 - Reviewed hosted booking API boundary HEAD: `f37f84feeb5a33d132c500a3369beab5904c695a` (`stage/02-desktop-booking-api`).
+- **Exact Verified Hosted API Origin**: `https://www.cradlewellnessliving.com`.
+- **Source of Authority**: Hosted repository `.env.example` (`APP_URL=https://www.cradlewellnessliving.com`, `NEXT_PUBLIC_APP_URL=https://www.cradlewellnessliving.com`), `src/lib/attendance/qr-url.ts`, `tests/lib/attendance/qr-url.test.ts`, `tests/lib/http/request-origin.test.ts`, and `docs/03-CURRENT-SYSTEM-TRUTH.md` live verification record.
 - **Native Tauri HTTP Transport**: Uses `@tauri-apps/plugin-http` / `tauri-plugin-http` v2. Registered in Rust `src-tauri/src/lib.rs`.
-- **Least-Privilege HTTP Capability**: Scoped strictly in `src-tauri/capabilities/desktop-api.json` to canonical hosted origins (`https://*.cradlehub.com/api/desktop/v1/*`, `https://*.cradlehub.app/api/desktop/v1/*`, `https://*.cradlehub.ph/api/desktop/v1/*`). No wildcard HTTP/HTTPS origins.
-- **Fail-Closed API Configuration**: Requires canonical `VITE_CRADLEHUB_API_URL` with valid HTTPS origin, no embedded credentials, and normalized trailing slash. Fails closed with `API_CONFIG_REQUIRED` without initiating any network call if unset or invalid.
+- **Least-Privilege HTTP Capability**: Scoped strictly in `src-tauri/capabilities/desktop-api.json` to the single exact verified rule: `https://www.cradlewellnessliving.com/api/desktop/v1/*`. Zero host wildcards. No `*.cradlehub.(com|app|ph)` wildcard guesses.
+- **Fail-Closed API Configuration**: Requires canonical `VITE_CRADLEHUB_API_URL` with exact origin matching `https://www.cradlewellnessliving.com`, no embedded credentials, and normalized trailing slash. Fails closed with `API_CONFIG_REQUIRED` without initiating any network call if unset, mismatched origin, or invalid.
 - **Hosted Error Contract**: Authoritatively parses `body.message` (not `body.error`), preserving domain error codes (`CRM_BRANCH_FORBIDDEN`, `SLOT_UNAVAILABLE`, `EXACT_TIME_UNAVAILABLE`, `NO_SCHEDULE_AT_START`, `UNAUTHORIZED`, `BOOKING_INSERT_FAILED`).
 - **Malformed Success Fail-Closed**: Verifies `bookingId` is a non-empty string. If `bookingId` is missing/empty, returns `SERVER_ERROR` and keeps form open.
 - **Payment Defaults**: Defaults to `paymentReceived = false` and `paymentMethod = ''`. Payment method is only sent after explicit operator confirmation and selection.
