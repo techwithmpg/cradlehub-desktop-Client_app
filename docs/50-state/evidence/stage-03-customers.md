@@ -7,84 +7,81 @@
 - **Branch**: `stage/03-customers`
 - **Accepted Main BASE_SHA**: `59f69fc7e321c32f040f6f9a79aca47e77547675`
 - **Pre-implementation Audit HEAD**: `ec87769bba591d87f98a04640004f35c71086d80`
-- **Implementation HEAD**: `be90ae22fba092b602a0af9db5daa6f96a1e4f13`
+- **Original Implementation HEAD**: `be90ae22fba092b602a0af9db5daa6f96a1e4f13`
+- **Original Evidence HEAD**: `a29bbe1021e369314611195696bdaa1f7d034e36`
+- **Correction Implementation HEAD**: `91697fdf6c533c3c3833e8bf3e271a90079b336f`
 - **Hosted Dependency**: `techwithmpg/Cradlehub` `main` at `653f4d0ba04f1af76a7006209a74e40022d7de84`
-- **Current Status**: **STAGE 03 DESKTOP CUSTOMERS IMPLEMENTED AND PUSHED — STOPPED FOR INDEPENDENT REVIEW AND OWNER VISUAL INSPECTION — NO MERGE — STAGE 04 NOT STARTED**.
+- **Current Status**: **STAGE 03 CUSTOMERS RUNTIME CORRECTION PUSHED — STOPPED FOR INDEPENDENT REVIEW AND OWNER VISUAL RE-TEST — NO MERGE — STAGE 04 NOT STARTED**.
 - **Stage 04**: **NOT STARTED / NOT AUTHORIZED**.
 
 ---
 
-## 1. Summary of Changes
+## 1. Owner-Observed Runtime Defects & Corrections
 
-Stage 03 implements the real Desktop Customers module (visual + functional vertical slice) strictly against the hosted Desktop Customer API merged into `techwithmpg/Cradlehub` (`653f4d0ba04f1af76a7006209a74e40022d7de84`):
+### Owner Visual/Runtime Evidence (2026-09-06)
 
-1. **Customers Service (`src/lib/customers-service.ts`)**:
-   - Implements `fetchBranchCustomers({ branchId, tab, q, page, pageSize })` targeting `GET /api/desktop/v1/customers`.
-   - Implements `fetchCustomerDetail(customerId, branchId)` targeting `GET /api/desktop/v1/customers/[customerId]`.
-   - Uses `@tauri-apps/plugin-http` with Bearer token authentication retrieved from Supabase session (`getSupabaseClient().auth.getSession()`).
-   - Strict error normalization (401 session expired, 403 forbidden, 404 not found, 400 bad request, 500 server error, network failure).
-   - Zero token logging or exposure in error strings.
+The owner inspected the native Windows Desktop Customers runtime and observed:
 
-2. **Stage 02 Customer Lookup Re-enabled (`src/lib/bookings-service.ts`, `src/components/bookings/NewBookingModal.tsx`)**:
-   - Replaced temporary lookup placeholder throwing unavailable error with real call to `GET /api/desktop/v1/customers?tab=all&q=<query>&branchId=<branchId>&page=1&pageSize=20`.
-   - Mapped hosted camelCase `CustomerListItem` DTO fields to `BookingCustomer` (`fullName` -> `full_name`, `totalBookings` -> `total_bookings`, etc.).
-   - Removed fixed unavailable warning; preserved truthful network and server errors.
+1. **Layout Misalignment**: Customers list and inspector were stacked vertically rather than side-by-side in the operational two-column layout.
+2. **Missing Canonical DataGrid & Pagination Styling**: DataGrid container and pagination footer used non-canonical class names resulting in raw inline text and unstyled controls.
+3. **KPI Grid Gap**: 5 customer metrics were rendered inside the 6-column `bookings-kpi-grid`, leaving a large unused 6th slot.
+4. **Configuration Error**: Native runtime displayed `Customer Service Error: Customer service is not configured for this desktop installation.` because `getHostedApiBaseUrl()` returned `null` when `VITE_CRADLEHUB_API_URL` was unset.
+5. **Misleading Error State**: When customer service failed, the UI simultaneously displayed zero KPI values and `"No customers in this segment"`, masquerading as an empty success state rather than an authoritative failure.
 
-3. **Canonical UI Workspace (`src/components/customers/`)**:
-   - **`CustomersHeader.tsx`**: Canonical header ("Customers", operational subtitle, refresh button). No fake "New Customer" button.
-   - **`CustomersKpiSummary.tsx`**: 5 canonical KPI metrics (Total Customers, Repeat Clients, Lapsed Clients, New This Month, Total Visits) with tab switching integration. Excludes financial/revenue metrics.
-   - **`CustomersListCard.tsx`**:
-     - 4 canonical tabs (`All`, `Repeat`, `Lapsed`, `Follow-up`).
-     - Debounced live search input (300ms) with search reset control.
-     - Customer DataGrid for normal records: columns `Customer`, `Phone`, `Email`, `Visits`, `First Visit`, `Last Visit`, `Preferred Staff`.
-     - Follow-up DataGrid for waitlist records: columns `Customer`, `Phone`, `Service`, `Preferred Date`, `Preferred Time`, `Visit Type`, `Status`.
-     - Pagination controls with total count and page range indicator.
-   - **`CustomerInspectorCard.tsx`**:
-     - Overview tab: contact identity, loyalty tier, visit summary, preferences (visit type, pressure), birthday, operational notes, health considerations.
-     - History tab: operational booking history (date, time, status, type, service, staff, branch). Excludes prices and payments.
-     - Follow-up Inspector: truthful waitlist request details (service, therapist, date/time preferences, request notes, contact details).
-   - **`CustomersView.tsx`**:
-     - Root workspace coordinator with branch scoping from `useAuth()`.
-     - Request version refs (`listVersionRef`, `detailVersionRef`) preventing async race conditions across tabs, searches, and pagination.
-     - Comprehensive UI states: loading skeletons, empty branch, search empty, network error, 401/403/400/500 banners, selection clearing.
+### Applied Corrections
 
-4. **Canonical Shell Integration (`src/components/CanonicalShell.tsx`)**:
-   - Connected `CustomersView` to the `customers` nav item with wide operational canvas modifier (same width & density treatment as Bookings).
+1. **Two-Column Layout (`src/components/customers/CustomersView.tsx`, `src/styles.css`)**:
+   - Switched root wrapper to canonical `bookings-main-grid` with `bookings-list-column` and `bookings-inspector-column`.
+   - Added scoped modifier `.customers-view-container .bookings-main-grid { grid-template-columns: minmax(0, 1fr) 360px; }`.
+   - Added responsive breakpoint `@media (max-width: 1024px)` collapsing to 1 column and unsticking inspector.
+
+2. **5-Column KPI Strip (`src/components/customers/CustomersKpiSummary.tsx`, `src/styles.css`)**:
+   - Reused canonical KPI card structure with scoped modifier `bookings-kpi-grid customers-kpi-grid`.
+   - Added `.customers-kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }` with responsive 3-column (<=1024px) and 2-column (<=640px) adaptation without clipping.
+
+3. **Canonical DataGrid & Pagination Classes (`src/components/customers/CustomersListCard.tsx`)**:
+   - Replaced `bookings-table-container` with canonical `bookings-datagrid-wrapper`.
+   - Reused canonical empty state family: `bookings-table-empty-state`, `bookings-empty-icon-circle`, `bookings-empty-heading`, `bookings-empty-text`, and `bookings-empty-reset-btn`.
+   - Customer cells use `customer-cell`, `customer-avatar-pill`, `customer-info`, `customer-name`, `customer-subtext`.
+   - Replaced custom pagination with canonical Bookings footer: `bookings-table-footer`, `footer-count-text`, `count-highlight`, `footer-pagination-controls`, `page-size-selector-wrapper`, `page-size-label`, `page-size-select`, `pagination-buttons`, `pagination-btn`, `pagination-page-indicator`.
+
+4. **Public Hosted Origin Fallback (`src/lib/bookings-service.ts`)**:
+   - Modified `getHostedApiBaseUrl()`: when `VITE_CRADLEHUB_API_URL` is missing, blank, or `'undefined'`, it returns `EXPECTED_HOSTED_API_ORIGIN` (`https://www.cradlewellnessliving.com`).
+   - Explicit overrides continue through strict validation `validateHostedApiBaseUrl()` rejecting non-HTTPS, credentials, or mismatched origins (fail-closed).
+   - Tauri HTTP capability remains strictly restricted to `https://www.cradlewellnessliving.com/api/desktop/v1/*`.
+
+5. **Authoritative Error Handling & Lifecycle (`src/components/customers/CustomersView.tsx`)**:
+   - When authoritative list request fails (`listError`), normal KPI grid and DataGrid are suppressed.
+   - Rendered error banner with Retry button and `workspace-placeholder` with `"Customer Service Unavailable"` (no dismiss X, no fake zero KPIs, no fake empty state).
+   - Clears stale customer and detail state on error; detail selection resets old detail and sets loading before fetch.
+
+6. **Contract & DTO Alignment**:
+   - **Search Response Contract (`src/lib/bookings-service.ts`)**: Fixed `searchBranchCustomers` to parse top-level `body.data` array and map camelCase DTO fields (`totalBookings`, `firstBookingDate`, `lastBookingDate`).
+   - **Search Placeholders (`src/components/customers/CustomersListCard.tsx`)**: Truthful placeholders: `"Search customers by name or phone..."` (no email claim) and `"Search follow-up requests by name or phone..."` (no service claim).
+   - **KPI Semantic Copy (`src/components/customers/CustomersKpiSummary.tsx`)**: Truthful descriptions: Total Customers (`"Branch customer roster"`), Repeat Clients (`"2+ recorded visits"`), Lapsed Clients (`"No visit in 30+ days"`), New This Month (`"First visit this month"`), Total Visits (`"Aggregate recorded visits"`).
+   - **DTO Cleanup (`src/types/customers.ts`, `src/components/customers/CustomerInspectorCard.tsx`)**: Removed unreturned email row from follow-up inspector; loyalty tier read from `customerDetail?.loyaltyTier`; booking history type read from `item.type`.
 
 ---
 
 ## 2. Changed Files vs Baseline
 
-Implementation changes vs accepted `main` (`59f69fc7e321c32f040f6f9a79aca47e77547675`):
+Correction changes across `stage/03-customers`:
 
 ### Source & Components
 
-1. `src/types/customers.ts` (NEW) — Complete TypeScript types and DTO definitions for customer list, KPIs, pagination, detail, and follow-up items.
-2. `src/lib/customers-service.ts` (NEW) — Authoritative HTTP transport client for hosted customer list and detail endpoints.
-3. `src/lib/bookings-service.ts` (MODIFIED) — Re-enabled customer lookup against hosted API; removed unavailable placeholder.
-4. `src/components/bookings/NewBookingModal.tsx` (MODIFIED) — Updated customer search call to pass required `branchId`.
-5. `src/components/customers/CustomersHeader.tsx` (NEW) — Header component.
-6. `src/components/customers/CustomersKpiSummary.tsx` (NEW) — 5-metric KPI strip.
-7. `src/components/customers/CustomersListCard.tsx` (NEW) — Tabbed customer & follow-up DataGrid with search & pagination.
-8. `src/components/customers/CustomerInspectorCard.tsx` (NEW) — Right-side customer & follow-up inspector.
-9. `src/components/customers/CustomersView.tsx` (NEW) — Root coordinator view.
-10. `src/components/CanonicalShell.tsx` (MODIFIED) — Render `CustomersView` for `customers` module.
-11. `src/styles.css` (MODIFIED) — Customer workspace CSS classes matching canonical design tokens.
+1. `src/components/customers/CustomersView.tsx` — Two-column layout grid, truthful error suppression, detail lifecycle.
+2. `src/components/customers/CustomersListCard.tsx` — Canonical DataGrid wrapper, empty state, avatar cell hierarchy, footer/pagination, truthful search copy.
+3. `src/components/customers/CustomersKpiSummary.tsx` — 5-column grid class, truthful KPI semantic subtext.
+4. `src/components/customers/CustomerInspectorCard.tsx` — Cleaned up optional DTO fields (no follow-up email, loyaltyTier from detail, type badge).
+5. `src/lib/bookings-service.ts` — Canonical fallback in `getHostedApiBaseUrl`, mapped `searchBranchCustomers` to top-level `body.data` array.
+6. `src/styles.css` — Scoped modifier classes for Customers two-column layout and 5-metric KPI grid with responsive breakpoints.
+7. `src/types/customers.ts` — DTO type cleanup (removed unused waitlist email and booking history deliveryType).
 
 ### Tests
 
-12. `tests/customers-service.test.ts` (NEW) — 7 unit tests for transport, query parameters, auth headers, 401/403 errors, network failure, and DTO parsing.
-13. `tests/customers-components.test.tsx` (NEW) — 6 integration tests for component rendering, KPI cards, inspector tabs, search debouncing, waitlist follow-up, and CanonicalShell integration.
-14. `tests/booking-options.test.ts` (MODIFIED) — Updated lookup test expectations for enabled hosted boundary.
-15. `tests/booking-preview.test.tsx` (MODIFIED) — Updated modal lookup lifecycle test expectations.
-
-### Documentation & State
-
-16. `docs/50-state/CURRENT_STATE.md`
-17. `docs/50-state/CURRENT_TASK.md`
-18. `docs/50-state/HANDOFF.md`
-19. `docs/50-state/LAST_VERIFIED_GATE.md`
-20. `docs/50-state/evidence/stage-03-customers.md`
+8. `tests/customers-components.test.tsx` — Integration tests for canonical layout, KPI grid, DataGrid wrapper, footer pagination, truthful copy, authoritative error suppression, and detail failure handling.
+9. `tests/booking-options.test.ts` — Updated lookup tests for top-level `data` array parsing, session checks, and env cleanup.
+10. `tests/bookings-service.test.ts` — Updated config tests for fallback to expected hosted origin when env is missing/blank.
 
 ---
 
@@ -97,7 +94,7 @@ All verification suites executed and verified green:
 | Prettier Formatter        | `pnpm format:check` | PASSED (All matched files match style)            |
 | ESLint Linter             | `pnpm lint`         | PASSED (0 errors, 0 warnings)                     |
 | TypeScript Compiler       | `pnpm typecheck`    | PASSED (`tsc --noEmit` clean)                     |
-| Vitest Unit & Integration | `pnpm test`         | PASSED (10 test files, 163 tests passed)          |
+| Vitest Unit & Integration | `pnpm test`         | PASSED (10 test files, 166 tests passed)          |
 | Production Build          | `pnpm build`        | PASSED (Vite production bundle generated cleanly) |
 | Git Whitespace Check      | `git diff --check`  | PASSED (0 whitespace/conflict errors)             |
 
@@ -106,15 +103,15 @@ All verification suites executed and verified green:
 - `tests/roles.test.ts` — 5 tests passed
 - `tests/auth-service.test.ts` — 15 tests passed
 - `tests/customers-service.test.ts` — 7 tests passed
-- `tests/booking-options.test.ts` — 14 tests passed
-- `tests/bookings-service.test.ts` — 34 tests passed
+- `tests/booking-options.test.ts` — 15 tests passed
+- `tests/bookings-service.test.ts` — 33 tests passed
 - `tests/boundary.test.ts` — 6 tests passed
-- `tests/customers-components.test.tsx` — 6 tests passed
+- `tests/customers-components.test.tsx` — 9 tests passed
 - `tests/bookings-components.test.tsx` — 15 tests passed
 - `tests/components.test.tsx` — 19 tests passed
 - `tests/booking-preview.test.tsx` — 42 tests passed
 
-**Total: 163 tests passed across 10 test files.**
+**Total: 166 tests passed across 10 test files.**
 
 ---
 
@@ -122,22 +119,33 @@ All verification suites executed and verified green:
 
 ```
 OWNER-PROVIDED MANUAL RUNTIME EVIDENCE:
-NONE YET
+2026-09-06:
+Owner inspected Stage 03 Customers in real native Windows Desktop runtime.
+Observed:
+- incorrect stacked layout;
+- unstyled/raw empty and pagination region;
+- five-KPI/six-column dead space;
+- runtime "Customer service is not configured" error.
+Result: VISUAL/RUNTIME CORRECTION REQUIRED.
 ```
 
-- Runtime visual inspection requires owner manual confirmation on live Desktop environment.
-- Service and components are fully verified against mock and integration harnesses with zero regressions.
+**Agent Correction Verification (2026-09-06)**:
+
+- Canonical two-column grid (`minmax(0, 1fr) 360px`) and 5-column KPI grid implemented and verified via automated integration tests and responsive CSS rules.
+- Base URL fallback to canonical hosted origin (`https://www.cradlewellnessliving.com`) resolves the native runtime config error while preserving strict validation for explicit overrides.
+- Authoritative error states suppress false empty states and zero KPIs.
+- Real native Windows Desktop re-test by owner is required for final visual sign-off.
 
 ---
 
 ## 5. Security & Privacy Invariants
 
-- **No Direct Table Queries**: The renderer never executes direct `supabase.from("customers")` or `supabase.from("waitlist_requests")` queries.
+- **No Direct Table Queries**: Renderer never executes direct `supabase.from("customers")` or `supabase.from("waitlist_requests")` queries.
 - **No Customer Writes**: Customer creation, editing, notes mutation, and deletion remain strictly excluded.
 - **No Financial Data**: Zero revenue, spend, pricing, or payment details are queried, returned, or rendered.
 - **No Local Persistence**: Customer records and health notes are never stored in localStorage, IndexedDB, or SQLite.
 - **No Bearer Token Logging**: Bearer tokens are kept in-memory per request and never logged or exposed in error messages.
-- **Branch Privacy Enforced**: Server-side scoping through hosted customer engine enforces branch isolation for non-owners.
+- **Tauri HTTP Capability**: Strictly unchanged; restricted to `https://www.cradlewellnessliving.com/api/desktop/v1/*`.
 
 ---
 
