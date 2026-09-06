@@ -3,14 +3,14 @@
 ## Status & Governance
 
 - **Target**: CradleHub Desktop
-- **Stage**: Stage 04 — Staff (Audit Roster Contract Alignment)
+- **Stage**: Stage 04 — Staff (Audit & Evidence Truth Correction)
 - **Branch**: `stage/04-staff`
 - **Accepted Main BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
 - **INITIAL_AUDIT_SHA**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`
-- **CORRECTION_BASE_SHA**: `63e3e585d4a2210caa870c05008ef69c88a854ff`
+- **CORRECTION_BASE_SHA**: `fb39c364028ca386a3da4d68c31469b116c539c9`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
-- **Current Status**: **STAGE 04 AUDIT ROSTER CONTRACT CORRECTION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
+- **Current Status**: **STAGE 04 AUDIT EVIDENCE TRUTH CORRECTION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
 - **Stage 04 Functional UI Implementation**: **NOT YET STARTED / AWAITING CHECKPOINT REVIEW**.
 - **Stage Authorization**: Only Stage 04 is authorized. Other modules remain separate or dormant.
 
@@ -256,7 +256,7 @@ Stage 04 Staff will strictly reuse existing accepted desktop infrastructure from
 1. **Service Layer (`src/lib/staff-service.ts`)**:
    - Reuses accepted `getSupabaseClient()` from `src/lib/supabase.ts`.
    - `fetchBranchStaff(branchId: string)`: Queries `public.staff` with joined `branches` and `staff_services(service_id, services(id, name))` where `branch_id = branchId`, ordered by `tier, full_name`.
-   - **Legacy Schema Handling**: Attempts the modern authoritative schema first (`id, branch_id, auth_user_id, full_name, nickname, phone, avatar_url, tier, system_role, staff_type, is_head, is_active, is_cross_branch, created_at, updated_at, branches(id, name)`). If the database returns a missing-column error, it falls back to the legacy column set with explicit compatibility mapping, tested to ensure job functions are not misrepresented.
+   - **Legacy Schema Compatibility Handling**: Stage 04 will first query the current authoritative modern schema (`id, branch_id, auth_user_id, full_name, nickname, phone, avatar_url, tier, system_role, staff_type, is_head, is_active, is_cross_branch, created_at, updated_at, branches(id, name)`). If compatibility fallback behavior is introduced to support legacy database schemas, it must preserve truthful UI semantics, avoid fabricating unverified job functions, and be explicitly tested during the functional implementation build before acceptance.
    - Contract validator type guards (`isStaffMember`, `isStaffServiceCapability`) ensuring malformed data cannot masquerade as valid roster data.
    - Comprehensive error mapping distinguishing session expiry, RLS permission errors, PostgREST errors, and network disconnects.
 2. **Components (`src/components/staff/`)**:
@@ -284,14 +284,43 @@ Stage 04 Staff will strictly reuse existing accepted desktop infrastructure from
 
 ---
 
-## 11. Rollback & Preflight Plan
+## 11. Verification & Checks Record
 
-- `BASE_SHA`: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
-- Rollback command: `git checkout main && git branch -D stage/04-staff`
-- Implementation files modified in this checkpoint: **NONE** (Documentation and audit corrections only).
+### A. Current Documentation Correction Checks (Executed on latest HEAD)
+
+- `pnpm format:check` — **PASSED** (all files match Prettier style)
+- `pnpm lint` — **PASSED** (0 errors, 0 warnings across all files)
+- `pnpm typecheck` — **PASSED** (`tsc --noEmit` clean)
+- `pnpm test` — **PASSED** (11 test files, 192/192 vitest tests passed)
+- `pnpm build` — **PASSED** (Vite production client built cleanly in 1.43s)
+- `git diff --check` — **PASSED** (0 whitespace / conflict errors)
+
+### B. Previously Recorded Audit Checks (Historical within Stage 04)
+
+- `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` — **PASSED** (executed during initial audit checkpoint `2ad6b23357bcf49d1224a34e3cf4219c2122359f`).
 
 ---
 
-## 12. Hosted Contract Follow-Up
+## 12. Security & Data Impact
+
+- **Security Model**: Strict RLS enforcement; client executes queries using authenticated user JWT via singleton client.
+- **Data Mutation**: Zero mutations, schema changes, or database migrations in Stage 04.
+- **Data Minimization**: Staff capability lookups restricted to `id` and `name`.
+
+---
+
+## 13. Limitations & Rollback Plan
+
+- **Limitations**:
+  - Staff management UI is purely read-only in the Stage 04 initial slice. Profile edits, service assignments, and status toggles are deferred.
+  - Schedulability and booking availability predicates (`isOperationalStaff()`) are separate from general Staff roster management.
+- **Rollback**:
+  - `BASE_SHA`: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
+  - Rollback command: `git checkout main && git branch -D stage/04-staff`
+  - Implementation files modified in this checkpoint: **NONE** (Documentation and evidence truth corrections only).
+
+---
+
+## 14. Hosted Contract Follow-Up
 
 - **Archive / Merge Handling in Staff Management**: In the current hosted codebase, `archived_at` and `merged_into_staff_id` filters are applied in scheduling/availability queries (`isOperationalStaff()`) rather than general CRM Staff-management views (`getStaffByBranchWithBranches`, `getPendingStaffByBranch`). If general Staff management is later updated on hosted to filter archived/merged rows, Stage 04 Desktop will adapt to that updated hosted contract.
