@@ -1,32 +1,150 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getSupabaseClient } from './supabase';
 import { getHostedApiBaseUrl } from './bookings-service';
+import { readHostedJsonResponse } from './hosted-json-response';
 import type {
+  CustomerBookingHistoryItem,
+  CustomerDetail,
+  CustomerKpis,
+  CustomerListItem,
+  CustomerPagination,
+  CustomerTabType,
+  FetchCustomerDetailResult,
   FetchCustomersParams,
   FetchCustomersResult,
-  FetchCustomerDetailResult,
+  WaitlistFollowupItem,
 } from '../types/customers';
 
-function parseNonJsonErrorMessage(
-  status: number,
-  serviceName: string = 'Customer service',
-): string {
-  if (status === 404) {
-    return 'The hosted Customers endpoint is not available on the current deployment.';
-  }
-  if (status === 500) {
-    return 'The hosted Customers service returned an unexpected server response.';
-  }
-  if (status >= 300 && status < 400) {
-    return 'The hosted Customers endpoint redirected unexpectedly.';
-  }
-  return `${serviceName} returned an unexpected HTTP ${status} response instead of JSON.`;
+const ALLOWED_TABS: readonly CustomerTabType[] = [
+  'all',
+  'repeat',
+  'lapsed',
+  'followup',
+];
+
+export function isCustomerListItem(item: unknown): item is CustomerListItem {
+  if (typeof item !== 'object' || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  return (
+    typeof obj.id === 'string' &&
+    typeof obj.fullName === 'string' &&
+    typeof obj.phone === 'string' &&
+    typeof obj.totalBookings === 'number'
+  );
 }
 
-function isJsonContentType(contentType: string | null): boolean {
-  if (!contentType) return false;
-  const lower = contentType.toLowerCase();
-  return lower.includes('application/json') || lower.includes('+json');
+export function isWaitlistFollowupItem(
+  item: unknown,
+): item is WaitlistFollowupItem {
+  if (typeof item !== 'object' || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  return (
+    typeof obj.id === 'string' &&
+    typeof obj.customerName === 'string' &&
+    typeof obj.customerPhone === 'string' &&
+    typeof obj.status === 'string' &&
+    typeof obj.createdAt === 'string'
+  );
+}
+
+export function isCustomerKpis(kpis: unknown): kpis is CustomerKpis {
+  if (typeof kpis !== 'object' || kpis === null) return false;
+  const obj = kpis as Record<string, unknown>;
+  return (
+    typeof obj.totalCustomers === 'number' &&
+    typeof obj.repeatClients === 'number' &&
+    typeof obj.lapsedClients === 'number' &&
+    typeof obj.newThisMonth === 'number' &&
+    typeof obj.totalVisits === 'number'
+  );
+}
+
+export function isCustomerPagination(
+  pagination: unknown,
+): pagination is CustomerPagination {
+  if (typeof pagination !== 'object' || pagination === null) return false;
+  const obj = pagination as Record<string, unknown>;
+  return (
+    typeof obj.page === 'number' &&
+    typeof obj.pageSize === 'number' &&
+    typeof obj.totalCount === 'number' &&
+    typeof obj.totalPages === 'number'
+  );
+}
+
+export function isFetchCustomersSuccess(
+  data: unknown,
+): data is Extract<FetchCustomersResult, { ok: true }> {
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  if (obj.ok !== true) return false;
+  if (
+    typeof obj.tab !== 'string' ||
+    !ALLOWED_TABS.includes(obj.tab as CustomerTabType)
+  ) {
+    return false;
+  }
+  if (!Array.isArray(obj.data) || !obj.data.every(isCustomerListItem)) {
+    return false;
+  }
+  if (
+    !Array.isArray(obj.waitlist) ||
+    !obj.waitlist.every(isWaitlistFollowupItem)
+  ) {
+    return false;
+  }
+  if (!isCustomerPagination(obj.pagination)) {
+    return false;
+  }
+  if (!isCustomerKpis(obj.kpis)) {
+    return false;
+  }
+  return true;
+}
+
+export function isCustomerBookingHistoryItem(
+  item: unknown,
+): item is CustomerBookingHistoryItem {
+  if (typeof item !== 'object' || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  return (
+    typeof obj.id === 'string' &&
+    typeof obj.bookingDate === 'string' &&
+    typeof obj.startTime === 'string' &&
+    typeof obj.status === 'string' &&
+    typeof obj.serviceName === 'string' &&
+    typeof obj.staffName === 'string' &&
+    typeof obj.branchName === 'string'
+  );
+}
+
+export function isCustomerDetail(detail: unknown): detail is CustomerDetail {
+  if (typeof detail !== 'object' || detail === null) return false;
+  const obj = detail as Record<string, unknown>;
+  return (
+    typeof obj.id === 'string' &&
+    typeof obj.fullName === 'string' &&
+    typeof obj.phone === 'string' &&
+    typeof obj.totalBookings === 'number'
+  );
+}
+
+export function isFetchCustomerDetailSuccess(
+  data: unknown,
+): data is Extract<FetchCustomerDetailResult, { ok: true }> {
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  if (obj.ok !== true) return false;
+  if (!isCustomerDetail(obj.customer)) {
+    return false;
+  }
+  if (
+    !Array.isArray(obj.bookingHistory) ||
+    !obj.bookingHistory.every(isCustomerBookingHistoryItem)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -83,52 +201,25 @@ export async function fetchBranchCustomers(
     const response = await fetchFn(endpoint, {
       method: 'GET',
       headers: {
+        Accept: 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
     });
 
-    const contentType = response.headers.get('content-type');
-    if (!isJsonContentType(contentType)) {
+    const result = await readHostedJsonResponse(response, {
+      validator: isFetchCustomersSuccess,
+      serviceName: 'Customer service',
+    });
+
+    if (!result.ok) {
       return {
         ok: false,
-        code: 'HOSTED_API_NON_JSON_RESPONSE',
-        message: parseNonJsonErrorMessage(response.status, 'Customer service'),
+        code: result.code,
+        message: result.message,
       };
     }
 
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
-      return {
-        ok: false,
-        code: 'RESPONSE_PARSE_ERROR',
-        message: `Customer service returned an invalid JSON response (HTTP ${response.status}).`,
-      };
-    }
-
-    if (
-      !response.ok ||
-      (typeof body === 'object' &&
-        body !== null &&
-        (body as { ok?: boolean }).ok === false)
-    ) {
-      const errObj = (
-        typeof body === 'object' && body !== null ? body : {}
-      ) as {
-        code?: string;
-        message?: string;
-      };
-      return {
-        ok: false,
-        code: errObj.code || `HTTP_${response.status}`,
-        message:
-          errObj.message ||
-          `Customer request failed with status ${response.status}.`,
-      };
-    }
-
-    return body as FetchCustomersResult;
+    return result.data;
   } catch {
     return {
       ok: false,
@@ -178,55 +269,25 @@ export async function fetchCustomerDetail(
     const response = await fetchFn(endpoint, {
       method: 'GET',
       headers: {
+        Accept: 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
     });
 
-    const contentType = response.headers.get('content-type');
-    if (!isJsonContentType(contentType)) {
+    const result = await readHostedJsonResponse(response, {
+      validator: isFetchCustomerDetailSuccess,
+      serviceName: 'Customer detail service',
+    });
+
+    if (!result.ok) {
       return {
         ok: false,
-        code: 'HOSTED_API_NON_JSON_RESPONSE',
-        message: parseNonJsonErrorMessage(
-          response.status,
-          'Customer detail service',
-        ),
+        code: result.code,
+        message: result.message,
       };
     }
 
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
-      return {
-        ok: false,
-        code: 'RESPONSE_PARSE_ERROR',
-        message: `Customer detail service returned an invalid JSON response (HTTP ${response.status}).`,
-      };
-    }
-
-    if (
-      !response.ok ||
-      (typeof body === 'object' &&
-        body !== null &&
-        (body as { ok?: boolean }).ok === false)
-    ) {
-      const errObj = (
-        typeof body === 'object' && body !== null ? body : {}
-      ) as {
-        code?: string;
-        message?: string;
-      };
-      return {
-        ok: false,
-        code: errObj.code || `HTTP_${response.status}`,
-        message:
-          errObj.message ||
-          `Customer detail request failed with status ${response.status}.`,
-      };
-    }
-
-    return body as FetchCustomerDetailResult;
+    return result.data;
   } catch {
     return {
       ok: false,

@@ -272,37 +272,40 @@ describe('customer lookup hosted API boundary', () => {
       },
     } as unknown as SupabaseClient;
 
-    const customFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({
-        ok: true,
-        tab: 'all',
-        data: [
-          {
-            id: 'c-10',
-            fullName: 'Corazon Aquino',
-            phone: '09171234567',
-            email: 'cory@test.ph',
-            totalBookings: 8,
-            firstBookingDate: '2024-01-01',
-            lastBookingDate: '2026-08-01',
-            preferredStaffId: 'staff-9',
-            preferredStaffName: 'Staff 9',
+    const customFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          tab: 'all',
+          data: [
+            {
+              id: 'c-10',
+              fullName: 'Corazon Aquino',
+              phone: '09171234567',
+              email: 'cory@test.ph',
+              totalBookings: 8,
+              firstBookingDate: '2024-01-01',
+              lastBookingDate: '2026-08-01',
+              preferredStaffId: 'staff-9',
+              preferredStaffName: 'Staff 9',
+            },
+          ],
+          waitlist: [],
+          pagination: { page: 1, pageSize: 20, totalCount: 1, totalPages: 1 },
+          kpis: {
+            totalCustomers: 1,
+            repeatClients: 1,
+            lapsedClients: 0,
+            newThisMonth: 0,
+            totalVisits: 8,
           },
-        ],
-        waitlist: [],
-        pagination: { page: 1, pageSize: 20, totalCount: 1, totalPages: 1 },
-        kpis: {
-          totalCustomers: 1,
-          repeatClients: 1,
-          lapsedClients: 0,
-          newThisMonth: 0,
-          totalVisits: 8,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
         },
-      }),
-    } as unknown as Response);
+      ),
+    );
 
     const customers = await searchBranchCustomers(
       'branch-1',

@@ -2,14 +2,208 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
   fetchBranchCustomers,
   fetchCustomerDetail,
+  isFetchCustomersSuccess,
+  isFetchCustomerDetailSuccess,
 } from '../src/lib/customers-service';
 import * as bookingsService from '../src/lib/bookings-service';
 import * as supabaseModule from '../src/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+function createMockStreamResponse(
+  chunks: (Uint8Array | string)[],
+  options?: {
+    status?: number;
+    contentType?: string;
+  },
+): Response {
+  const encoder = new TextEncoder();
+  const byteChunks: Uint8Array[] = chunks.map((c) =>
+    typeof c === 'string' ? encoder.encode(c) : c,
+  );
+
+  let index = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (index < byteChunks.length) {
+        controller.enqueue(byteChunks[index++]);
+      } else {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    status: options?.status ?? 200,
+    headers: {
+      'content-type': options?.contentType ?? 'application/json; charset=utf-8',
+    },
+  });
+}
+
 describe('customers-service', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe('Contract Validators', () => {
+    it('validates a valid customers list success envelope', () => {
+      const validEnvelope = {
+        ok: true,
+        tab: 'all',
+        data: [
+          {
+            id: 'c-1',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            email: null,
+            totalBookings: 2,
+            firstBookingDate: '2026-01-01',
+            lastBookingDate: '2026-02-01',
+            preferredStaffId: null,
+            preferredStaffName: null,
+          },
+        ],
+        waitlist: [],
+        pagination: { page: 1, pageSize: 25, totalCount: 1, totalPages: 1 },
+        kpis: {
+          totalCustomers: 1,
+          repeatClients: 1,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 2,
+        },
+      };
+
+      expect(isFetchCustomersSuccess(validEnvelope)).toBe(true);
+    });
+
+    it('validates a valid authoritative empty success envelope', () => {
+      const emptyEnvelope = {
+        ok: true,
+        tab: 'repeat',
+        data: [],
+        waitlist: [],
+        pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 0 },
+        kpis: {
+          totalCustomers: 0,
+          repeatClients: 0,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 0,
+        },
+      };
+
+      expect(isFetchCustomersSuccess(emptyEnvelope)).toBe(true);
+    });
+
+    it('rejects envelope missing ok', () => {
+      const invalid = {
+        tab: 'all',
+        data: [],
+        waitlist: [],
+        pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 0 },
+        kpis: {
+          totalCustomers: 0,
+          repeatClients: 0,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 0,
+        },
+      };
+
+      expect(isFetchCustomersSuccess(invalid)).toBe(false);
+    });
+
+    it('rejects envelope with ok:true but missing data array', () => {
+      const invalid = {
+        ok: true,
+        tab: 'all',
+        waitlist: [],
+        pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 0 },
+        kpis: {
+          totalCustomers: 0,
+          repeatClients: 0,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 0,
+        },
+      };
+
+      expect(isFetchCustomersSuccess(invalid)).toBe(false);
+    });
+
+    it('rejects envelope with invalid KPI shape', () => {
+      const invalid = {
+        ok: true,
+        tab: 'all',
+        data: [],
+        waitlist: [],
+        pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 0 },
+        kpis: {
+          totalCustomers: 'invalid-number',
+          repeatClients: 0,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 0,
+        },
+      };
+
+      expect(isFetchCustomersSuccess(invalid)).toBe(false);
+    });
+
+    it('rejects envelope with invalid pagination shape', () => {
+      const invalid = {
+        ok: true,
+        tab: 'all',
+        data: [],
+        waitlist: [],
+        pagination: null,
+        kpis: {
+          totalCustomers: 0,
+          repeatClients: 0,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 0,
+        },
+      };
+
+      expect(isFetchCustomersSuccess(invalid)).toBe(false);
+    });
+
+    it('validates a valid customer detail envelope', () => {
+      const validDetail = {
+        ok: true,
+        customer: {
+          id: 'c-10',
+          fullName: 'Juan Luna',
+          phone: '09181112233',
+          email: 'juan@luna.ph',
+          firstBookingDate: '2025-01-01',
+          lastBookingDate: '2026-01-01',
+          totalBookings: 10,
+          notes: 'Regular',
+          preferredStaffId: null,
+          preferredStaffName: null,
+          preferredVisitType: null,
+          pressurePreference: 'Medium',
+          healthNotes: null,
+          birthday: null,
+          loyaltyTier: null,
+        },
+        bookingHistory: [],
+      };
+
+      expect(isFetchCustomerDetailSuccess(validDetail)).toBe(true);
+    });
+
+    it('rejects malformed customer detail envelope missing customer object', () => {
+      const invalidDetail = {
+        ok: true,
+        bookingHistory: [],
+      };
+
+      expect(isFetchCustomerDetailSuccess(invalidDetail)).toBe(false);
+    });
   });
 
   describe('fetchBranchCustomers', () => {
@@ -42,7 +236,7 @@ describe('customers-service', () => {
       }
     });
 
-    it('sends Authorization Bearer header and correct query parameters', async () => {
+    it('sends Accept: application/json, Authorization Bearer header, and correct query parameters', async () => {
       vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
         'https://www.cradlewellnessliving.com',
       );
@@ -60,46 +254,43 @@ describe('customers-service', () => {
       let requestedUrl = '';
       let requestedHeaders: Record<string, string> = {};
 
+      const mockPayload = {
+        ok: true,
+        tab: 'repeat',
+        data: [
+          {
+            id: 'c-1',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            email: 'maria@test.ph',
+            totalBookings: 3,
+            firstBookingDate: '2026-01-10',
+            lastBookingDate: '2026-03-01',
+            preferredStaffId: 's-1',
+            preferredStaffName: 'Ana Therapist',
+          },
+        ],
+        waitlist: [],
+        kpis: {
+          totalCustomers: 1,
+          repeatClients: 1,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 3,
+        },
+        pagination: {
+          page: 1,
+          pageSize: 25,
+          totalCount: 1,
+          totalPages: 1,
+        },
+      };
+
       const mockFetch = vi.fn(
         async (url: RequestInfo | URL, init?: RequestInit) => {
           requestedUrl = String(url);
           requestedHeaders = (init?.headers as Record<string, string>) || {};
-          return {
-            ok: true,
-            status: 200,
-            headers: new Headers({ 'content-type': 'application/json' }),
-            json: async () => ({
-              ok: true,
-              tab: 'repeat',
-              data: [
-                {
-                  id: 'c-1',
-                  fullName: 'Maria Santos',
-                  phone: '09171234567',
-                  email: 'maria@test.ph',
-                  totalBookings: 3,
-                  firstBookingDate: '2026-01-10',
-                  lastBookingDate: '2026-03-01',
-                  preferredStaffId: 's-1',
-                  preferredStaffName: 'Ana Therapist',
-                },
-              ],
-              waitlist: [],
-              kpis: {
-                totalCustomers: 1,
-                repeatClients: 1,
-                lapsedClients: 0,
-                newThisMonth: 0,
-                totalVisits: 3,
-              },
-              pagination: {
-                page: 1,
-                pageSize: 25,
-                totalCount: 1,
-                totalPages: 1,
-              },
-            }),
-          } as unknown as Response;
+          return createMockStreamResponse([JSON.stringify(mockPayload)]);
         },
       );
 
@@ -120,6 +311,7 @@ describe('customers-service', () => {
       expect(requestedUrl).toContain('q=Maria');
       expect(requestedUrl).toContain('page=1');
       expect(requestedUrl).toContain('pageSize=25');
+      expect(requestedHeaders['Accept']).toBe('application/json');
       expect(requestedHeaders['Authorization']).toBe('Bearer valid-test-token');
 
       if (res.ok) {
@@ -128,7 +320,51 @@ describe('customers-service', () => {
       }
     });
 
-    it('handles 401 and 403 errors appropriately', async () => {
+    it('correctly decodes JSON split across multiple chunks and multi-byte UTF-8 split', async () => {
+      vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
+        'https://www.cradlewellnessliving.com',
+      );
+      const mockSupabase = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+      vi.spyOn(supabaseModule, 'getSupabaseClient').mockReturnValue(
+        mockSupabase,
+      );
+
+      // Construct a chunked stream with UTF-8 multi-byte name "Niño" split across chunks
+      const part1 = '{"ok":true,"tab":"all","data":[{"id":"c-1","fullName":"Ni';
+      // 'ñ' in UTF-8 is 0xC3, 0xB1
+      const part2Chunk1 = new Uint8Array([
+        ...new TextEncoder().encode(part1),
+        0xc3,
+      ]);
+      const part2Chunk2 = new Uint8Array([
+        0xb1,
+        ...new TextEncoder().encode(
+          'o","phone":"09181234567","email":null,"totalBookings":1,"firstBookingDate":"2026-01-01","lastBookingDate":"2026-01-01","preferredStaffId":null,"preferredStaffName":null}],"waitlist":[],"pagination":{"page":1,"pageSize":25,"totalCount":1,"totalPages":1},"kpis":{"totalCustomers":1,"repeatClients":0,"lapsedClients":0,"newThisMonth":1,"totalVisits":1}}',
+        ),
+      ]);
+
+      const mockFetch = vi.fn(async () => {
+        return createMockStreamResponse([part2Chunk1, part2Chunk2]);
+      });
+
+      const res = await fetchBranchCustomers(
+        { branchId: 'branch-1' },
+        mockFetch as unknown as typeof fetch,
+      );
+
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.data[0].fullName).toBe('Niño');
+      }
+    });
+
+    it('handles 401 and 403 API error envelopes appropriately', async () => {
       vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
         'https://www.cradlewellnessliving.com',
       );
@@ -144,16 +380,16 @@ describe('customers-service', () => {
       );
 
       const mockFetch403 = vi.fn(async () => {
-        return {
-          ok: false,
-          status: 403,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => ({
-            ok: false,
-            code: 'FORBIDDEN',
-            message: 'You do not have access to this branch.',
-          }),
-        } as unknown as Response;
+        return createMockStreamResponse(
+          [
+            JSON.stringify({
+              ok: false,
+              code: 'FORBIDDEN',
+              message: 'You do not have access to this branch.',
+            }),
+          ],
+          { status: 403 },
+        );
       });
 
       const res = await fetchBranchCustomers(
@@ -168,7 +404,7 @@ describe('customers-service', () => {
       }
     });
 
-    it('handles network failures gracefully', async () => {
+    it('handles empty HTTP 200 body gracefully with HOSTED_RESPONSE_EMPTY', async () => {
       vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
         'https://www.cradlewellnessliving.com',
       );
@@ -183,22 +419,23 @@ describe('customers-service', () => {
         mockSupabase,
       );
 
-      const mockFetchNetworkError = vi.fn(async () => {
-        throw new Error('Connection refused');
+      const mockFetchEmpty = vi.fn(async () => {
+        return createMockStreamResponse(['']);
       });
 
       const res = await fetchBranchCustomers(
         { branchId: 'branch-1' },
-        mockFetchNetworkError as unknown as typeof fetch,
+        mockFetchEmpty as unknown as typeof fetch,
       );
 
       expect(res.ok).toBe(false);
       if (!res.ok) {
-        expect(res.code).toBe('NETWORK_ERROR');
+        expect(res.code).toBe('HOSTED_RESPONSE_EMPTY');
+        expect(res.message).toContain('empty response');
       }
     });
 
-    it('handles malformed JSON responses', async () => {
+    it('handles malformed JSON with HOSTED_RESPONSE_PARSE_ERROR', async () => {
       vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
         'https://www.cradlewellnessliving.com',
       );
@@ -214,14 +451,7 @@ describe('customers-service', () => {
       );
 
       const mockFetchInvalidJson = vi.fn(async () => {
-        return {
-          ok: true,
-          status: 200,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => {
-            throw new Error('Invalid JSON');
-          },
-        } as unknown as Response;
+        return createMockStreamResponse(['{"ok": true, malformed: ']);
       });
 
       const res = await fetchBranchCustomers(
@@ -231,9 +461,46 @@ describe('customers-service', () => {
 
       expect(res.ok).toBe(false);
       if (!res.ok) {
-        expect(res.code).toBe('RESPONSE_PARSE_ERROR');
+        expect(res.code).toBe('HOSTED_RESPONSE_PARSE_ERROR');
         expect(res.message).toBe(
           'Customer service returned an invalid JSON response (HTTP 200).',
+        );
+      }
+    });
+
+    it('handles unexpected JSON response shape with HOSTED_RESPONSE_CONTRACT_ERROR', async () => {
+      vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
+        'https://www.cradlewellnessliving.com',
+      );
+      const mockSupabase = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+      vi.spyOn(supabaseModule, 'getSupabaseClient').mockReturnValue(
+        mockSupabase,
+      );
+
+      const mockFetchUnexpectedContract = vi.fn(async () => {
+        return createMockStreamResponse([
+          JSON.stringify({
+            somethingElse: 'unknown',
+          }),
+        ]);
+      });
+
+      const res = await fetchBranchCustomers(
+        { branchId: 'branch-1' },
+        mockFetchUnexpectedContract as unknown as typeof fetch,
+      );
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.code).toBe('HOSTED_RESPONSE_CONTRACT_ERROR');
+        expect(res.message).toBe(
+          'Customer service returned an unexpected response format.',
         );
       }
     });
@@ -254,15 +521,13 @@ describe('customers-service', () => {
       );
 
       const mockFetchHtml404 = vi.fn(async () => {
-        return {
-          ok: false,
-          status: 404,
-          headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
-          text: async () => '<html><body>404 Not Found</body></html>',
-          json: async () => {
-            throw new Error('Unexpected token < in JSON at position 0');
+        return createMockStreamResponse(
+          ['<html><body>404 Not Found</body></html>'],
+          {
+            status: 404,
+            contentType: 'text/html; charset=utf-8',
           },
-        } as unknown as Response;
+        );
       });
 
       const res = await fetchBranchCustomers(
@@ -276,87 +541,8 @@ describe('customers-service', () => {
         expect(res.message).toBe(
           'The hosted Customers endpoint is not available on the current deployment.',
         );
-        // Security check: raw HTML body not leaked
         expect(res.message).not.toContain('<html>');
         expect(res.message).not.toContain('test-token');
-      }
-    });
-
-    it('handles non-JSON text/html 500 responses with HOSTED_API_NON_JSON_RESPONSE', async () => {
-      vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
-        'https://www.cradlewellnessliving.com',
-      );
-      const mockSupabase = {
-        auth: {
-          getSession: vi.fn().mockResolvedValue({
-            data: { session: { access_token: 'test-token' } },
-          }),
-        },
-      } as unknown as SupabaseClient;
-      vi.spyOn(supabaseModule, 'getSupabaseClient').mockReturnValue(
-        mockSupabase,
-      );
-
-      const mockFetchHtml500 = vi.fn(async () => {
-        return {
-          ok: false,
-          status: 500,
-          headers: new Headers({ 'content-type': 'text/html' }),
-          text: async () => '<html><body>500 Internal Error</body></html>',
-        } as unknown as Response;
-      });
-
-      const res = await fetchBranchCustomers(
-        { branchId: 'branch-1' },
-        mockFetchHtml500 as unknown as typeof fetch,
-      );
-
-      expect(res.ok).toBe(false);
-      if (!res.ok) {
-        expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
-        expect(res.message).toBe(
-          'The hosted Customers service returned an unexpected server response.',
-        );
-      }
-    });
-
-    it('handles unexpected 3xx redirects with HOSTED_API_NON_JSON_RESPONSE', async () => {
-      vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
-        'https://www.cradlewellnessliving.com',
-      );
-      const mockSupabase = {
-        auth: {
-          getSession: vi.fn().mockResolvedValue({
-            data: { session: { access_token: 'test-token' } },
-          }),
-        },
-      } as unknown as SupabaseClient;
-      vi.spyOn(supabaseModule, 'getSupabaseClient').mockReturnValue(
-        mockSupabase,
-      );
-
-      const mockFetchRedirect = vi.fn(async () => {
-        return {
-          ok: false,
-          status: 308,
-          headers: new Headers({
-            'content-type': 'text/plain',
-            location: 'https://www.cradlewellnessliving.com',
-          }),
-        } as unknown as Response;
-      });
-
-      const res = await fetchBranchCustomers(
-        { branchId: 'branch-1' },
-        mockFetchRedirect as unknown as typeof fetch,
-      );
-
-      expect(res.ok).toBe(false);
-      if (!res.ok) {
-        expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
-        expect(res.message).toBe(
-          'The hosted Customers endpoint redirected unexpectedly.',
-        );
       }
     });
   });
@@ -377,48 +563,45 @@ describe('customers-service', () => {
         mockSupabase,
       );
 
+      const mockPayload = {
+        ok: true,
+        customer: {
+          id: 'c-123',
+          fullName: 'Juan Dela Cruz',
+          phone: '09181234567',
+          email: 'juan@cradlehub.test',
+          totalBookings: 5,
+          firstBookingDate: '2025-05-15',
+          lastBookingDate: '2026-02-20',
+          preferredStaffId: 's-1',
+          preferredStaffName: 'Elena Therapist',
+          preferredVisitType: 'In-Spa',
+          pressurePreference: 'Medium-Firm',
+          birthday: '1990-08-12',
+          notes: 'Prefers quiet sessions.',
+          healthNotes: 'No allergies.',
+          loyaltyTier: null,
+        },
+        bookingHistory: [
+          {
+            id: 'b-1',
+            bookingDate: '2026-02-20',
+            startTime: '14:00',
+            status: 'completed',
+            type: 'in_spa',
+            deliveryType: 'in_spa',
+            serviceName: 'Deep Tissue Massage',
+            staffName: 'Elena Therapist',
+            branchName: 'Main Branch',
+          },
+        ],
+      };
+
       const mockFetch = vi.fn(async (url: RequestInfo | URL) => {
         expect(String(url)).toContain(
           '/api/desktop/v1/customers/c-123?branchId=branch-1',
         );
-        return {
-          ok: true,
-          status: 200,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => ({
-            ok: true,
-            customer: {
-              id: 'c-123',
-              fullName: 'Juan Dela Cruz',
-              phone: '09181234567',
-              email: 'juan@cradlehub.test',
-              totalBookings: 5,
-              firstBookingDate: '2025-05-15',
-              lastBookingDate: '2026-02-20',
-              preferredStaffId: 's-1',
-              preferredStaffName: 'Elena Therapist',
-              preferredVisitType: 'In-Spa',
-              pressurePreference: 'Medium-Firm',
-              birthday: '1990-08-12',
-              notes: 'Prefers quiet sessions.',
-              healthNotes: 'No allergies.',
-              loyaltyTier: null,
-            },
-            bookingHistory: [
-              {
-                id: 'b-1',
-                bookingDate: '2026-02-20',
-                startTime: '14:00',
-                status: 'completed',
-                type: 'in_spa',
-                deliveryType: 'in_spa',
-                serviceName: 'Deep Tissue Massage',
-                staffName: 'Elena Therapist',
-                branchName: 'Main Branch',
-              },
-            ],
-          }),
-        } as unknown as Response;
+        return createMockStreamResponse([JSON.stringify(mockPayload)]);
       });
 
       const res = await fetchCustomerDetail(
@@ -436,7 +619,7 @@ describe('customers-service', () => {
       }
     });
 
-    it('handles non-JSON error responses in fetchCustomerDetail', async () => {
+    it('handles malformed customer detail contract with HOSTED_RESPONSE_CONTRACT_ERROR', async () => {
       vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
         'https://www.cradlewellnessliving.com',
       );
@@ -451,25 +634,26 @@ describe('customers-service', () => {
         mockSupabase,
       );
 
-      const mockFetchDetail404 = vi.fn(async () => {
-        return {
-          ok: false,
-          status: 404,
-          headers: new Headers({ 'content-type': 'text/html' }),
-        } as unknown as Response;
+      const mockFetchMalformed = vi.fn(async () => {
+        return createMockStreamResponse([
+          JSON.stringify({
+            ok: true,
+            somethingWrong: true,
+          }),
+        ]);
       });
 
       const res = await fetchCustomerDetail(
         'c-123',
         'branch-1',
-        mockFetchDetail404 as unknown as typeof fetch,
+        mockFetchMalformed as unknown as typeof fetch,
       );
 
       expect(res.ok).toBe(false);
       if (!res.ok) {
-        expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
+        expect(res.code).toBe('HOSTED_RESPONSE_CONTRACT_ERROR');
         expect(res.message).toBe(
-          'The hosted Customers endpoint is not available on the current deployment.',
+          'Customer detail service returned an unexpected response format.',
         );
       }
     });

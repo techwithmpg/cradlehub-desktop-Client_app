@@ -354,6 +354,28 @@ describe('Customers Workspace Component Suite', () => {
     expect(screen.getByRole('button', { name: 'Retry Request' })).toBeDefined();
   });
 
+  it('handles contract error with fallback message and never renders zero KPIs or false empty state', async () => {
+    vi.mocked(customersService.fetchBranchCustomers).mockResolvedValueOnce({
+      ok: false,
+      code: 'HOSTED_RESPONSE_CONTRACT_ERROR',
+      message: 'Customer service returned an unexpected response format.',
+    });
+
+    render(<CustomersView authContext={mockAuthContext} />);
+
+    const alertCard = await screen.findByRole('alert');
+    expect(alertCard).toBeDefined();
+    expect(screen.getByText('Customer Service Unavailable')).toBeDefined();
+    expect(
+      screen.getByText(
+        'Customer service returned an unexpected response format.',
+      ),
+    ).toBeDefined();
+
+    expect(screen.queryByText('No customers in this segment')).toBeNull();
+    expect(screen.queryByLabelText('Total Customers: 0')).toBeNull();
+  });
+
   it('clears stale customer detail and shows detail error on detail fetch failure', async () => {
     vi.mocked(customersService.fetchCustomerDetail).mockResolvedValueOnce({
       ok: false,

@@ -133,8 +133,12 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 
         if (currentVersion !== listVersionRef.current) return;
 
-        if (!res.ok) {
-          setListError(res.message);
+        if (!res || !res.ok) {
+          const errorMessage =
+            res && typeof res.message === 'string' && res.message.trim() !== ''
+              ? res.message
+              : 'Customer service returned an unexpected response.';
+          setListError(errorMessage);
           setCustomers([]);
           setWaitlistItems([]);
           setSelectedCustomer(null);
@@ -222,8 +226,12 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 
         if (!isMounted || currentVersion !== listVersionRef.current) return;
 
-        if (!res.ok) {
-          setListError(res.message);
+        if (!res || !res.ok) {
+          const errorMessage =
+            res && typeof res.message === 'string' && res.message.trim() !== ''
+              ? res.message
+              : 'Customer service returned an unexpected response.';
+          setListError(errorMessage);
           setCustomers([]);
           setWaitlistItems([]);
           setSelectedCustomer(null);
@@ -316,8 +324,12 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 
         if (!isMounted || currentVersion !== detailVersionRef.current) return;
 
-        if (!res.ok) {
-          setDetailError(res.message);
+        if (!res || !res.ok) {
+          const errorMessage =
+            res && typeof res.message === 'string' && res.message.trim() !== ''
+              ? res.message
+              : 'Customer detail service returned an unexpected response.';
+          setDetailError(errorMessage);
           setCustomerDetail(null);
           return;
         }

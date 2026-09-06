@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getSupabaseClient } from './supabase';
+import { readHostedJsonResponse } from './hosted-json-response';
+import { isFetchCustomersSuccess } from './customers-service';
 import type {
   Booking,
   BookingCustomer,
@@ -662,6 +664,7 @@ export async function searchBranchCustomers(
     response = await fetchFn(endpoint, {
       method: 'GET',
       headers: {
+        Accept: 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
     });
@@ -671,65 +674,16 @@ export async function searchBranchCustomers(
     );
   }
 
-  const contentType = response.headers.get('content-type');
-  const isJson =
-    contentType &&
-    (contentType.toLowerCase().includes('application/json') ||
-      contentType.toLowerCase().includes('+json'));
+  const result = await readHostedJsonResponse(response, {
+    validator: isFetchCustomersSuccess,
+    serviceName: 'Customer search service',
+  });
 
-  if (!isJson) {
-    if (response.status === 404) {
-      throw new Error(
-        'The hosted Customers endpoint is not available on the current deployment.',
-      );
-    }
-    if (response.status === 500) {
-      throw new Error(
-        'The hosted Customers service returned an unexpected server response.',
-      );
-    }
-    if (response.status >= 300 && response.status < 400) {
-      throw new Error('The hosted Customers endpoint redirected unexpectedly.');
-    }
-    throw new Error(
-      `Customer search service returned an unexpected HTTP ${response.status} response instead of JSON.`,
-    );
+  if (!result.ok) {
+    throw new Error(result.message);
   }
 
-  let body: {
-    ok?: boolean;
-    data?: Array<{
-      id: string;
-      fullName: string;
-      phone: string | null;
-      email: string | null;
-      totalBookings: number;
-      firstBookingDate: string | null;
-      lastBookingDate: string | null;
-      preferredStaffId?: string | null;
-      preferredStaffName?: string | null;
-    }>;
-    error?: string;
-    message?: string;
-  };
-
-  try {
-    body = await response.json();
-  } catch {
-    throw new Error(
-      `Customer search service returned an invalid JSON response (HTTP ${response.status}).`,
-    );
-  }
-
-  if (!response.ok || body?.ok === false) {
-    const msg =
-      body?.message ||
-      body?.error ||
-      `Customer search failed with status ${response.status}.`;
-    throw new Error(msg);
-  }
-
-  const list = Array.isArray(body?.data) ? body.data : [];
+  const list = result.data.data;
   return list.map((c) => ({
     id: c.id,
     full_name: c.fullName,
