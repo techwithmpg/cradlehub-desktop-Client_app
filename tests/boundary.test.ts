@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import config from '../src-tauri/tauri.conf.json';
 import { AUTHORIZED_NAV_ITEMS } from '../src/lib/navigation';
 
-describe('Stage 01 authority and security boundaries', () => {
-  it('grants no renderer native capabilities and enforces narrow CSP', () => {
-    expect(config.app.security.capabilities).toEqual([]);
+describe('Stage 01/02 authority and security boundaries', () => {
+  it('enforces least-privilege native capabilities and narrow CSP', () => {
+    expect(config.app.security.capabilities).toEqual(['desktop-api']);
     // CSP must not contain broad wildcards
     expect(config.app.security.csp).not.toContain('connect-src *');
     expect(config.app.security.csp).not.toContain('connect-src https:');
@@ -14,7 +14,34 @@ describe('Stage 01 authority and security boundaries', () => {
     );
 
     const rust = readFileSync('src-tauri/src/lib.rs', 'utf8');
-    expect(rust).not.toMatch(/invoke_handler|#\[tauri::command\]|\.plugin\(/);
+    expect(rust).not.toMatch(/invoke_handler|#\[tauri::command\]/);
+    expect(rust).toMatch(/tauri_plugin_http::init\(\)/);
+
+    const capabilityJson = JSON.parse(
+      readFileSync('src-tauri/capabilities/desktop-api.json', 'utf8'),
+    );
+    expect(capabilityJson.identifier).toBe('desktop-api');
+    const permissions = capabilityJson.permissions;
+    expect(Array.isArray(permissions)).toBe(true);
+
+    const allowedUrls: string[] = [];
+    for (const perm of permissions) {
+      if (typeof perm === 'object' && perm.allow) {
+        for (const rule of perm.allow) {
+          if (rule.url) allowedUrls.push(rule.url);
+        }
+      }
+    }
+
+    expect(allowedUrls.length).toBeGreaterThan(0);
+    for (const url of allowedUrls) {
+      expect(url).toMatch(
+        /^https:\/\/(\*\.)?cradlehub\.(com|app|ph)\/api\/desktop\/v1\/\*$/,
+      );
+      expect(url).not.toBe('https://*');
+      expect(url).not.toBe('http://*');
+      expect(url).not.toContain('http://');
+    }
   });
 
   it('has no durable auth persistence in localStorage, sessionStorage, indexedDB, or SQLite', () => {

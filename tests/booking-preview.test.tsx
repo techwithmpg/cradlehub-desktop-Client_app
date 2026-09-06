@@ -107,34 +107,15 @@ describe('booking preview selection and availability', () => {
       expect(screen.getByRole('button', { name: /Both modes/ })).toBeDefined();
     },
   );
-  it('removes invalid selections on mode switch and picks an eligible default', async () => {
+  it('disables Home Service mode tab with accessible state and explanatory title', async () => {
     mount();
     await ready();
-    change('staff-select', 'spa-provider');
-    mode('Home Service');
-    expect(screen.queryByRole('button', { name: /Spa only/ })).toBeNull();
-    expect(
-      screen
-        .getByRole('button', { name: /Both modes/ })
-        .getAttribute('aria-pressed'),
-    ).toBe('true');
-    expect(screen.queryByText('1. Spa only')).toBeNull();
-    expect(input('staff-select').value).toBe('');
-    mode('Walk-in');
-    expect(screen.queryByText('1. Home only')).toBeNull();
-  });
-  it('leaves services empty when no eligible mode default exists', async () => {
-    vi.mocked(service.fetchBranchBookingOptions).mockResolvedValue({
-      ...options,
-      services: [options.services[0]],
-    });
-    mount();
-    await ready();
-    mode('Home Service');
-    expect(
-      screen.getByText('No eligible services for this branch and mode.'),
-    ).toBeDefined();
-    expect(screen.getByText('No services selected')).toBeDefined();
+    const homeTab = screen.getByRole('tab', { name: /^Home Service/ });
+    expect(homeTab.getAttribute('aria-disabled')).toBe('true');
+    expect(homeTab.hasAttribute('disabled')).toBe(true);
+    expect(homeTab.getAttribute('title')).toContain(
+      'Home Service booking will be enabled after precise address/location support is connected.',
+    );
   });
   it('requires explicit capability for every selected service and clears an invalid provider', async () => {
     mount();
@@ -155,7 +136,6 @@ describe('booking preview selection and availability', () => {
     { label: 'Walk-in', modeVal: 'walkin' },
     { label: 'Phone', modeVal: 'phone' },
     { label: 'Future', modeVal: 'standard_future' },
-    { label: 'Home Service', modeVal: 'home_service' },
   ])(
     'submits creation in $label mode when valid',
     async ({ label, modeVal }) => {
@@ -167,9 +147,6 @@ describe('booking preview selection and availability', () => {
       mode(label);
       change('customer-fullname', 'Preview Customer');
       change('customer-phone', '09000000000');
-      if (modeVal === 'home_service') {
-        change('hs-city', 'Quezon City');
-      }
       const button = screen.getByRole('button', {
         name: 'Create Booking',
       }) as HTMLButtonElement;
@@ -183,13 +160,65 @@ describe('booking preview selection and availability', () => {
             fullName: 'Preview Customer',
             phone: '09000000000',
             mode: modeVal,
+            paymentReceived: false,
+            paymentMethod: undefined,
           }),
         );
-        expect(view.props.onBookingCreated).toHaveBeenCalledOnce();
+        expect(view.props.onBookingCreated).toHaveBeenCalledWith({
+          bookingId: 'b-new-1',
+          warning: undefined,
+        });
         expect(view.props.onClose).toHaveBeenCalledOnce();
       });
     },
   );
+
+  it('handles payment confirmation and requires explicit payment method selection', async () => {
+    const create = vi
+      .spyOn(service, 'createBranchBooking')
+      .mockResolvedValue({ ok: true, bookingId: 'b-paid-1' });
+    const view = mount();
+    await ready();
+    change('customer-fullname', 'Paying Customer');
+    change('customer-phone', '09000000000');
+
+    // Payment defaults to false, payment method select is not rendered
+    const paymentCheckbox = screen.getByRole('checkbox') as HTMLInputElement;
+    expect(paymentCheckbox.checked).toBe(false);
+    expect(document.getElementById('payment-method-select')).toBeNull();
+
+    // Check payment received
+    fireEvent.click(paymentCheckbox);
+    expect(paymentCheckbox.checked).toBe(true);
+
+    // Payment method dropdown appears, initially empty
+    const methodSelect = input('payment-method-select');
+    expect(methodSelect.value).toBe('');
+
+    // Create Booking button is disabled until explicit method is selected
+    const createButton = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    expect(createButton.disabled).toBe(true);
+
+    // Select valid payment method
+    change('payment-method-select', 'gcash');
+    expect(createButton.disabled).toBe(false);
+
+    fireEvent.click(createButton);
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentReceived: true,
+          paymentMethod: 'gcash',
+        }),
+      );
+      expect(view.props.onBookingCreated).toHaveBeenCalledWith({
+        bookingId: 'b-paid-1',
+        warning: undefined,
+      });
+    });
+  });
 
   it('keeps entered values and surfaces server conflict error', async () => {
     vi.spyOn(service, 'createBranchBooking').mockResolvedValue({
@@ -229,7 +258,6 @@ describe('dirty state and defaults', () => {
     'booking-start-time',
     'staff-select',
     'resource-select',
-    'payment-method-select',
   ])('tracks and reverts %s exactly', async (id) => {
     const view = mount();
     await ready();
@@ -239,7 +267,6 @@ describe('dirty state and defaults', () => {
       'booking-start-time': original === '12:30' ? '13:30' : '12:30',
       'staff-select': 'spa-provider',
       'resource-select': 'room',
-      'payment-method-select': 'gcash',
     };
     change(id, values[id] ?? 'test');
     close();
@@ -250,29 +277,6 @@ describe('dirty state and defaults', () => {
     expect(view.props.onClose).toHaveBeenCalledOnce();
     expect(screen.queryByText('Discard unfinished booking?')).toBeNull();
   });
-  it.each(['hs-city', 'hs-address', 'hs-barangay'])(
-    'tracks hidden %s after switching back to the initial mode',
-    async (id) => {
-      const view = mount();
-      await ready();
-      mode('Home Service');
-      change(id, 'Changed');
-      mode('Walk-in');
-      // Restore canonical service selection independently of home fields.
-      fireEvent.click(screen.getByRole('button', { name: /Spa only/ }));
-      fireEvent.click(screen.getByRole('button', { name: /Both modes/ }));
-      close();
-      expect(view.props.onClose).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByRole('button', { name: 'Keep Editing' }));
-      mode('Home Service');
-      change(id, '');
-      mode('Walk-in');
-      fireEvent.click(screen.getByRole('button', { name: /Spa only/ }));
-      fireEvent.click(screen.getByRole('button', { name: /Both modes/ }));
-      close();
-      expect(view.props.onClose).toHaveBeenCalledOnce();
-    },
-  );
   it('tracks and reverts mode, payment flag and multi-service selection', async () => {
     const view = mount();
     await ready();
@@ -359,10 +363,8 @@ describe('option failures and modal lifecycle', () => {
     change('booking-date', '2030-01-01');
     change('booking-start-time', '01:00');
     change('booking-notes', 'Changed');
-    mode('Home Service');
-    change('hs-city', 'City');
-    change('hs-address', 'Address');
-    change('hs-barangay', 'Area');
+    fireEvent.click(screen.getByRole('checkbox'));
+    change('payment-method-select', 'gcash');
     close();
     view.change({ isOpen: false });
     view.change({ isOpen: true });
@@ -378,16 +380,13 @@ describe('option failures and modal lifecycle', () => {
       expect(input(id).value).toBe('');
     expect(input('booking-date').value).toBe(originalDate);
     expect(input('booking-start-time').value).toBe(originalTime);
-    expect(input('payment-method-select').value).toBe('cash');
+    expect(document.getElementById('payment-method-select')).toBeNull();
     expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(
-      true,
+      false,
     );
     expect(screen.queryByText('Discard unfinished booking?')).toBeNull();
     close();
     expect(view.props.onClose).toHaveBeenCalledOnce();
-    mode('Home Service');
-    for (const id of ['hs-city', 'hs-address', 'hs-barangay'])
-      expect(input(id).value).toBe('');
   });
   it.each(['resolve', 'reject'] as const)(
     'ignores late options %s from a previous branch',

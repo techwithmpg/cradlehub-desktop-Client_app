@@ -7,6 +7,7 @@ import {
   filterBookings,
   computeBookingEndTime,
   getHostedApiBaseUrl,
+  validateHostedApiBaseUrl,
   createBranchBooking,
 } from '../src/lib/bookings-service';
 import type { Booking } from '../src/types/bookings';
@@ -455,65 +456,218 @@ describe('Bookings Service', () => {
     });
   });
 
-  describe('getHostedApiBaseUrl', () => {
-    it('returns empty string or configured base URL without trailing slash', () => {
-      const url = getHostedApiBaseUrl();
-      expect(typeof url).toBe('string');
-      expect(url).not.toMatch(/\/$/);
+  describe('getHostedApiBaseUrl & validateHostedApiBaseUrl', () => {
+    it('validates HTTPS URLs, normalizes trailing slashes, and rejects invalid configs', () => {
+      const valid = validateHostedApiBaseUrl('https://api.cradlehub.com/v1/');
+      expect(valid.valid).toBe(true);
+      if (valid.valid) {
+        expect(valid.url).toBe('https://api.cradlehub.com/v1');
+      }
+
+      const empty = validateHostedApiBaseUrl('');
+      expect(empty.valid).toBe(false);
+      if (!empty.valid) {
+        expect(empty.reason).toContain('not configured');
+      }
+
+      const nonHttps = validateHostedApiBaseUrl(
+        'http://insecure.cradlehub.com',
+      );
+      expect(nonHttps.valid).toBe(false);
+      if (!nonHttps.valid) {
+        expect(nonHttps.reason).toContain('HTTPS');
+      }
+
+      const withCreds = validateHostedApiBaseUrl(
+        'https://user:pass@api.cradlehub.com',
+      );
+      expect(withCreds.valid).toBe(false);
+      if (!withCreds.valid) {
+        expect(withCreds.reason).toContain('credentials');
+      }
+
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL =
+          'https://api.cradlehub.com/custom/';
+        expect(getHostedApiBaseUrl()).toBe('https://api.cradlehub.com/custom');
+
+        import.meta.env.VITE_CRADLEHUB_API_URL = '';
+        expect(getHostedApiBaseUrl()).toBeNull();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
     });
   });
 
   describe('createBranchBooking', () => {
-    it('fails closed with AUTH_SESSION_REQUIRED and makes no fetch call when there is no session', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch');
-      const client = {
-        auth: {
-          getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-        },
-      } as unknown as SupabaseClient;
+    const validConfigUrl = 'https://api.cradlehub.app';
 
-      const res = await createBranchBooking(
-        {
-          branchId: 'branch-1',
-          fullName: 'Maria Santos',
-          phone: '09171234567',
-          serviceIds: ['svc-1'],
-          date: '2026-09-05',
-          startTime: '14:00',
-          mode: 'walkin',
-          paymentReceived: true,
-          paymentMethod: 'cash',
-        },
-        client,
-      );
+    it('fails closed with API_CONFIG_REQUIRED and makes no fetch call when API URL is missing or invalid', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = '';
+        const customFetch = vi.fn();
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'valid-token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
 
-      expect(res.ok).toBe(false);
-      expect(res.code).toBe('AUTH_SESSION_REQUIRED');
-      expect(res.error).toContain('session has expired');
-      expect(fetchSpy).not.toHaveBeenCalled();
+        const res = await createBranchBooking(
+          {
+            branchId: 'branch-1',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            serviceIds: ['svc-1'],
+            date: '2026-09-05',
+            startTime: '14:00',
+            mode: 'walkin',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('API_CONFIG_REQUIRED');
+        expect(res.error).toContain('Booking service is not configured');
+        expect(customFetch).not.toHaveBeenCalled();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
     });
 
-    it('sends POST request with Authorization Bearer header and mapped canonical payload', async () => {
-      const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-        ok: true,
-        status: 201,
-        json: async () => ({
+    it('fails closed with HOME_SERVICE_LOCATION_REQUIRED and makes no fetch call when mode is home_service', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn();
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'valid-token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await createBranchBooking(
+          {
+            branchId: 'branch-1',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            serviceIds: ['svc-1'],
+            date: '2026-09-05',
+            startTime: '14:00',
+            mode: 'home_service',
+            homeServiceAddress: '123 Main St',
+            homeServiceCity: 'Pasig',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('HOME_SERVICE_LOCATION_REQUIRED');
+        expect(res.error).toContain('precise address/location support');
+        expect(customFetch).not.toHaveBeenCalled();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('fails closed with AUTH_SESSION_REQUIRED and makes no fetch call when there is no session', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn();
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await createBranchBooking(
+          {
+            branchId: 'branch-1',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            serviceIds: ['svc-1'],
+            date: '2026-09-05',
+            startTime: '14:00',
+            mode: 'walkin',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('AUTH_SESSION_REQUIRED');
+        expect(res.error).toContain('session has expired');
+        expect(customFetch).not.toHaveBeenCalled();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('sends POST request with Authorization Bearer header, omits paymentMethod when paymentReceived is false', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = 'https://api.cradlehub.app/';
+        const customFetch = vi.fn().mockResolvedValue({
           ok: true,
-          bookingId: 'booking-new-123',
-          warning: 'Note on provider tier',
-        }),
-      } as unknown as Response);
-
-      const client = {
-        auth: {
-          getSession: vi.fn().mockResolvedValue({
-            data: { session: { access_token: 'valid-jwt-token-xyz' } },
+          status: 201,
+          json: async () => ({
+            ok: true,
+            bookingId: 'booking-new-123',
+            warning: 'Note on provider tier',
           }),
-        },
-      } as unknown as SupabaseClient;
+        } as unknown as Response);
 
-      const res = await createBranchBooking(
-        {
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'valid-jwt-token-xyz' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await createBranchBooking(
+          {
+            branchId: '00000000-0000-0000-0000-000000000001',
+            customerId: '00000000-0000-0000-0000-000000000002',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            email: 'maria@example.com',
+            serviceIds: ['00000000-0000-0000-0000-000000000003'],
+            staffId: '00000000-0000-0000-0000-000000000004',
+            resourceId: '00000000-0000-0000-0000-000000000005',
+            date: '2026-09-05',
+            startTime: '14:00',
+            totalDurationMinutes: 60,
+            totalPrice: 1500,
+            mode: 'walkin',
+            paymentReceived: false,
+            notes: 'Special request',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(customFetch).toHaveBeenCalledOnce();
+        const [url, init] = customFetch.mock.calls[0];
+        expect(url).toBe('https://api.cradlehub.app/api/desktop/v1/bookings');
+        expect(init?.method).toBe('POST');
+        expect((init?.headers as Record<string, string>)['Content-Type']).toBe(
+          'application/json',
+        );
+        expect((init?.headers as Record<string, string>)['Authorization']).toBe(
+          'Bearer valid-jwt-token-xyz',
+        );
+
+        const parsedBody = JSON.parse(init?.body as string);
+        expect(parsedBody).toEqual({
           branchId: '00000000-0000-0000-0000-000000000001',
           customerId: '00000000-0000-0000-0000-000000000002',
           fullName: 'Maria Santos',
@@ -524,108 +678,115 @@ describe('Bookings Service', () => {
           resourceId: '00000000-0000-0000-0000-000000000005',
           date: '2026-09-05',
           startTime: '14:00',
-          totalDurationMinutes: 60,
-          totalPrice: 1500,
-          mode: 'walkin',
-          paymentReceived: true,
-          paymentMethod: 'cash',
+          deliveryType: 'in_spa',
+          type: 'walkin',
+          crmBookingMode: 'walkin',
+          paymentReceived: false,
+          paymentMethod: undefined,
           notes: 'Special request',
-        },
-        client,
-      );
+        });
+        expect(parsedBody.paymentMethod).toBeUndefined();
 
-      expect(mockFetch).toHaveBeenCalledOnce();
-      const [url, init] = mockFetch.mock.calls[0];
-      expect(url).toMatch(/\/api\/desktop\/v1\/bookings$/);
-      expect(init?.method).toBe('POST');
-      expect((init?.headers as Record<string, string>)['Content-Type']).toBe(
-        'application/json',
-      );
-      expect((init?.headers as Record<string, string>)['Authorization']).toBe(
-        'Bearer valid-jwt-token-xyz',
-      );
-
-      const parsedBody = JSON.parse(init?.body as string);
-      expect(parsedBody).toEqual({
-        branchId: '00000000-0000-0000-0000-000000000001',
-        customerId: '00000000-0000-0000-0000-000000000002',
-        fullName: 'Maria Santos',
-        phone: '09171234567',
-        email: 'maria@example.com',
-        serviceIds: ['00000000-0000-0000-0000-000000000003'],
-        staffId: '00000000-0000-0000-0000-000000000004',
-        resourceId: '00000000-0000-0000-0000-000000000005',
-        date: '2026-09-05',
-        startTime: '14:00',
-        deliveryType: 'in_spa',
-        type: 'walkin',
-        crmBookingMode: 'walkin',
-        paymentReceived: true,
-        paymentMethod: 'cash',
-        notes: 'Special request',
-      });
-      // Verifies no UI-only fields or privileged bypass keys sent
-      expect(parsedBody.totalDurationMinutes).toBeUndefined();
-      expect(parsedBody.totalPrice).toBeUndefined();
-      expect(parsedBody.mode).toBeUndefined();
-      expect(parsedBody.isDevBypass).toBeUndefined();
-      expect(parsedBody.role).toBeUndefined();
-
-      expect(res).toEqual({
-        ok: true,
-        bookingId: 'booking-new-123',
-        warning: 'Note on provider tier',
-      });
+        expect(res).toEqual({
+          ok: true,
+          bookingId: 'booking-new-123',
+          warning: 'Note on provider tier',
+        });
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
     });
 
-    it('correctly maps home_service mode and includes address fields while omitting resourceId', async () => {
-      const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-        ok: true,
-        status: 201,
-        json: async () => ({
+    it('sends paymentMethod when paymentReceived is true', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = 'https://api.cradlehub.app';
+        const customFetch = vi.fn().mockResolvedValue({
           ok: true,
-          bookingId: 'booking-home-123',
-        }),
-      } as unknown as Response);
-
-      const client = {
-        auth: {
-          getSession: vi.fn().mockResolvedValue({
-            data: { session: { access_token: 'test-token' } },
+          status: 201,
+          json: async () => ({
+            ok: true,
+            bookingId: 'booking-paid-123',
           }),
-        },
-      } as unknown as SupabaseClient;
+        } as unknown as Response);
 
-      const res = await createBranchBooking(
-        {
-          branchId: '00000000-0000-0000-0000-000000000001',
-          fullName: 'Juan Dela Cruz',
-          phone: '09181234567',
-          serviceIds: ['00000000-0000-0000-0000-000000000003'],
-          staffId: '00000000-0000-0000-0000-000000000004',
-          resourceId: 'ignored-in-home-service',
-          date: '2026-09-05',
-          startTime: '10:00',
-          mode: 'home_service',
-          paymentReceived: false,
-          homeServiceAddress: '123 Main St',
-          homeServiceBarangay: 'San Antonio',
-          homeServiceCity: 'Pasig City',
-        },
-        client,
-      );
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'test-token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
 
-      expect(res.ok).toBe(true);
-      expect(res.bookingId).toBe('booking-home-123');
+        const res = await createBranchBooking(
+          {
+            branchId: '00000000-0000-0000-0000-000000000001',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            serviceIds: ['00000000-0000-0000-0000-000000000003'],
+            date: '2026-09-05',
+            startTime: '14:00',
+            mode: 'walkin',
+            paymentReceived: true,
+            paymentMethod: 'gcash',
+          },
+          client,
+          customFetch,
+        );
 
-      const parsedBody = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
-      expect(parsedBody.deliveryType).toBe('home_service');
-      expect(parsedBody.type).toBe('home_service');
-      expect(parsedBody.crmBookingMode).toBe('home_service');
-      expect(parsedBody.resourceId).toBeUndefined();
-      expect(parsedBody.homeServiceAddress).toBe('123 Main St');
-      expect(parsedBody.homeServiceBarangay).toBe('San Antonio');
-      expect(parsedBody.homeServiceCity).toBe('Pasig City');
+        expect(res.ok).toBe(true);
+        expect(res.bookingId).toBe('booking-paid-123');
+
+        const parsedBody = JSON.parse(
+          customFetch.mock.calls[0][1]?.body as string,
+        );
+        expect(parsedBody.paymentReceived).toBe(true);
+        expect(parsedBody.paymentMethod).toBe('gcash');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('fails closed with SERVER_ERROR when success response lacks a valid bookingId', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+          }),
+        } as unknown as Response);
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'test-token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await createBranchBooking(
+          {
+            branchId: 'branch-1',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            serviceIds: ['svc-1'],
+            date: '2026-09-05',
+            startTime: '14:00',
+            mode: 'walkin',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('SERVER_ERROR');
+        expect(res.error).toContain('without a valid booking ID');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
     });
 
     it.each([
@@ -634,7 +795,7 @@ describe('Bookings Service', () => {
         response: {
           ok: false,
           code: 'VALIDATION_ERROR',
-          error: 'Validation failed',
+          message: 'Validation failed on branch schema',
         },
         expectedCode: 'VALIDATION_ERROR',
       },
@@ -643,7 +804,7 @@ describe('Bookings Service', () => {
         response: {
           ok: false,
           code: 'UNAUTHORIZED',
-          error: 'Missing or invalid authorization token',
+          message: 'Missing or invalid authorization token',
         },
         expectedCode: 'UNAUTHORIZED',
       },
@@ -652,7 +813,7 @@ describe('Bookings Service', () => {
         response: {
           ok: false,
           code: 'CRM_BRANCH_FORBIDDEN',
-          error: 'Staff is not assigned to this branch',
+          message: 'You can only create bookings for your assigned branch.',
         },
         expectedCode: 'CRM_BRANCH_FORBIDDEN',
       },
@@ -661,7 +822,7 @@ describe('Bookings Service', () => {
         response: {
           ok: false,
           code: 'SLOT_UNAVAILABLE',
-          error: 'Selected time slot is already booked',
+          message: 'Selected time slot is already booked',
         },
         expectedCode: 'SLOT_UNAVAILABLE',
       },
@@ -670,17 +831,104 @@ describe('Bookings Service', () => {
         response: {
           ok: false,
           code: 'BOOKING_INSERT_FAILED',
-          error: 'Failed to insert booking record',
+          message: 'Failed to insert booking record',
         },
         expectedCode: 'BOOKING_INSERT_FAILED',
       },
     ])(
-      'preserves server error code $expectedCode on HTTP $status',
+      'parses hosted message and preserves server error code $expectedCode on HTTP $status',
       async ({ status, response, expectedCode }) => {
-        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+        try {
+          import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+          const customFetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status,
+            json: async () => response,
+          } as unknown as Response);
+
+          const client = {
+            auth: {
+              getSession: vi.fn().mockResolvedValue({
+                data: { session: { access_token: 'secret-token-xyz' } },
+              }),
+            },
+          } as unknown as SupabaseClient;
+
+          const res = await createBranchBooking(
+            {
+              branchId: 'branch-1',
+              fullName: 'Maria Santos',
+              phone: '09171234567',
+              serviceIds: ['svc-1'],
+              date: '2026-09-05',
+              startTime: '14:00',
+              mode: 'walkin',
+            },
+            client,
+            customFetch,
+          );
+
+          expect(res.ok).toBe(false);
+          expect(res.code).toBe(expectedCode);
+          expect(res.error).toBe(response.message);
+          // Security check: token must never appear in error message
+          expect(res.error).not.toContain('secret-token-xyz');
+        } finally {
+          import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+        }
+      },
+    );
+
+    it('returns fail-closed NETWORK_ERROR on network fetch failure', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi
+          .fn()
+          .mockRejectedValue(new TypeError('Failed to fetch'));
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'secret-token-xyz' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await createBranchBooking(
+          {
+            branchId: 'branch-1',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            serviceIds: ['svc-1'],
+            date: '2026-09-05',
+            startTime: '14:00',
+            mode: 'walkin',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('NETWORK_ERROR');
+        expect(res.error).toContain('Booking creation requires a connection');
+        expect(res.error).not.toContain('secret-token-xyz');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('returns SERVER_ERROR when server returns non-JSON or malformed payload', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn().mockResolvedValue({
           ok: false,
-          status,
-          json: async () => response,
+          status: 502,
+          json: async () => {
+            throw new Error('Unexpected token < in JSON');
+          },
         } as unknown as Response);
 
         const client = {
@@ -702,82 +950,15 @@ describe('Bookings Service', () => {
             mode: 'walkin',
           },
           client,
+          customFetch,
         );
 
         expect(res.ok).toBe(false);
-        expect(res.code).toBe(expectedCode);
-        expect(res.error).toBe(response.error);
-        // Security check: token must never appear in error message
-        expect(res.error).not.toContain('secret-token-xyz');
-      },
-    );
-
-    it('returns fail-closed NETWORK_ERROR on network fetch failure', async () => {
-      vi.spyOn(globalThis, 'fetch').mockRejectedValue(
-        new TypeError('Failed to fetch'),
-      );
-
-      const client = {
-        auth: {
-          getSession: vi.fn().mockResolvedValue({
-            data: { session: { access_token: 'secret-token-xyz' } },
-          }),
-        },
-      } as unknown as SupabaseClient;
-
-      const res = await createBranchBooking(
-        {
-          branchId: 'branch-1',
-          fullName: 'Maria Santos',
-          phone: '09171234567',
-          serviceIds: ['svc-1'],
-          date: '2026-09-05',
-          startTime: '14:00',
-          mode: 'walkin',
-        },
-        client,
-      );
-
-      expect(res.ok).toBe(false);
-      expect(res.code).toBe('NETWORK_ERROR');
-      expect(res.error).toContain('Booking creation requires a connection');
-      expect(res.error).not.toContain('secret-token-xyz');
-    });
-
-    it('returns SERVER_ERROR when server returns non-JSON or malformed payload', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-        ok: false,
-        status: 502,
-        json: async () => {
-          throw new Error('Unexpected token < in JSON');
-        },
-      } as unknown as Response);
-
-      const client = {
-        auth: {
-          getSession: vi.fn().mockResolvedValue({
-            data: { session: { access_token: 'secret-token-xyz' } },
-          }),
-        },
-      } as unknown as SupabaseClient;
-
-      const res = await createBranchBooking(
-        {
-          branchId: 'branch-1',
-          fullName: 'Maria Santos',
-          phone: '09171234567',
-          serviceIds: ['svc-1'],
-          date: '2026-09-05',
-          startTime: '14:00',
-          mode: 'walkin',
-        },
-        client,
-      );
-
-      expect(res.ok).toBe(false);
-      expect(res.code).toBe('SERVER_ERROR');
-      expect(res.error).toContain('502');
-      expect(res.error).not.toContain('secret-token-xyz');
+        expect(res.code).toBe('SERVER_ERROR');
+        expect(res.error).toContain('502');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
     });
   });
 });

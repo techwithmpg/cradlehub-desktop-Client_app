@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getSupabaseClient } from './supabase';
 import type {
   Booking,
@@ -639,14 +640,57 @@ export async function searchBranchCustomers(
   throw new CustomerLookupUnavailableError();
 }
 
-export function getHostedApiBaseUrl(): string {
+export function validateHostedApiBaseUrl(rawUrl?: string):
+  | {
+      valid: true;
+      url: string;
+    }
+  | {
+      valid: false;
+      reason: string;
+    } {
+  if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
+    return {
+      valid: false,
+      reason:
+        'Booking service is not configured for this desktop installation.',
+    };
+  }
+  const trimmed = rawUrl.trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return {
+      valid: false,
+      reason:
+        'Booking service configuration is invalid. An HTTPS URL is required.',
+    };
+  }
+  if (parsed.protocol !== 'https:') {
+    return {
+      valid: false,
+      reason:
+        'Booking service configuration is invalid. An HTTPS URL is required.',
+    };
+  }
+  if (parsed.username || parsed.password) {
+    return {
+      valid: false,
+      reason: 'Booking service URL must not contain embedded credentials.',
+    };
+  }
+  const normalized = `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, '');
+  return { valid: true, url: normalized };
+}
+
+export function getHostedApiBaseUrl(): string | null {
   const envUrl =
     (typeof import.meta !== 'undefined' &&
       import.meta.env?.VITE_CRADLEHUB_API_URL) ||
-    (typeof import.meta !== 'undefined' &&
-      import.meta.env?.VITE_CRADLEHUB_URL) ||
     '';
-  return envUrl.replace(/\/+$/, '');
+  const validation = validateHostedApiBaseUrl(envUrl);
+  return validation.valid ? validation.url : null;
 }
 
 /**
@@ -660,7 +704,26 @@ export function getHostedApiBaseUrl(): string {
 export async function createBranchBooking(
   input: CreateBookingInput,
   client?: SupabaseClient,
+  customFetch?: typeof fetch,
 ): Promise<CreateBookingResult> {
+  const baseUrl = getHostedApiBaseUrl();
+  if (!baseUrl) {
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error: 'Booking service is not configured for this desktop installation.',
+    };
+  }
+
+  if (input.mode === 'home_service') {
+    return {
+      ok: false,
+      code: 'HOME_SERVICE_LOCATION_REQUIRED',
+      error:
+        'Home Service booking will be enabled after precise address/location support is connected.',
+    };
+  }
+
   const supabase = client ?? getSupabaseClient();
   const {
     data: { session },
@@ -674,39 +737,36 @@ export async function createBranchBooking(
     };
   }
 
+  const paymentReceived = Boolean(input.paymentReceived);
+  const paymentMethod = paymentReceived
+    ? input.paymentMethod?.trim() || undefined
+    : undefined;
+
   const payload = {
     branchId: input.branchId,
     serviceIds: input.serviceIds,
     date: input.date,
     startTime: input.startTime,
-    deliveryType: input.mode === 'home_service' ? 'home_service' : 'in_spa',
-    type: input.mode === 'home_service' ? 'home_service' : 'walkin',
+    deliveryType: 'in_spa',
+    type: 'walkin',
     crmBookingMode: input.mode,
     fullName: input.fullName.trim(),
     phone: input.phone.trim(),
     email: input.email?.trim() || undefined,
     staffId: input.staffId || undefined,
-    resourceId:
-      input.mode === 'home_service' ? undefined : input.resourceId || undefined,
+    resourceId: input.resourceId || undefined,
     customerId: input.customerId || undefined,
     notes: input.notes?.trim() || undefined,
-    paymentReceived: Boolean(input.paymentReceived),
-    paymentMethod: input.paymentMethod || undefined,
-    ...(input.mode === 'home_service'
-      ? {
-          homeServiceAddress: input.homeServiceAddress?.trim() || undefined,
-          homeServiceBarangay: input.homeServiceBarangay?.trim() || undefined,
-          homeServiceCity: input.homeServiceCity?.trim() || undefined,
-        }
-      : {}),
+    paymentReceived,
+    paymentMethod,
   };
 
-  const baseUrl = getHostedApiBaseUrl();
   const endpoint = `${baseUrl}/api/desktop/v1/bookings`;
+  const fetchFn = customFetch ?? tauriFetch;
 
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchFn(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -727,6 +787,7 @@ export async function createBranchBooking(
     ok?: boolean;
     bookingId?: string;
     warning?: string;
+    message?: string;
     error?: string;
     code?: string;
   };
@@ -741,22 +802,35 @@ export async function createBranchBooking(
   }
 
   if (response.ok && body?.ok === true) {
+    if (typeof body.bookingId !== 'string' || !body.bookingId.trim()) {
+      return {
+        ok: false,
+        code: 'SERVER_ERROR',
+        error: 'Server returned a success response without a valid booking ID.',
+      };
+    }
+
     return {
       ok: true,
-      bookingId: body.bookingId,
+      bookingId: body.bookingId.trim(),
       warning: body.warning,
     };
   }
 
+  const code =
+    body?.code ||
+    (response.status === 401
+      ? 'UNAUTHORIZED'
+      : response.status === 403
+        ? 'CRM_PERMISSION_DENIED'
+        : 'UNKNOWN_ERROR');
+
+  const errorMessage =
+    body?.message || body?.error || 'Failed to create booking.';
+
   return {
     ok: false,
-    code:
-      body?.code ||
-      (response.status === 401
-        ? 'UNAUTHORIZED'
-        : response.status === 403
-          ? 'CRM_PERMISSION_DENIED'
-          : 'UNKNOWN_ERROR'),
-    error: body?.error || 'Failed to create booking.',
+    code,
+    error: errorMessage,
   };
 }

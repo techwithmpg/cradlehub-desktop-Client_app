@@ -1367,6 +1367,49 @@ body {
   cursor: pointer;
 }
 
+.bookings-success-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  color: #15803d;
+  font-size: 12px;
+}
+
+.bookings-notice-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bookings-notice-title {
+  font-weight: 600;
+  color: #166534;
+}
+
+.bookings-notice-warning {
+  font-weight: 500;
+  color: #854d0e;
+}
+
+.bookings-notice-dismiss {
+  background: none;
+  border: none;
+  font-size: 16px;
+  line-height: 1;
+  color: #15803d;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.bookings-notice-dismiss:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 /* --- Skeleton Loading --- */
 .bookings-loading-state {
   display: flex;

@@ -39,6 +39,10 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+  const [creationNotice, setCreationNotice] = useState<{
+    message: string;
+    warning?: string;
+  } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -93,6 +97,17 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
       setIsRefreshing(false);
     }
   }, [authContext.branchId]);
+
+  const handleBookingCreated = useCallback(
+    ({ warning }: { bookingId: string; warning?: string }) => {
+      setCreationNotice({
+        message: 'Booking created successfully.',
+        warning,
+      });
+      void handleRefresh();
+    },
+    [handleRefresh],
+  );
 
   // Derived KPIs
   const kpis = useMemo(() => computeBookingKpis(bookings), [bookings]);
@@ -178,6 +193,34 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
         isRefreshing={isRefreshing}
         onOpenNewBooking={() => setIsNewBookingOpen(true)}
       />
+
+      {/* Creation Notice Banner */}
+      {creationNotice && (
+        <div
+          className="bookings-success-banner"
+          role="status"
+          data-testid="bookings-creation-notice"
+        >
+          <div className="bookings-notice-content">
+            <span className="bookings-notice-title">
+              {creationNotice.message}
+            </span>
+            {creationNotice.warning && (
+              <span className="bookings-notice-warning">
+                {creationNotice.warning}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCreationNotice(null)}
+            className="bookings-notice-dismiss"
+            aria-label="Dismiss message"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Error Banner */}
       {error && (
@@ -267,7 +310,7 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
         onClose={() => setIsNewBookingOpen(false)}
         branchId={authContext.branchId}
         branchName={authContext.branchName}
-        onBookingCreated={handleRefresh}
+        onBookingCreated={handleBookingCreated}
       />
     </div>
   );

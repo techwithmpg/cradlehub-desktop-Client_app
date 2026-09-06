@@ -1,19 +1,22 @@
 # Current Task
 
-Stage 02 — Bookings Hosted API Integration: connect Desktop New Booking workflow to authoritative hosted creation boundary.
+Stage 02 — Bookings Hosted API Integration Correction: native Tauri HTTP transport, strict contract mapping, fail-closed configuration, payment default changes, home service disabling, and persistent success warning UX.
 
-**NOT ACCEPTED / NOT MERGED / HOSTED API INTEGRATION IMPLEMENTED — AWAITING INDEPENDENT REVIEW.** Stage 03 remains **NOT AUTHORIZED**.
+**NOT ACCEPTED / NOT MERGED / HARDENED HOSTED INTEGRATION IMPLEMENTED — AWAITING INDEPENDENT REVIEW.** Stage 03 remains **NOT AUTHORIZED**.
 
 - Branch: `stage/02-bookings`.
 - BASE_SHA: `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-- Integration start HEAD: `7afb30ccb0996915544dae4c41c9e653bc9f310e`.
+- Desktop integration HEAD before correction: `8c972d533e72163884c632171242314a46e090ca`.
 - Reviewed hosted boundary HEAD: `f37f84feeb5a33d132c500a3369beab5904c695a` (`stage/02-desktop-booking-api`).
 
-Integration details:
+Correction details:
 
-1. **Auth Integration**: `createBranchBooking` retrieves the operator's current Supabase session access token via `supabase.auth.getSession()` and passes `Authorization: Bearer <access_token>`. If no active session exists, it fails closed with `AUTH_SESSION_REQUIRED` without initiating a network call.
-2. **Authoritative Endpoint**: `POST /api/desktop/v1/bookings` with canonical JSON payload derived from `createInhouseBookingMultiSchema`.
-3. **Payload Mapping**: Correctly maps `branchId`, `serviceIds`, `date`, `startTime`, `deliveryType`, `type`, `crmBookingMode`, `fullName`, `phone`, `email`, `staffId`, `resourceId`, `customerId`, `notes`, `paymentReceived`, `paymentMethod`, and home-service address fields. Omits UI-only fields (`totalDurationMinutes`, `totalPrice`, `mode`) and sends no privileged flags (`isDevBypass`, `role`).
-4. **Error & Conflict UX**: Preserves hosted domain error codes (`SLOT_UNAVAILABLE`, `EXACT_TIME_UNAVAILABLE`, `NO_SCHEDULE_AT_START`, `UNAUTHORIZED`, `CRM_BRANCH_FORBIDDEN`, `BOOKING_INSERT_FAILED`, `NETWORK_ERROR`). Form values are preserved on conflict so operator can adjust time/provider and retry.
-5. **Customer Lookup**: Customer search remains disabled (`CUSTOMER_LOOKUP_UNAVAILABLE`) pending a branch-scoped hosted read boundary. Manual customer entry fields remain active for creation.
-6. **Delivery**: Local suite verified (154/154 vitest, prettier check, eslint 0 warnings, tsc noEmit, cargo check/test/clippy). Commit and push on `stage/02-bookings`, then stop for independent review.
+1. **Native HTTP Transport**: Installed `@tauri-apps/plugin-http` and `tauri-plugin-http` (Tauri v2). Registered plugin in `src-tauri/src/lib.rs`.
+2. **Strict Capability Scope**: `src-tauri/capabilities/desktop-api.json` permits only `https://*.cradlehub.(com|app|ph)/api/desktop/v1/*`. No wildcards.
+3. **Fail-Closed Base URL**: Validates HTTPS, rejects embedded credentials, trims trailing slash. Returns `API_CONFIG_REQUIRED` when unset or invalid without network requests.
+4. **Hosted Error Contract**: Parses `body.message` (not `body.error`). Preserves domain error codes (`CRM_BRANCH_FORBIDDEN`, `SLOT_UNAVAILABLE`, `EXACT_TIME_UNAVAILABLE`, `NO_SCHEDULE_AT_START`, `UNAUTHORIZED`, `BOOKING_INSERT_FAILED`).
+5. **Success Contract**: Requires non-empty string `bookingId`. Missing/blank `bookingId` fails closed with `SERVER_ERROR`.
+6. **Payment Default**: Defaults `paymentReceived: false` and `paymentMethod: ''`. `paymentMethod` is omitted when paymentReceived is false. Selecting payment requires explicit method choice.
+7. **Home Service Disabled**: Tab disabled in Desktop Stage 02 UI with accessible explanation. `createBranchBooking` fails closed before network with `HOME_SERVICE_LOCATION_REQUIRED`. No fake coordinates or place IDs.
+8. **Success Warning UX**: Server warning survives modal unmount and displays in the parent workspace banner upon authoritative refresh.
+9. **Delivery**: Local suite verified (152/152 vitest, prettier check, eslint 0 warnings, tsc noEmit, cargo check/test/clippy). Commit and push on `stage/02-bookings`, then stop for independent review.

@@ -33,13 +33,15 @@ interface NewBookingModalProps {
   onClose: () => void;
   branchId: string;
   branchName: string;
-  onBookingCreated: () => void;
+  onBookingCreated: (result: { bookingId: string; warning?: string }) => void;
 }
 
 const MODES: Array<{
   value: QuickBookingMode;
   label: string;
   description: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }> = [
   {
     value: 'walkin',
@@ -59,7 +61,10 @@ const MODES: Array<{
   {
     value: 'home_service',
     label: 'Home Service',
-    description: 'Therapist goes to customer.',
+    description: 'Precise location support required',
+    disabled: true,
+    disabledReason:
+      'Home Service booking will be enabled after precise address/location support is connected.',
   },
 ];
 
@@ -120,9 +125,9 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
   const [homeServiceBarangay, setHomeServiceBarangay] = useState('');
   const [homeServiceCity, setHomeServiceCity] = useState('');
 
-  // Payment fields
-  const [paymentReceived, setPaymentReceived] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  // Payment fields: canonical hosted defaults to payment NOT received
+  const [paymentReceived, setPaymentReceived] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('');
 
   // Submission & Validation State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -261,8 +266,8 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     );
     setMode(newMode);
     if (newMode === 'home_service') setResourceId('');
-    setPaymentReceived(newMode === 'walkin');
-    setPaymentMethod('cash');
+    setPaymentReceived(false);
+    setPaymentMethod('');
   };
   const handleToggleService = (serviceId: string) => {
     if (!visibleServices.some((service) => service.id === serviceId)) return;
@@ -332,8 +337,8 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     resourceId !== '' ||
     date !== defaults.date ||
     startTime !== defaults.startTime ||
-    paymentReceived !== true ||
-    paymentMethod !== 'cash' ||
+    paymentReceived !== false ||
+    paymentMethod !== '' ||
     JSON.stringify(selectedServiceIds) !== JSON.stringify(defaultServiceIds);
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -344,6 +349,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
       selectedServiceIds.length === 0 ||
       fullName.trim().length < 2 ||
       phone.trim().length < 7 ||
+      (paymentReceived && !paymentMethod) ||
       (mode === 'home_service' && !homeServiceCity.trim())
     ) {
       return;
@@ -370,27 +376,15 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
         totalPrice,
         mode,
         paymentReceived,
-        paymentMethod,
+        paymentMethod: paymentReceived ? paymentMethod : undefined,
         notes: notes.trim() || undefined,
-        homeServiceAddress:
-          mode === 'home_service'
-            ? homeServiceAddress.trim() || undefined
-            : undefined,
-        homeServiceBarangay:
-          mode === 'home_service'
-            ? homeServiceBarangay.trim() || undefined
-            : undefined,
-        homeServiceCity:
-          mode === 'home_service'
-            ? homeServiceCity.trim() || undefined
-            : undefined,
       });
 
-      if (result.ok) {
-        if (result.warning) {
-          setSubmitWarning(result.warning);
-        }
-        onBookingCreated();
+      if (result.ok && result.bookingId) {
+        onBookingCreated({
+          bookingId: result.bookingId,
+          warning: result.warning,
+        });
         onClose();
       } else {
         setSubmitError({
@@ -456,15 +450,20 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
         <div className="new-booking-mode-tabs" role="tablist">
           {MODES.map((m) => {
             const isActive = mode === m.value;
+            const isDisabled = m.disabled || isLoadingOptions || isSubmitting;
             return (
               <button
                 key={m.value}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                className={`new-booking-mode-tab ${isActive ? 'active' : ''}`}
-                onClick={() => handleModeChange(m.value)}
-                disabled={isLoadingOptions || isSubmitting}
+                aria-disabled={m.disabled ? 'true' : undefined}
+                title={m.disabledReason}
+                className={`new-booking-mode-tab ${isActive ? 'active' : ''} ${m.disabled ? 'disabled' : ''}`}
+                onClick={() => {
+                  if (!m.disabled) handleModeChange(m.value);
+                }}
+                disabled={isDisabled}
               >
                 <span className="mode-tab-label">{m.label}</span>
                 <span className="mode-tab-desc">{m.description}</span>
@@ -892,14 +891,16 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                       className="form-label"
                       htmlFor="payment-method-select"
                     >
-                      Payment Method
+                      Payment Method <span className="required">*</span>
                     </label>
                     <select
                       id="payment-method-select"
                       className="form-select"
                       value={paymentMethod}
                       onChange={(e) => setPaymentMethod(e.target.value)}
+                      required={paymentReceived}
                     >
+                      <option value="">Select payment method...</option>
                       <option value="cash">Cash</option>
                       <option value="gcash">GCash</option>
                       <option value="maya">Maya</option>
@@ -1014,9 +1015,13 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
               </div>
 
               <div className="summary-payment-status">
-                {paymentReceived ? (
+                {paymentReceived && paymentMethod ? (
                   <span className="status-tag paid">
                     Payment received ({paymentMethod.toUpperCase()})
+                  </span>
+                ) : paymentReceived ? (
+                  <span className="status-tag pending">
+                    Payment received (Method required)
                   </span>
                 ) : (
                   <span className="status-tag pending">Payment pending</span>
@@ -1046,6 +1051,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
               selectedServiceIds.length === 0 ||
               fullName.trim().length < 2 ||
               phone.trim().length < 7 ||
+              (paymentReceived && !paymentMethod) ||
               (mode === 'home_service' && !homeServiceCity.trim())
             }
             onClick={handleSubmit}

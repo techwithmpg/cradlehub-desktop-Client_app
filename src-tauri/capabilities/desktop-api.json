@@ -1,0 +1,22 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-api",
+  "description": "Scoped native HTTP transport capability for hosted CradleHub API",
+  "windows": ["main"],
+  "permissions": [
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://*.cradlehub.com/api/desktop/v1/*"
+        },
+        {
+          "url": "https://*.cradlehub.app/api/desktop/v1/*"
+        },
+        {
+          "url": "https://*.cradlehub.ph/api/desktop/v1/*"
+        }
+      ]
+    }
+  ]
+}
