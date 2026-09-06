@@ -1,19 +1,21 @@
 # Current Task
 
-Stage 03 — Customers: Contract Audit & Safe Hosted Read Boundary Specification.
+Stage 03 — Customers: Real Customers Module Visual + Functional Vertical Slice Implementation.
 
-**STAGE 03 CUSTOMER CONTRACT AUDITED — SAFE HOSTED CUSTOMER READ BOUNDARY REQUIRED — NO UNSAFE DESKTOP READ IMPLEMENTED — STOPPED.** Stage 04 remains **NOT AUTHORIZED**.
+**STAGE 03 DESKTOP CUSTOMERS IMPLEMENTED AND PUSHED — STOPPED FOR INDEPENDENT REVIEW AND OWNER VISUAL INSPECTION — NO MERGE — STAGE 04 NOT STARTED.**
 
 - **Branch**: `stage/03-customers`.
 - **BASE_SHA**: `59f69fc7e321c32f040f6f9a79aca47e77547675`.
-- **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585`.
+- **Pre-implementation Audit HEAD**: `ec87769bba591d87f98a04640004f35c71086d80`.
+- **Implementation HEAD**: `be90ae22fba092b602a0af9db5daa6f96a1e4f13`.
+- **Canonical Hosted Main SHA**: `653f4d0ba04f1af76a7006209a74e40022d7de84`.
 - **Desktop Main**: `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 
-Audit & Next Steps summary:
+Task Execution Summary:
 
-1. **Privacy Invariant Grounding**: The hosted database `customers` table does not contain `branch_id`. Branch scoping is enforced on the hosted server via `branchCustomerIds(supabase, branchId)` (joining against bookings). Client-side filtering in the Desktop renderer is strictly avoided to prevent cross-branch privacy leaks.
-2. **Missing Desktop Read Boundary**: The hosted repository currently contains only `POST /api/desktop/v1/bookings`. Existing customer routes (`/api/customers/lookup`, `/api/customers/search`) use cookie-based web session auth, not Bearer token authentication.
-3. **Hosted Boundary Specification**: Defined `GET /api/desktop/v1/customers` (paginated customer list with tabs `all`, `repeat`, `lapsed`, `followup`, search `q`, and KPI summary) and `GET /api/desktop/v1/customers/[customerId]` (single profile + booking history) authenticated via `verifyDesktopBearerAuth`.
-4. **Desktop UI Direction**: Fully specified to reuse the canonical Stages 01–02 shell, DataGrid, KPI cards, filter toolbar, and right-side inspector pattern without introducing a second UI system.
-5. **Quality & Evidence**: Local validation passed (vitest 157/157, prettier, eslint 0 warnings, tsc noEmit, cargo check/test/clippy/fmt). Evidence recorded in `docs/50-state/evidence/stage-03-customers.md`.
-6. **Next Gate**: Push `stage/03-customers` and stop for independent review. Implementation of Desktop customer reads awaits the authoritative hosted customer boundary.
+1. **Customers Service Transport**: Implemented `fetchBranchCustomers` and `fetchCustomerDetail` in `src/lib/customers-service.ts` using `@tauri-apps/plugin-http` and Supabase session Bearer tokens.
+2. **Customer Lookup in Bookings**: Enabled live branch customer lookup in `bookings-service.ts` / `NewBookingModal.tsx` against `GET /api/desktop/v1/customers` with `branchId`.
+3. **Canonical Workspace Components**: Implemented `CustomersHeader`, `CustomersKpiSummary`, `CustomersListCard`, `CustomerInspectorCard`, and `CustomersView` under `src/components/customers/`.
+4. **Canonical Shell**: Integrated `CustomersView` under `customers` navigation module with wide operational layout.
+5. **Quality & Validation**: 163 vitest tests passing (10 test files), ESLint 0 warnings, TypeScript clean, Vite production build clean, Prettier clean.
+6. **Next Gate**: Push `stage/03-customers` and stop for independent review and owner visual inspection. Stage 04 (Staff) remains unauthorized.

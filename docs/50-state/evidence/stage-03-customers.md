@@ -1,242 +1,152 @@
-# Stage 03 — Customers Contract Audit & Hosted Boundary Requirement
+# Stage 03 — Customers Implementation Evidence
 
 ## Status & Governance
 
 - **Target**: CradleHub Desktop
-- **Stage**: Stage 03 — Customers
+- **Stage**: Stage 03 Customers
 - **Branch**: `stage/03-customers`
 - **Accepted Main BASE_SHA**: `59f69fc7e321c32f040f6f9a79aca47e77547675`
-- **Audited Stage Snapshot HEAD_SHA**: `2ec15ddf0600ac93b796118d14263781d5b43341`
-- **Hosted Canonical Main SHA**: `f8455078d212b55595c277c577a80d89995c7585`
-- **Current Status**: **STAGE 03 CUSTOMER CONTRACT AUDITED — SAFE HOSTED CUSTOMER READ BOUNDARY REQUIRED — NO UNSAFE DESKTOP READ IMPLEMENTED — STOPPED**.
+- **Pre-implementation Audit HEAD**: `ec87769bba591d87f98a04640004f35c71086d80`
+- **Implementation HEAD**: `be90ae22fba092b602a0af9db5daa6f96a1e4f13`
+- **Hosted Dependency**: `techwithmpg/Cradlehub` `main` at `653f4d0ba04f1af76a7006209a74e40022d7de84`
+- **Current Status**: **STAGE 03 DESKTOP CUSTOMERS IMPLEMENTED AND PUSHED — STOPPED FOR INDEPENDENT REVIEW AND OWNER VISUAL INSPECTION — NO MERGE — STAGE 04 NOT STARTED**.
 - **Stage 04**: **NOT STARTED / NOT AUTHORIZED**.
 
 ---
 
-## 1. Hosted Customer Contract Audit & Authority Findings
+## 1. Summary of Changes
 
-Inspection of current hosted `main` (`f8455078d212b55595c277c577a80d89995c7585`) established the following repository implementation truths:
+Stage 03 implements the real Desktop Customers module (visual + functional vertical slice) strictly against the hosted Desktop Customer API merged into `techwithmpg/Cradlehub` (`653f4d0ba04f1af76a7006209a74e40022d7de84`):
 
-### A. Database Schema & Privacy Architecture
+1. **Customers Service (`src/lib/customers-service.ts`)**:
+   - Implements `fetchBranchCustomers({ branchId, tab, q, page, pageSize })` targeting `GET /api/desktop/v1/customers`.
+   - Implements `fetchCustomerDetail(customerId, branchId)` targeting `GET /api/desktop/v1/customers/[customerId]`.
+   - Uses `@tauri-apps/plugin-http` with Bearer token authentication retrieved from Supabase session (`getSupabaseClient().auth.getSession()`).
+   - Strict error normalization (401 session expired, 403 forbidden, 404 not found, 400 bad request, 500 server error, network failure).
+   - Zero token logging or exposure in error strings.
 
-1. **No `branch_id` on `customers` Table**: The `customers` table is global at the database schema level and does not contain a `branch_id` column.
-2. **Dynamic Scoping via Bookings in List Queries**: In hosted CRM list queries (`src/lib/queries/customers.ts`), branch scoping is derived dynamically via `branchCustomerIds(supabase, branchId)` by selecting distinct `customer_id` values from `bookings` for the given `branch_id`.
-3. **Renderer Invariant**: Direct `supabase.from("customers")` queries from the Desktop renderer are strictly prohibited. Client-side branch filtering in React would leak all customer records across branches to non-owner front-desk staff.
+2. **Stage 02 Customer Lookup Re-enabled (`src/lib/bookings-service.ts`, `src/components/bookings/NewBookingModal.tsx`)**:
+   - Replaced temporary lookup placeholder throwing unavailable error with real call to `GET /api/desktop/v1/customers?tab=all&q=<query>&branchId=<branchId>&page=1&pageSize=20`.
+   - Mapped hosted camelCase `CustomerListItem` DTO fields to `BookingCustomer` (`fullName` -> `full_name`, `totalBookings` -> `total_bookings`, etc.).
+   - Removed fixed unavailable warning; preserved truthful network and server errors.
 
-### B. Customer Profile Read Scoping Gap
+3. **Canonical UI Workspace (`src/components/customers/`)**:
+   - **`CustomersHeader.tsx`**: Canonical header ("Customers", operational subtitle, refresh button). No fake "New Customer" button.
+   - **`CustomersKpiSummary.tsx`**: 5 canonical KPI metrics (Total Customers, Repeat Clients, Lapsed Clients, New This Month, Total Visits) with tab switching integration. Excludes financial/revenue metrics.
+   - **`CustomersListCard.tsx`**:
+     - 4 canonical tabs (`All`, `Repeat`, `Lapsed`, `Follow-up`).
+     - Debounced live search input (300ms) with search reset control.
+     - Customer DataGrid for normal records: columns `Customer`, `Phone`, `Email`, `Visits`, `First Visit`, `Last Visit`, `Preferred Staff`.
+     - Follow-up DataGrid for waitlist records: columns `Customer`, `Phone`, `Service`, `Preferred Date`, `Preferred Time`, `Visit Type`, `Status`.
+     - Pagination controls with total count and page range indicator.
+   - **`CustomerInspectorCard.tsx`**:
+     - Overview tab: contact identity, loyalty tier, visit summary, preferences (visit type, pressure), birthday, operational notes, health considerations.
+     - History tab: operational booking history (date, time, status, type, service, staff, branch). Excludes prices and payments.
+     - Follow-up Inspector: truthful waitlist request details (service, therapist, date/time preferences, request notes, contact details).
+   - **`CustomersView.tsx`**:
+     - Root workspace coordinator with branch scoping from `useAuth()`.
+     - Request version refs (`listVersionRef`, `detailVersionRef`) preventing async race conditions across tabs, searches, and pagination.
+     - Comprehensive UI states: loading skeletons, empty branch, search empty, network error, 401/403/400/500 banners, selection clearing.
 
-1. **Source Inspection (`src/app/(dashboard)/crm/actions.ts` & `src/lib/queries/customers.ts`)**:
-   - `getCustomerProfileAction(customerId)` calls `requireCrmAccess()` (verifying CRM role).
-   - However, it then calls `getCustomerById(customerId)` and `getBookingsByCustomer(customerId)` without passing or applying `ctx.branchId` to either query.
-   - `getBookingsByCustomer(customerId)` in `src/lib/queries/bookings.ts` filters by `customer_id` but does not add a `branch_id` predicate.
-2. **Implication for Desktop**:
-   - The existing hosted web profile action is CRM-authenticated for web sessions, but repository source does not demonstrate branch-scoped authorization for a supplied `customerId`.
-   - This action **MUST NOT** be reused directly as the Desktop authorization boundary.
-   - The proposed Desktop detail endpoint (`GET /api/desktop/v1/customers/[customerId]`) must explicitly verify branch membership and filter booking history server-side before returning data.
-
-### C. Customer Write & Mutation Authority
-
-1. **Update Action (`updateCustomerAction` in `src/app/(dashboard)/crm/actions.ts`)**:
-   - Validates input against `updateCustomerSchema` (`fullName`, `phone`, `email`, `notes`, `preferredStaffId`, `preferredVisitType`, `pressurePreference`, `healthNotes`, `birthday`, `loyaltyTier`).
-   - Executes `ctx.supabase.from("customers").update(...).eq("id", customerId)` without a booking-derived branch membership check in application source.
-   - Static source alone does not establish cross-branch write authorization for arbitrary `customerId` values.
-   - **Conclusion**: Customer writes remain **OUT OF SCOPE** for the Desktop Stage 03 read slice. No direct renderer writes or unverified mutation actions will be called.
-2. **Create Action (`createCustomerAction`)**:
-   - Calls admin RPC `upsert_customer(p_phone, p_full_name, p_email)` which creates or upserts a global customer identity.
-   - Does not itself establish customer-to-branch membership; branch relationship is established only upon creating a booking.
-
-### D. Existing Web Search & Lookup Routes
-
-1. **`GET /api/customers/search`**:
-   - Cookie/web session authenticated (`createClient()`).
-   - Resolves staff profile, verifies CRM role, and passes `branchId` for non-owners (`null` for owners).
-   - Not Bearer-authenticated for Desktop.
-2. **`GET /api/customers/lookup`**:
-   - Cookie/web session authenticated (`createClient()`).
-   - Performs global phone lookup (`lookupCustomerByPhone`) without CRM role verification or branch scoping.
-   - Unsuitable as a Desktop customer lookup boundary.
-
-### E. Follow-Up & Waitlist Architecture
-
-1. **`getWaitlistAction` (`src/app/(dashboard)/crm/waitlist/actions.ts`)**:
-   - Web Server Action that invokes `createClient()`, authenticates via web cookies, and evaluates its own CRM context and branch rules.
-   - The Desktop Bearer API **MUST NOT** call cookie-based Server Actions like `getWaitlistAction` directly.
-   - The hosted platform must extract a server-only waitlist query helper accepting an authorized client and effective branch context, or implement a dedicated Bearer-authenticated boundary.
-2. **Owner Semantics**:
-   - In customer queries, owner `branchId=null` represents all branches, whereas waitlist logic expects a concrete branch.
-   - For Desktop Stage 03, owner behavior will default to the currently selected authorized Desktop branch context, while non-owners are strictly locked to their assigned branch.
+4. **Canonical Shell Integration (`src/components/CanonicalShell.tsx`)**:
+   - Connected `CustomersView` to the `customers` nav item with wide operational canvas modifier (same width & density treatment as Bookings).
 
 ---
 
-## 2. Minimum Hosted Customer Read Boundary Proposal
+## 2. Changed Files vs Baseline
 
-To enable Desktop customer functionality with strict server-side authorization and branch privacy, the hosted repository requires a dedicated, Bearer-authenticated server-only boundary under `/api/desktop/v1/customers`:
+Implementation changes vs accepted `main` (`59f69fc7e321c32f040f6f9a79aca47e77547675`):
 
-### Architecture
+### Source & Components
 
-- **Bearer Authentication**: Uses existing `verifyDesktopBearerAuth(request)` from `src/lib/auth/desktop-bearer-auth.ts`.
-- **Server-Only Read Helper**: A shared domain helper (`src/lib/customers/desktop-customer-engine.ts`) receiving:
-  1. Authenticated user-scoped Supabase client
-  2. Verified operator context (`authUserId`, `staff`, `staffRole`, `isDevBypass: false`)
-  3. Effective branch context (enforced staff `branch_id` for non-owners; selected/active branch for owners)
-  4. Validated query parameters
+1. `src/types/customers.ts` (NEW) — Complete TypeScript types and DTO definitions for customer list, KPIs, pagination, detail, and follow-up items.
+2. `src/lib/customers-service.ts` (NEW) — Authoritative HTTP transport client for hosted customer list and detail endpoints.
+3. `src/lib/bookings-service.ts` (MODIFIED) — Re-enabled customer lookup against hosted API; removed unavailable placeholder.
+4. `src/components/bookings/NewBookingModal.tsx` (MODIFIED) — Updated customer search call to pass required `branchId`.
+5. `src/components/customers/CustomersHeader.tsx` (NEW) — Header component.
+6. `src/components/customers/CustomersKpiSummary.tsx` (NEW) — 5-metric KPI strip.
+7. `src/components/customers/CustomersListCard.tsx` (NEW) — Tabbed customer & follow-up DataGrid with search & pagination.
+8. `src/components/customers/CustomerInspectorCard.tsx` (NEW) — Right-side customer & follow-up inspector.
+9. `src/components/customers/CustomersView.tsx` (NEW) — Root coordinator view.
+10. `src/components/CanonicalShell.tsx` (MODIFIED) — Render `CustomersView` for `customers` module.
+11. `src/styles.css` (MODIFIED) — Customer workspace CSS classes matching canonical design tokens.
 
-### Endpoint 1: `GET /api/desktop/v1/customers`
+### Tests
 
-- **Purpose**: Paginated customer list, segment tabs, live search, and KPI statistics.
-- **Query Parameters**:
-  - `tab`: `all` (default) | `repeat` | `lapsed` | `followup`
-  - `q`: optional search string (filters `full_name` and `phone`)
-  - `page`: validated positive integer (default `1`)
-  - `pageSize`: validated, capped integer (default `25`, max `100`)
-  - `branchId`: optional branch override permitted only for verified `owner`
-- **Data Minimization (List Rows)**:
-  - Rows contain strictly fields required for the DataGrid: `id`, `fullName`, `phone`, `email` (if present), `totalBookings`, `firstBookingDate`, `lastBookingDate`, `preferredStaffId`, `preferredStaffName`.
-  - Sensitive profile fields (`healthNotes`, detailed notes, `birthday`, preferences) are omitted from list rows.
-- **Success Response (HTTP 200)**:
-  ```json
-  {
-    "ok": true,
-    "data": [
-      {
-        "id": "uuid",
-        "fullName": "Customer Name",
-        "phone": "09171234567",
-        "email": "customer@example.com",
-        "totalBookings": 5,
-        "firstBookingDate": "2026-01-10",
-        "lastBookingDate": "2026-09-01",
-        "preferredStaffId": "uuid",
-        "preferredStaffName": "Therapist Name"
-      }
-    ],
-    "page": 1,
-    "pageSize": 25,
-    "total": 42,
-    "totalPages": 2,
-    "kpiData": {
-      "totalCustomers": 42,
-      "repeatClients": 18,
-      "lapsedClients": 7,
-      "newThisMonth": 5,
-      "totalVisits": 128
-    }
-  }
-  ```
+12. `tests/customers-service.test.ts` (NEW) — 7 unit tests for transport, query parameters, auth headers, 401/403 errors, network failure, and DTO parsing.
+13. `tests/customers-components.test.tsx` (NEW) — 6 integration tests for component rendering, KPI cards, inspector tabs, search debouncing, waitlist follow-up, and CanonicalShell integration.
+14. `tests/booking-options.test.ts` (MODIFIED) — Updated lookup test expectations for enabled hosted boundary.
+15. `tests/booking-preview.test.tsx` (MODIFIED) — Updated modal lookup lifecycle test expectations.
 
-### Endpoint 2: `GET /api/desktop/v1/customers/[customerId]`
+### Documentation & State
 
-- **Purpose**: Single customer detail and booking history for the right-side inspector.
-- **Authorization & Server Scoping**:
-  - Non-owner: Server verifies customer has at least one booking at operator's assigned `branch_id`. If not, returns HTTP 404 / 403.
-  - Returns only booking history rows associated with the authorized branch.
-- **Exclusion of Dormant Finance/Payments Scope**:
-  - Booking history returns operational fields only (`id`, `bookingDate`, `startTime`, `status`, `type`, `serviceName`, `staffName`, `branchName`).
-  - Zero financial fields (`pricePaid`, `totalRevenue`, `averageSpend`, payment references) are exposed in Stage 03 Desktop responses.
-- **Success Response (HTTP 200)**:
-  ```json
-  {
-    "ok": true,
-    "customer": {
-      "id": "uuid",
-      "fullName": "Customer Name",
-      "phone": "09171234567",
-      "email": "customer@example.com",
-      "firstBookingDate": "2026-01-10",
-      "lastBookingDate": "2026-09-01",
-      "totalBookings": 5,
-      "notes": "Prefers medium pressure",
-      "preferredStaffId": "uuid",
-      "preferredVisitType": "in_spa",
-      "pressurePreference": "medium",
-      "healthNotes": "None",
-      "birthday": "1990-05-15",
-      "loyaltyTier": "regular"
-    },
-    "bookings": [
-      {
-        "id": "uuid",
-        "bookingDate": "2026-09-01",
-        "startTime": "14:00",
-        "status": "completed",
-        "type": "walkin",
-        "serviceName": "Signature Massage",
-        "staffName": "Therapist Name",
-        "branchName": "Bacolod Main"
-      }
-    ]
-  }
-  ```
-
-### Reusable Search Boundary
-
-- The `q` query parameter on `GET /api/desktop/v1/customers` provides the single authoritative, branch-scoped search boundary to be reused by the Stage 02 New Booking modal once implemented.
+16. `docs/50-state/CURRENT_STATE.md`
+17. `docs/50-state/CURRENT_TASK.md`
+18. `docs/50-state/HANDOFF.md`
+19. `docs/50-state/LAST_VERIFIED_GATE.md`
+20. `docs/50-state/evidence/stage-03-customers.md`
 
 ---
 
-## 3. Desktop UI Scope & Canonical Reuse
+## 3. Verification & Test Results
 
-- **Canonical UI System**: 100% reuse of Stages 01–02 design tokens, shell, cards, DataGrid, tabs, and right-side inspector.
-- **Workspace Hierarchy**:
-  1. `CustomersHeader`: Clean title + operational subtitle.
-  2. `CustomersKpiSummary`: 5 canonical metric cards (Total Customers, Repeat Clients, Lapsed Clients, New This Month, Total Visits).
-  3. `CustomerSegmentTabs`: 4 canonical tabs (`All`, `Repeat`, `Lapsed`, `Follow-up`).
-  4. `CustomersFilterToolbar`: Live debounced search input + filter reset.
-  5. `CustomersListCard`: Canonical DataGrid with sorting, pagination, and row inspection selection.
-  6. `CustomerInspectorCard`: Sticky right-side profile and operational history inspector.
-- **Zero Financial Surfaces**: Excludes revenue, payment methods, prices, or financial totals.
+All verification suites executed and verified green:
 
----
+| Check                     | Command             | Result                                            |
+| ------------------------- | ------------------- | ------------------------------------------------- |
+| Prettier Formatter        | `pnpm format:check` | PASSED (All matched files match style)            |
+| ESLint Linter             | `pnpm lint`         | PASSED (0 errors, 0 warnings)                     |
+| TypeScript Compiler       | `pnpm typecheck`    | PASSED (`tsc --noEmit` clean)                     |
+| Vitest Unit & Integration | `pnpm test`         | PASSED (10 test files, 163 tests passed)          |
+| Production Build          | `pnpm build`        | PASSED (Vite production bundle generated cleanly) |
+| Git Whitespace Check      | `git diff --check`  | PASSED (0 whitespace/conflict errors)             |
 
-## 4. Complete Changed Files in Stage 03 (Audit Pass)
+### Test Breakdown by File
 
-Changed files vs accepted `main` (`59f69fc7e321c32f040f6f9a79aca47e77547675`) from `git diff --name-only origin/main...HEAD`:
+- `tests/roles.test.ts` — 5 tests passed
+- `tests/auth-service.test.ts` — 15 tests passed
+- `tests/customers-service.test.ts` — 7 tests passed
+- `tests/booking-options.test.ts` — 14 tests passed
+- `tests/bookings-service.test.ts` — 34 tests passed
+- `tests/boundary.test.ts` — 6 tests passed
+- `tests/customers-components.test.tsx` — 6 tests passed
+- `tests/bookings-components.test.tsx` — 15 tests passed
+- `tests/components.test.tsx` — 19 tests passed
+- `tests/booking-preview.test.tsx` — 42 tests passed
 
-1. `docs/50-state/CURRENT_STATE.md`
-2. `docs/50-state/CURRENT_TASK.md`
-3. `docs/50-state/HANDOFF.md`
-4. `docs/50-state/LAST_VERIFIED_GATE.md`
-5. `docs/50-state/evidence/stage-03-customers.md`
-
----
-
-## 5. Verification Checks
-
-### PREVIOUSLY VERIFIED MAIN BASELINE CHECKS (Stage 02 Closeout on Main)
-
-- `pnpm format:check` — PASSED
-- `pnpm lint` — PASSED (`--max-warnings 0`)
-- `pnpm typecheck` — PASSED (`tsc --noEmit`)
-- `pnpm test` — PASSED (8 test files, 157 vitest tests passed)
-- `pnpm build` — PASSED (Vite production bundle built cleanly)
-- `cargo fmt --check; cargo check --locked; cargo test --locked; cargo clippy --locked --all-targets -- -D warnings` — PASSED (100% Rust backend clean)
-
-### STAGE 03 AUDIT-PASS CHECKS ACTUALLY RUN
-
-- `pnpm prettier --check docs/50-state/evidence/stage-03-customers.md docs/50-state/CURRENT_STATE.md docs/50-state/CURRENT_TASK.md docs/50-state/HANDOFF.md docs/50-state/LAST_VERIFIED_GATE.md` — PASSED
-- `git diff --check` — PASSED (0 whitespace or conflict marker errors)
-- `git diff --name-only` — PASSED (only the 5 documentation files listed above)
+**Total: 163 tests passed across 10 test files.**
 
 ---
 
-## 6. Runtime Evidence Status
+## 4. Runtime Evidence Status
 
-**NO OWNER-PROVIDED MANUAL RUNTIME EVIDENCE FOR STAGE 03 YET — THIS PASS IS CONTRACT AUDIT / DOCUMENTATION ONLY.**
+```
+OWNER-PROVIDED MANUAL RUNTIME EVIDENCE:
+NONE YET
+```
 
----
-
-## 7. Security & Data Impact
-
-- Zero source code changes in `src/**` or `src-tauri/**`.
-- Zero database mutations, schema changes, RLS changes, or migrations.
-- No live bookings or customer records created or modified.
-- No secrets exposed.
-- Direct unsafe queries to `customers` table avoided.
+- Runtime visual inspection requires owner manual confirmation on live Desktop environment.
+- Service and components are fully verified against mock and integration harnesses with zero regressions.
 
 ---
 
-## 8. Limitations & Rollback Plan
+## 5. Security & Privacy Invariants
 
-- **Limitations**: Desktop customer read integration is blocked until the hosted Bearer customer read boundary is implemented and reviewed on `https://github.com/techwithmpg/Cradlehub`. Customer writes and notes editing remain disabled.
-- **Rollback**: Desktop `main` baseline is `59f69fc7e321c32f040f6f9a79aca47e77547675`.
-- **Stage 04 Status**: Stage 04 (Staff) remains **NOT STARTED / NOT AUTHORIZED**.
+- **No Direct Table Queries**: The renderer never executes direct `supabase.from("customers")` or `supabase.from("waitlist_requests")` queries.
+- **No Customer Writes**: Customer creation, editing, notes mutation, and deletion remain strictly excluded.
+- **No Financial Data**: Zero revenue, spend, pricing, or payment details are queried, returned, or rendered.
+- **No Local Persistence**: Customer records and health notes are never stored in localStorage, IndexedDB, or SQLite.
+- **No Bearer Token Logging**: Bearer tokens are kept in-memory per request and never logged or exposed in error messages.
+- **Branch Privacy Enforced**: Server-side scoping through hosted customer engine enforces branch isolation for non-owners.
+
+---
+
+## 6. Limitations & Rollback Plan
+
+- **Limitations**:
+  - Read-only slice; customer profile editing and new customer creation are not in Stage 03 scope.
+  - Follow-up waitlist actions (e.g. converting waitlist to booking) are not in Stage 03 scope.
+- **Rollback**:
+  - Desktop `main` baseline is `59f69fc7e321c32f040f6f9a79aca47e77547675`.
+  - Revert branch with: `git reset --hard 59f69fc7e321c32f040f6f9a79aca47e77547675`.
+- **Stage 04 Status**: Stage 04 (Staff) is **NOT STARTED / NOT AUTHORIZED**.

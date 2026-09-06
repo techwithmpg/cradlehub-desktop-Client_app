@@ -3,7 +3,7 @@
 Stage 00 = **ACCEPTED / MERGED — CLOSED** on `main` at `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
 Stage 01 = **ACCEPTED / MERGED — CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 Stage 02 = **ACCEPTED / MERGED — CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
-Stage 03 (Customers) = **CONTRACT AUDITED — SAFE HOSTED CUSTOMER READ BOUNDARY REQUIRED — STOPPED FOR INDEPENDENT REVIEW**.
+Stage 03 (Customers) = **IMPLEMENTED AND PUSHED — STOPPED FOR INDEPENDENT REVIEW AND OWNER VISUAL INSPECTION**.
 
 Stage 04 (Staff) = **NOT STARTED / NOT AUTHORIZED**.
 
@@ -11,12 +11,22 @@ Stage 04 (Staff) = **NOT STARTED / NOT AUTHORIZED**.
 
 - **Base Baseline (BASE_SHA)**: `59f69fc7e321c32f040f6f9a79aca47e77547675` on `main`.
 - **Active Branch**: `stage/03-customers`.
-- **Audited Stage Snapshot HEAD_SHA**: `2ec15ddf0600ac93b796118d14263781d5b43341`.
-- **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585`.
+- **Pre-implementation Audit HEAD**: `ec87769bba591d87f98a04640004f35c71086d80`.
+- **Implementation HEAD**: `be90ae22fba092b602a0af9db5daa6f96a1e4f13`.
+- **Canonical Hosted Main SHA**: `653f4d0ba04f1af76a7006209a74e40022d7de84`.
 - **Checks Record**:
-  - **Previously Verified Main Baseline Checks (Stage 02 Closeout on Main)**: `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (157/157 tests), `pnpm build`, `cargo fmt --check`, `cargo check --locked`, `cargo test --locked`, `cargo clippy --locked --all-targets -- -D warnings`.
-  - **Stage 03 Audit-Pass Checks Actually Run**: `pnpm prettier --check` on doc files, `git diff --check`, `git diff --name-only`.
-- **Scope Integrity**: Canonical shell preserved. Unsafe direct renderer queries to `customers` table avoided. Safe hosted boundary requirements defined.
-- **Stage Status**: Stage 03 contract audit completed; awaiting independent review. Stage 04 is **NOT AUTHORIZED**.
+  - `pnpm format:check` — PASSED
+  - `pnpm lint` — PASSED (0 errors, 0 warnings)
+  - `pnpm typecheck` — PASSED (`tsc --noEmit` clean)
+  - `pnpm test` — PASSED (10 test files, 163 vitest tests passed)
+  - `pnpm build` — PASSED (Vite production bundle built cleanly)
+  - `git diff --check` — PASSED (0 whitespace/conflict errors)
+- **Scope Integrity**:
+  - Canonical shell preserved; Customers view styled identically to Bookings.
+  - Zero direct renderer queries to `customers` table.
+  - Zero customer write operations.
+  - Zero financial/pricing surfaces.
+  - Zero local disk caching or persistence.
+- **Stage Status**: Stage 03 implementation completed and pushed; awaiting independent review and owner visual inspection. Stage 04 is **NOT AUTHORIZED**.
 
-Consult `docs/50-state/evidence/stage-03-customers.md` for full contract audit details.
+Consult `docs/50-state/evidence/stage-03-customers.md` for full implementation details.
