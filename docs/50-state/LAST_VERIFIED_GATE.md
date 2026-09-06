@@ -8,7 +8,8 @@ Stage 02 = **OWNER RUNTIME VERIFIED / MERGE AUTHORIZED — PUSHED FOR FINAL INDE
 
 - **Base Baseline (BASE_SHA)**: `c9720805975004dbe11367f1ad9999270ad4ae7c` on `main`.
 - **Active Branch**: `stage/02-bookings`.
-- **Implementation HEAD**: `9268a95d1ada8b2d963cceb56f0b0b5a1d69e83f`.
+- **Reviewed Implementation HEAD**: `9268a95d1ada8b2d963cceb56f0b0b5a1d69e83f`.
+- **Current Stage HEAD**: `d3410986533368ba0c15649f66580f128109c2cc`.
 - **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585`.
 - **Owner Runtime Verification**:
   - Visual inspection in actual native Windows Desktop application runtime.

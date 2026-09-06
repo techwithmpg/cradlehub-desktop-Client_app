@@ -7,6 +7,7 @@
 - **Branch**: `stage/02-bookings`
 - **Accepted Main BASE_SHA**: `c9720805975004dbe11367f1ad9999270ad4ae7c`
 - **Reviewed Implementation HEAD_SHA**: `9268a95d1ada8b2d963cceb56f0b0b5a1d69e83f`
+- **Current Stage HEAD_SHA**: `d3410986533368ba0c15649f66580f128109c2cc`
 - **Status**: Implementation complete on `stage/02-bookings`. Owner runtime verification confirmed. Desktop `main` is NOT YET MERGED in this evidence-only pass. Final independent merge review is the immediate gate. Stage 03 remains **NOT AUTHORIZED**.
 
 ## Canonical Hosted Repository Truth
@@ -109,24 +110,38 @@
 - Customer lookup remains disabled (`CUSTOMER_LOOKUP_UNAVAILABLE`) with truthful message: `"Customer lookup is unavailable until a branch-scoped hosted read boundary is available."`.
 - Manual customer entry fields remain active for booking creation.
 
-## Preserved Work & Complete Changed Files in Stage 02
+## Complete Changed Files in Stage 02
 
-- `src-tauri/capabilities/desktop-api.json`
-- `src-tauri/Cargo.toml`
-- `src-tauri/Cargo.lock`
-- `src-tauri/src/lib.rs`
-- `src-tauri/tauri.conf.json`
-- `src/components/bookings/NewBookingModal.tsx`
-- `src/lib/bookings-service.ts`
-- `src/views/BookingsView.tsx`
-- `tests/bookings-service.test.ts`
-- `tests/boundary.test.ts`
-- `tests/components/bookings/NewBookingModal.test.tsx`
-- `docs/50-state/CURRENT_STATE.md`
-- `docs/50-state/CURRENT_TASK.md`
-- `docs/50-state/HANDOFF.md`
-- `docs/50-state/LAST_VERIFIED_GATE.md`
-- `docs/50-state/evidence/stage-02-bookings.md`
+The complete Stage 02 delta against accepted `main` (`c9720805975004dbe11367f1ad9999270ad4ae7c`) as returned by `git diff --name-only origin/main...HEAD`:
+
+1. `.env.example`
+2. `docs/50-state/CURRENT_STATE.md`
+3. `docs/50-state/CURRENT_TASK.md`
+4. `docs/50-state/HANDOFF.md`
+5. `docs/50-state/LAST_VERIFIED_GATE.md`
+6. `docs/50-state/evidence/stage-02-bookings.md`
+7. `package.json`
+8. `pnpm-lock.yaml`
+9. `src-tauri/Cargo.lock`
+10. `src-tauri/Cargo.toml`
+11. `src-tauri/capabilities/desktop-api.json`
+12. `src-tauri/src/lib.rs`
+13. `src-tauri/tauri.conf.json`
+14. `src/components/CanonicalShell.tsx`
+15. `src/components/bookings/BookingInspectorCard.tsx`
+16. `src/components/bookings/BookingsHeader.tsx`
+17. `src/components/bookings/BookingsKpiSummary.tsx`
+18. `src/components/bookings/BookingsListCard.tsx`
+19. `src/components/bookings/BookingsView.tsx`
+20. `src/components/bookings/NewBookingModal.tsx`
+21. `src/lib/bookings-service.ts`
+22. `src/styles.css`
+23. `src/types/bookings.ts`
+24. `tests/booking-options.test.ts`
+25. `tests/booking-preview.test.tsx`
+26. `tests/bookings-components.test.tsx`
+27. `tests/bookings-service.test.ts`
+28. `tests/boundary.test.ts`
 
 ## Previously Executed Validation Results
 
