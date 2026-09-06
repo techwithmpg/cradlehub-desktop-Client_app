@@ -4,7 +4,7 @@ Stage 00 = **ACCEPTED / MERGED — CLOSED** on `main` at `79ef30b9da7267b6f01a6b
 Stage 01 = **ACCEPTED / MERGED — CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 Stage 02 = **ACCEPTED / MERGED — CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03 = **ACCEPTED / MERGED — CLOSED** on `main` at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
-Stage 04 (Staff) = **AUDIT CORRECTIONS COMPLETE — PUSHED AND STOPPED FOR REVIEW**.
+Stage 04 (Staff) = **AUDIT FINALIZATION COMPLETE — PUSHED AND STOPPED FOR REVIEW**.
 
 Other Modules = **NOT STARTED / NOT AUTHORIZED**.
 
@@ -12,7 +12,7 @@ Other Modules = **NOT STARTED / NOT AUTHORIZED**.
 
 - **Base Baseline (BASE_SHA)**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4` on `main`.
 - **Initial Audit Commit (INITIAL_AUDIT_SHA)**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`.
-- **Correction Base (CORRECTION_BASE_SHA)**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`.
+- **Correction Base (CORRECTION_BASE_SHA)**: `b89f812a1022407e483392dece11798dea1b3093`.
 - **Active Branch**: `stage/04-staff`.
 - **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`.
 - **Checks Record**:
@@ -22,14 +22,13 @@ Other Modules = **NOT STARTED / NOT AUTHORIZED**.
   - `pnpm test` — PASSED (11 test files, 192 vitest tests passed)
   - `pnpm build` — PASSED (Vite production bundle built cleanly)
   - `cargo fmt --check` — PASSED
-  - `cargo check` — PASSED (Clean build)
-  - `cargo test` — PASSED (0 failures)
   - `cargo clippy` — PASSED (0 warnings)
+  - `cargo test` — PASSED (0 failures)
   - `git diff --check` — PASSED (0 whitespace/conflict errors)
 - **Scope Integrity**:
-  - Audit and architecture discovery corrections only.
+  - Audit and architecture discovery finalization only.
   - Zero functional UI changes introduced in this pass.
   - Zero schema or migration modifications.
-- **Stage Status**: Stage 04 Audit corrections complete; awaiting independent review before functional UI implementation.
+- **Stage Status**: Stage 04 Audit finalized; awaiting independent review before functional UI implementation.
 
 Consult `docs/50-state/evidence/stage-04-staff.md` for full discovery findings.
