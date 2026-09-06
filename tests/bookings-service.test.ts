@@ -6,6 +6,7 @@ import {
   computeBookingKpis,
   filterBookings,
   computeBookingEndTime,
+  getHostedApiBaseUrl,
   createBranchBooking,
 } from '../src/lib/bookings-service';
 import type { Booking } from '../src/types/bookings';
@@ -454,26 +455,329 @@ describe('Bookings Service', () => {
     });
   });
 
+  describe('getHostedApiBaseUrl', () => {
+    it('returns empty string or configured base URL without trailing slash', () => {
+      const url = getHostedApiBaseUrl();
+      expect(typeof url).toBe('string');
+      expect(url).not.toMatch(/\/$/);
+    });
+  });
+
   describe('createBranchBooking', () => {
-    it('returns truthful hosted write boundary required result and prevents direct renderer mutations', async () => {
-      const res = await createBranchBooking({
-        branchId: 'branch-1',
-        fullName: 'Maria Santos',
-        phone: '09171234567',
-        serviceIds: ['svc-1'],
-        staffId: 'staff-1',
-        date: '2026-09-05',
-        startTime: '14:00',
-        totalDurationMinutes: 60,
-        totalPrice: 1500,
-        mode: 'walkin',
-        paymentReceived: true,
-        paymentMethod: 'cash',
-      });
+    it('fails closed with AUTH_SESSION_REQUIRED and makes no fetch call when there is no session', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+        },
+      } as unknown as SupabaseClient;
+
+      const res = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Maria Santos',
+          phone: '09171234567',
+          serviceIds: ['svc-1'],
+          date: '2026-09-05',
+          startTime: '14:00',
+          mode: 'walkin',
+          paymentReceived: true,
+          paymentMethod: 'cash',
+        },
+        client,
+      );
 
       expect(res.ok).toBe(false);
-      expect(res.code).toBe('HOSTED_WRITE_BOUNDARY_REQUIRED');
-      expect(res.error).toContain('hosted server-side write boundary');
+      expect(res.code).toBe('AUTH_SESSION_REQUIRED');
+      expect(res.error).toContain('session has expired');
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('sends POST request with Authorization Bearer header and mapped canonical payload', async () => {
+      const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          ok: true,
+          bookingId: 'booking-new-123',
+          warning: 'Note on provider tier',
+        }),
+      } as unknown as Response);
+
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'valid-jwt-token-xyz' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+
+      const res = await createBranchBooking(
+        {
+          branchId: '00000000-0000-0000-0000-000000000001',
+          customerId: '00000000-0000-0000-0000-000000000002',
+          fullName: 'Maria Santos',
+          phone: '09171234567',
+          email: 'maria@example.com',
+          serviceIds: ['00000000-0000-0000-0000-000000000003'],
+          staffId: '00000000-0000-0000-0000-000000000004',
+          resourceId: '00000000-0000-0000-0000-000000000005',
+          date: '2026-09-05',
+          startTime: '14:00',
+          totalDurationMinutes: 60,
+          totalPrice: 1500,
+          mode: 'walkin',
+          paymentReceived: true,
+          paymentMethod: 'cash',
+          notes: 'Special request',
+        },
+        client,
+      );
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toMatch(/\/api\/desktop\/v1\/bookings$/);
+      expect(init?.method).toBe('POST');
+      expect((init?.headers as Record<string, string>)['Content-Type']).toBe(
+        'application/json',
+      );
+      expect((init?.headers as Record<string, string>)['Authorization']).toBe(
+        'Bearer valid-jwt-token-xyz',
+      );
+
+      const parsedBody = JSON.parse(init?.body as string);
+      expect(parsedBody).toEqual({
+        branchId: '00000000-0000-0000-0000-000000000001',
+        customerId: '00000000-0000-0000-0000-000000000002',
+        fullName: 'Maria Santos',
+        phone: '09171234567',
+        email: 'maria@example.com',
+        serviceIds: ['00000000-0000-0000-0000-000000000003'],
+        staffId: '00000000-0000-0000-0000-000000000004',
+        resourceId: '00000000-0000-0000-0000-000000000005',
+        date: '2026-09-05',
+        startTime: '14:00',
+        deliveryType: 'in_spa',
+        type: 'walkin',
+        crmBookingMode: 'walkin',
+        paymentReceived: true,
+        paymentMethod: 'cash',
+        notes: 'Special request',
+      });
+      // Verifies no UI-only fields or privileged bypass keys sent
+      expect(parsedBody.totalDurationMinutes).toBeUndefined();
+      expect(parsedBody.totalPrice).toBeUndefined();
+      expect(parsedBody.mode).toBeUndefined();
+      expect(parsedBody.isDevBypass).toBeUndefined();
+      expect(parsedBody.role).toBeUndefined();
+
+      expect(res).toEqual({
+        ok: true,
+        bookingId: 'booking-new-123',
+        warning: 'Note on provider tier',
+      });
+    });
+
+    it('correctly maps home_service mode and includes address fields while omitting resourceId', async () => {
+      const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          ok: true,
+          bookingId: 'booking-home-123',
+        }),
+      } as unknown as Response);
+
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+
+      const res = await createBranchBooking(
+        {
+          branchId: '00000000-0000-0000-0000-000000000001',
+          fullName: 'Juan Dela Cruz',
+          phone: '09181234567',
+          serviceIds: ['00000000-0000-0000-0000-000000000003'],
+          staffId: '00000000-0000-0000-0000-000000000004',
+          resourceId: 'ignored-in-home-service',
+          date: '2026-09-05',
+          startTime: '10:00',
+          mode: 'home_service',
+          paymentReceived: false,
+          homeServiceAddress: '123 Main St',
+          homeServiceBarangay: 'San Antonio',
+          homeServiceCity: 'Pasig City',
+        },
+        client,
+      );
+
+      expect(res.ok).toBe(true);
+      expect(res.bookingId).toBe('booking-home-123');
+
+      const parsedBody = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+      expect(parsedBody.deliveryType).toBe('home_service');
+      expect(parsedBody.type).toBe('home_service');
+      expect(parsedBody.crmBookingMode).toBe('home_service');
+      expect(parsedBody.resourceId).toBeUndefined();
+      expect(parsedBody.homeServiceAddress).toBe('123 Main St');
+      expect(parsedBody.homeServiceBarangay).toBe('San Antonio');
+      expect(parsedBody.homeServiceCity).toBe('Pasig City');
+    });
+
+    it.each([
+      {
+        status: 400,
+        response: {
+          ok: false,
+          code: 'VALIDATION_ERROR',
+          error: 'Validation failed',
+        },
+        expectedCode: 'VALIDATION_ERROR',
+      },
+      {
+        status: 401,
+        response: {
+          ok: false,
+          code: 'UNAUTHORIZED',
+          error: 'Missing or invalid authorization token',
+        },
+        expectedCode: 'UNAUTHORIZED',
+      },
+      {
+        status: 403,
+        response: {
+          ok: false,
+          code: 'CRM_BRANCH_FORBIDDEN',
+          error: 'Staff is not assigned to this branch',
+        },
+        expectedCode: 'CRM_BRANCH_FORBIDDEN',
+      },
+      {
+        status: 409,
+        response: {
+          ok: false,
+          code: 'SLOT_UNAVAILABLE',
+          error: 'Selected time slot is already booked',
+        },
+        expectedCode: 'SLOT_UNAVAILABLE',
+      },
+      {
+        status: 500,
+        response: {
+          ok: false,
+          code: 'BOOKING_INSERT_FAILED',
+          error: 'Failed to insert booking record',
+        },
+        expectedCode: 'BOOKING_INSERT_FAILED',
+      },
+    ])(
+      'preserves server error code $expectedCode on HTTP $status',
+      async ({ status, response, expectedCode }) => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+          ok: false,
+          status,
+          json: async () => response,
+        } as unknown as Response);
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'secret-token-xyz' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await createBranchBooking(
+          {
+            branchId: 'branch-1',
+            fullName: 'Maria Santos',
+            phone: '09171234567',
+            serviceIds: ['svc-1'],
+            date: '2026-09-05',
+            startTime: '14:00',
+            mode: 'walkin',
+          },
+          client,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe(expectedCode);
+        expect(res.error).toBe(response.error);
+        // Security check: token must never appear in error message
+        expect(res.error).not.toContain('secret-token-xyz');
+      },
+    );
+
+    it('returns fail-closed NETWORK_ERROR on network fetch failure', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(
+        new TypeError('Failed to fetch'),
+      );
+
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'secret-token-xyz' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+
+      const res = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Maria Santos',
+          phone: '09171234567',
+          serviceIds: ['svc-1'],
+          date: '2026-09-05',
+          startTime: '14:00',
+          mode: 'walkin',
+        },
+        client,
+      );
+
+      expect(res.ok).toBe(false);
+      expect(res.code).toBe('NETWORK_ERROR');
+      expect(res.error).toContain('Booking creation requires a connection');
+      expect(res.error).not.toContain('secret-token-xyz');
+    });
+
+    it('returns SERVER_ERROR when server returns non-JSON or malformed payload', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: async () => {
+          throw new Error('Unexpected token < in JSON');
+        },
+      } as unknown as Response);
+
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'secret-token-xyz' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+
+      const res = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Maria Santos',
+          phone: '09171234567',
+          serviceIds: ['svc-1'],
+          date: '2026-09-05',
+          startTime: '14:00',
+          mode: 'walkin',
+        },
+        client,
+      );
+
+      expect(res.ok).toBe(false);
+      expect(res.code).toBe('SERVER_ERROR');
+      expect(res.error).toContain('502');
+      expect(res.error).not.toContain('secret-token-xyz');
     });
   });
 });

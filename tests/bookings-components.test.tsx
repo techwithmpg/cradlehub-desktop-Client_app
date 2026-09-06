@@ -487,10 +487,10 @@ describe('Stage 02 Bookings UI Components', () => {
       // Wait for options to load
       await screen.findByText('Swedish Massage');
 
-      // Verify write boundary notice
-      expect(screen.getByText('Booking workflow preview')).toBeDefined();
-
-      // Verify mode tabs
+      // Verify modal header & mode tabs
+      expect(
+        screen.getByText('Create a new booking for this branch.'),
+      ).toBeDefined();
       expect(screen.getByText('Walk-in')).toBeDefined();
       expect(screen.getByText('Phone')).toBeDefined();
       expect(screen.getByText('Future')).toBeDefined();
@@ -540,7 +540,7 @@ describe('Stage 02 Bookings UI Components', () => {
       expect(freshNameInput.value).toBe('');
     });
 
-    it('disables creation without invoking the write helper', async () => {
+    it('disables submit when required fields are missing, and calls createBranchBooking on valid submit', async () => {
       vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
         services: [
           {
@@ -572,21 +572,39 @@ describe('Stage 02 Bookings UI Components', () => {
 
       const nameInput = screen.getByPlaceholderText(/e\.g\. Maria Santos/i);
       const phoneInput = screen.getByPlaceholderText(/e\.g\. 09171234567/i);
+      const submitBtn = screen.getByRole('button', {
+        name: 'Create Booking',
+      }) as HTMLButtonElement;
+
+      expect(submitBtn.disabled).toBe(true);
 
       fireEvent.change(nameInput, { target: { value: 'Elena Santos' } });
-      fireEvent.change(phoneInput, { target: { value: '09179998877' } });
-
-      const createSpy = vi.spyOn(bookingsService, 'createBranchBooking');
-      const submitBtn = screen.getByRole('button', {
-        name: 'Booking Creation Unavailable',
-      }) as HTMLButtonElement;
       expect(submitBtn.disabled).toBe(true);
-      fireEvent.click(submitBtn);
-      fireEvent.submit(nameInput.closest('form')!);
-      expect(createSpy).not.toHaveBeenCalled();
 
-      expect(onBookingCreated).not.toHaveBeenCalled();
-      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.change(phoneInput, { target: { value: '09179998877' } });
+      expect(submitBtn.disabled).toBe(false);
+
+      const createSpy = vi
+        .spyOn(bookingsService, 'createBranchBooking')
+        .mockResolvedValue({
+          ok: true,
+          bookingId: 'b-created-1',
+        });
+
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            branchId: 'branch-1',
+            fullName: 'Elena Santos',
+            phone: '09179998877',
+            serviceIds: ['s-1'],
+          }),
+        );
+        expect(onBookingCreated).toHaveBeenCalledOnce();
+        expect(onClose).toHaveBeenCalledOnce();
+      });
     });
   });
 });

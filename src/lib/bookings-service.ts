@@ -11,6 +11,7 @@ import type {
   BookingStaff,
   BookingStatus,
   CreateBookingInput,
+  CreateBookingResult,
   QuickBookingOptionResource,
   QuickBookingOptionService,
   QuickBookingOptionStaff,
@@ -638,24 +639,124 @@ export async function searchBranchCustomers(
   throw new CustomerLookupUnavailableError();
 }
 
+export function getHostedApiBaseUrl(): string {
+  const envUrl =
+    (typeof import.meta !== 'undefined' &&
+      import.meta.env?.VITE_CRADLEHUB_API_URL) ||
+    (typeof import.meta !== 'undefined' &&
+      import.meta.env?.VITE_CRADLEHUB_URL) ||
+    '';
+  return envUrl.replace(/\/+$/, '');
+}
+
 /**
  * Authoritative Booking Creation Boundary:
  *
  * In accordance with the CradleHub architecture and security contracts:
- * Authoritative booking creation requires server-side validation, multi-service sequencing,
- * customer upsert, exact availability check, payment audit logging, and notification dispatches
- * executed within a trusted hosted server boundary.
- *
+ * Authoritative booking creation is handled by the hosted authoritative server boundary.
+ * Desktop sends the operator's authenticated Supabase session access token via Authorization Bearer header.
  * Direct table mutations from the desktop renderer are explicitly disallowed.
  */
 export async function createBranchBooking(
-  input?: CreateBookingInput,
-): Promise<{ ok: boolean; bookingId?: string; code?: string; error?: string }> {
-  void input;
+  input: CreateBookingInput,
+  client?: SupabaseClient,
+): Promise<CreateBookingResult> {
+  const supabase = client ?? getSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      ok: false,
+      code: 'AUTH_SESSION_REQUIRED',
+      error: 'Your session has expired. Sign in again to create this booking.',
+    };
+  }
+
+  const payload = {
+    branchId: input.branchId,
+    serviceIds: input.serviceIds,
+    date: input.date,
+    startTime: input.startTime,
+    deliveryType: input.mode === 'home_service' ? 'home_service' : 'in_spa',
+    type: input.mode === 'home_service' ? 'home_service' : 'walkin',
+    crmBookingMode: input.mode,
+    fullName: input.fullName.trim(),
+    phone: input.phone.trim(),
+    email: input.email?.trim() || undefined,
+    staffId: input.staffId || undefined,
+    resourceId:
+      input.mode === 'home_service' ? undefined : input.resourceId || undefined,
+    customerId: input.customerId || undefined,
+    notes: input.notes?.trim() || undefined,
+    paymentReceived: Boolean(input.paymentReceived),
+    paymentMethod: input.paymentMethod || undefined,
+    ...(input.mode === 'home_service'
+      ? {
+          homeServiceAddress: input.homeServiceAddress?.trim() || undefined,
+          homeServiceBarangay: input.homeServiceBarangay?.trim() || undefined,
+          homeServiceCity: input.homeServiceCity?.trim() || undefined,
+        }
+      : {}),
+  };
+
+  const baseUrl = getHostedApiBaseUrl();
+  const endpoint = `${baseUrl}/api/desktop/v1/bookings`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    return {
+      ok: false,
+      code: 'NETWORK_ERROR',
+      error:
+        'Booking creation requires a connection. Please check your network and try again.',
+    };
+  }
+
+  let body: {
+    ok?: boolean;
+    bookingId?: string;
+    warning?: string;
+    error?: string;
+    code?: string;
+  };
+  try {
+    body = await response.json();
+  } catch {
+    return {
+      ok: false,
+      code: 'SERVER_ERROR',
+      error: `Server responded with status ${response.status}, but the response could not be parsed.`,
+    };
+  }
+
+  if (response.ok && body?.ok === true) {
+    return {
+      ok: true,
+      bookingId: body.bookingId,
+      warning: body.warning,
+    };
+  }
+
   return {
     ok: false,
-    code: 'HOSTED_WRITE_BOUNDARY_REQUIRED',
-    error:
-      'Authoritative booking creation requires a hosted server-side write boundary. Direct database mutations from the desktop renderer are disabled pending owner authorization of a hosted endpoint.',
+    code:
+      body?.code ||
+      (response.status === 401
+        ? 'UNAUTHORIZED'
+        : response.status === 403
+          ? 'CRM_PERMISSION_DENIED'
+          : 'UNKNOWN_ERROR'),
+    error: body?.error || 'Failed to create booking.',
   };
 }

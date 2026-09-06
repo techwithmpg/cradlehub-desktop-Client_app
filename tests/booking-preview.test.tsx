@@ -151,26 +151,72 @@ describe('booking preview selection and availability', () => {
     fireEvent.click(screen.getByRole('button', { name: /Spa only/ }));
     expect(providers.value).toBe('all-provider');
   });
-  it.each(['Walk-in', 'Phone', 'Future', 'Home Service'])(
-    'never submits creation in %s mode',
-    async (label) => {
-      const create = vi.spyOn(service, 'createBranchBooking');
+  it.each([
+    { label: 'Walk-in', modeVal: 'walkin' },
+    { label: 'Phone', modeVal: 'phone' },
+    { label: 'Future', modeVal: 'standard_future' },
+    { label: 'Home Service', modeVal: 'home_service' },
+  ])(
+    'submits creation in $label mode when valid',
+    async ({ label, modeVal }) => {
+      const create = vi
+        .spyOn(service, 'createBranchBooking')
+        .mockResolvedValue({ ok: true, bookingId: 'b-new-1' });
       const view = mount();
       await ready();
       mode(label);
       change('customer-fullname', 'Preview Customer');
       change('customer-phone', '09000000000');
+      if (modeVal === 'home_service') {
+        change('hs-city', 'Quezon City');
+      }
       const button = screen.getByRole('button', {
-        name: 'Booking Creation Unavailable',
+        name: 'Create Booking',
       }) as HTMLButtonElement;
-      expect(button.disabled).toBe(true);
+      expect(button.disabled).toBe(false);
       fireEvent.click(button);
-      fireEvent.submit(input('customer-fullname').closest('form')!);
-      expect(create).not.toHaveBeenCalled();
-      expect(view.props.onBookingCreated).not.toHaveBeenCalled();
-      expect(view.props.onClose).not.toHaveBeenCalled();
+
+      await waitFor(() => {
+        expect(create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            branchId: 'branch-1',
+            fullName: 'Preview Customer',
+            phone: '09000000000',
+            mode: modeVal,
+          }),
+        );
+        expect(view.props.onBookingCreated).toHaveBeenCalledOnce();
+        expect(view.props.onClose).toHaveBeenCalledOnce();
+      });
     },
   );
+
+  it('keeps entered values and surfaces server conflict error', async () => {
+    vi.spyOn(service, 'createBranchBooking').mockResolvedValue({
+      ok: false,
+      code: 'SLOT_UNAVAILABLE',
+      error: 'The requested slot is already booked.',
+    });
+    const view = mount();
+    await ready();
+    change('customer-fullname', 'Conflict Customer');
+    change('customer-phone', '09171234567');
+    const button = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('booking-submit-error')).toBeDefined();
+      expect(
+        screen.getByText(/The requested slot is already booked/),
+      ).toBeDefined();
+      expect(input('customer-fullname').value).toBe('Conflict Customer');
+      expect(input('customer-phone').value).toBe('09171234567');
+      expect(view.props.onBookingCreated).not.toHaveBeenCalled();
+      expect(view.props.onClose).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('dirty state and defaults', () => {
@@ -570,7 +616,7 @@ describe('customer lookup unavailable UI', () => {
       expect(
         (
           screen.getByRole('button', {
-            name: 'Booking Creation Unavailable',
+            name: 'Create Booking',
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(true);

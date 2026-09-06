@@ -85,7 +85,8 @@ describe('Stage 01 authority and security boundaries', () => {
   it('preserves names-only .env.example without secrets', () => {
     const envExample = readFileSync('.env.example', 'utf8');
     expect(envExample).toMatch(/^VITE_SUPABASE_URL=\r?\n/m);
-    expect(envExample).toMatch(/^VITE_SUPABASE_ANON_KEY=\r?\n?$/m);
+    expect(envExample).toMatch(/^VITE_SUPABASE_ANON_KEY=\r?\n/m);
+    expect(envExample).toMatch(/^VITE_CRADLEHUB_API_URL=\r?\n?$/m);
   });
 
   it('contains exactly the eight authorized navigation items and excludes dormant modules', () => {

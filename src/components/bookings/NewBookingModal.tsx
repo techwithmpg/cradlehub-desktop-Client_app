@@ -25,6 +25,7 @@ import {
   computeBookingEndTime,
   getTodayDateString,
   formatCurrency,
+  createBranchBooking,
 } from '../../lib/bookings-service';
 
 interface NewBookingModalProps {
@@ -80,6 +81,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
   onClose,
   branchId,
   branchName,
+  onBookingCreated,
 }) => {
   const [defaults] = useState(() => ({
     date: getTodayDateString(),
@@ -123,6 +125,12 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
   // Submission & Validation State
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<{
+    message: string;
+    code?: string;
+  } | null>(null);
+  const [submitWarning, setSubmitWarning] = useState<string | null>(null);
   const [optionsError, setOptionsError] = useState<string | null>(
     branchId ? null : 'Booking options unavailable: no branch selected.',
   );
@@ -327,7 +335,82 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     paymentReceived !== true ||
     paymentMethod !== 'cash' ||
     JSON.stringify(selectedServiceIds) !== JSON.stringify(defaultServiceIds);
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (
+      isSubmitting ||
+      isLoadingOptions ||
+      Boolean(optionsError) ||
+      selectedServiceIds.length === 0 ||
+      fullName.trim().length < 2 ||
+      phone.trim().length < 7 ||
+      (mode === 'home_service' && !homeServiceCity.trim())
+    ) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitWarning(null);
+
+    try {
+      const result = await createBranchBooking({
+        branchId,
+        customerId: selectedCustomer?.id,
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+        serviceIds: selectedServiceIds,
+        staffId: staffId || undefined,
+        resourceId:
+          mode === 'home_service' ? undefined : resourceId || undefined,
+        date,
+        startTime,
+        totalDurationMinutes,
+        totalPrice,
+        mode,
+        paymentReceived,
+        paymentMethod,
+        notes: notes.trim() || undefined,
+        homeServiceAddress:
+          mode === 'home_service'
+            ? homeServiceAddress.trim() || undefined
+            : undefined,
+        homeServiceBarangay:
+          mode === 'home_service'
+            ? homeServiceBarangay.trim() || undefined
+            : undefined,
+        homeServiceCity:
+          mode === 'home_service'
+            ? homeServiceCity.trim() || undefined
+            : undefined,
+      });
+
+      if (result.ok) {
+        if (result.warning) {
+          setSubmitWarning(result.warning);
+        }
+        onBookingCreated();
+        onClose();
+      } else {
+        setSubmitError({
+          message: result.error || 'Failed to create booking.',
+          code: result.code,
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setSubmitError({
+        message: `Booking creation failed: ${msg}`,
+        code: 'CLIENT_ERROR',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleRequestClose = () => {
+    if (isSubmitting) return;
     if (isDirty) setShowDiscardConfirm(true);
     else onClose();
   };
@@ -355,13 +438,14 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
               </span>
             </div>
             <p className="new-booking-subtitle">
-              Preview the branch booking workflow.
+              Create a new booking for this branch.
             </p>
           </div>
           <button
             type="button"
             className="new-booking-close-btn"
             onClick={handleRequestClose}
+            disabled={isSubmitting}
             aria-label="Close modal"
           >
             <X size={18} aria-hidden="true" />
@@ -380,7 +464,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                 aria-selected={isActive}
                 className={`new-booking-mode-tab ${isActive ? 'active' : ''}`}
                 onClick={() => handleModeChange(m.value)}
-                disabled={isLoadingOptions}
+                disabled={isLoadingOptions || isSubmitting}
               >
                 <span className="mode-tab-label">{m.label}</span>
                 <span className="mode-tab-desc">{m.description}</span>
@@ -389,21 +473,37 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
           })}
         </div>
 
-        {/* Write Boundary Notice */}
-        <div
-          className="new-booking-write-boundary-notice"
-          role="note"
-          data-testid="write-boundary-notice"
-          id="booking-preview-notice"
-        >
-          <div className="notice-badge">Booking workflow preview</div>
-          <p className="notice-text">
-            Booking creation requires an authorized hosted booking creation
-            endpoint. Only verified branch catalog flags and explicit provider
-            capabilities are previewed; availability, payment and booking
-            confirmation are not verified.
-          </p>
-        </div>
+        {submitError && (
+          <div
+            className="new-booking-error-banner"
+            role="alert"
+            data-testid="booking-submit-error"
+          >
+            <AlertCircle size={16} className="error-icon" aria-hidden="true" />
+            <div className="error-message">
+              {submitError.code ? <strong>{submitError.code}: </strong> : null}
+              {submitError.message}
+            </div>
+            <button
+              type="button"
+              className="error-dismiss-btn"
+              onClick={() => setSubmitError(null)}
+              aria-label="Dismiss error"
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+        {submitWarning && (
+          <div
+            className="new-booking-error-banner"
+            role="status"
+            data-testid="booking-submit-warning"
+          >
+            <AlertCircle size={16} aria-hidden="true" />
+            <span className="error-message">{submitWarning}</span>
+          </div>
+        )}
         {optionsError && (
           <div
             className="new-booking-error-banner"
@@ -416,10 +516,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
         )}
 
         {/* Modal Body: 2 Columns */}
-        <form
-          className="new-booking-body-grid"
-          onSubmit={(event) => event.preventDefault()}
-        >
+        <form className="new-booking-body-grid" onSubmit={handleSubmit}>
           {/* Left Column: Form Controls */}
           <div className="new-booking-form-col">
             {/* 1. Customer Section */}
@@ -919,12 +1016,10 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
               <div className="summary-payment-status">
                 {paymentReceived ? (
                   <span className="status-tag paid">
-                    Preview: payment received ({paymentMethod.toUpperCase()})
+                    Payment received ({paymentMethod.toUpperCase()})
                   </span>
                 ) : (
-                  <span className="status-tag pending">
-                    Preview: payment pending
-                  </span>
+                  <span className="status-tag pending">Payment pending</span>
                 )}
               </div>
             </div>
@@ -937,17 +1032,28 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
             type="button"
             className="new-booking-cancel-btn"
             onClick={handleRequestClose}
+            disabled={isSubmitting}
           >
             Cancel
           </button>
           <button
-            type="button"
+            type="submit"
             className="new-booking-submit-btn"
-            disabled
-            aria-describedby="booking-preview-notice"
+            disabled={
+              isSubmitting ||
+              isLoadingOptions ||
+              Boolean(optionsError) ||
+              selectedServiceIds.length === 0 ||
+              fullName.trim().length < 2 ||
+              phone.trim().length < 7 ||
+              (mode === 'home_service' && !homeServiceCity.trim())
+            }
+            onClick={handleSubmit}
           >
             <Sparkles size={16} aria-hidden="true" />
-            <span>Booking Creation Unavailable</span>
+            <span>
+              {isSubmitting ? 'Creating Booking...' : 'Create Booking'}
+            </span>
           </button>
         </footer>
       </div>
