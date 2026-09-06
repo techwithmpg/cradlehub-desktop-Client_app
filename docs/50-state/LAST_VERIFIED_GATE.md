@@ -11,18 +11,11 @@ Stage 04 (Staff) = **NOT STARTED / NOT AUTHORIZED**.
 
 - **Base Baseline (BASE_SHA)**: `59f69fc7e321c32f040f6f9a79aca47e77547675` on `main`.
 - **Active Branch**: `stage/03-customers`.
+- **Audited Stage Snapshot HEAD_SHA**: `2ec15ddf0600ac93b796118d14263781d5b43341`.
 - **Canonical Hosted Main SHA**: `f8455078d212b55595c277c577a80d89995c7585`.
-- **Quality Gate Verification Checks**:
-  - `pnpm format:check` — PASSED (Prettier clean).
-  - `pnpm lint` — PASSED (`eslint . --max-warnings 0` with 0 warnings/errors).
-  - `pnpm typecheck` — PASSED (`tsc --noEmit` with 0 errors).
-  - `pnpm test` — PASSED (157/157 tests passing across 8 test suites).
-  - `pnpm build` — PASSED (Vite production bundle built cleanly).
-  - `cargo fmt --check` — PASSED.
-  - `cargo check --locked` — PASSED.
-  - `cargo test --locked` — PASSED.
-  - `cargo clippy --locked --all-targets -- -D warnings` — PASSED.
-  - `git diff --check` — PASSED (0 trailing whitespaces / conflict markers).
+- **Checks Record**:
+  - **Previously Verified Main Baseline Checks (Stage 02 Closeout on Main)**: `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (157/157 tests), `pnpm build`, `cargo fmt --check`, `cargo check --locked`, `cargo test --locked`, `cargo clippy --locked --all-targets -- -D warnings`.
+  - **Stage 03 Audit-Pass Checks Actually Run**: `pnpm prettier --check` on doc files, `git diff --check`, `git diff --name-only`.
 - **Scope Integrity**: Canonical shell preserved. Unsafe direct renderer queries to `customers` table avoided. Safe hosted boundary requirements defined.
 - **Stage Status**: Stage 03 contract audit completed; awaiting independent review. Stage 04 is **NOT AUTHORIZED**.
 
