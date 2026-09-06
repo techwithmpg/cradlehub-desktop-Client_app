@@ -1,18 +1,18 @@
 # Current Task
 
-Stage 03 — Customers: **ACCEPTED / MERGED / CLOSED**.
+Stage 04 — Staff: Audit & Architecture Discovery Checkpoint.
 
-**STAGE 03 CUSTOMERS FAST-FORWARD MERGED INTO MAIN — AWAITING STAGE 04 OWNER AUTHORIZATION.**
+**STAGE 04 AUDIT READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED.**
 
-- **Merged Main HEAD**: `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
-- **Accepted Stage 03 Implementation SHA**: `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
-- **Canonical Hosted Main SHA**: `653f4d0ba04f1af76a7006209a74e40022d7de84`.
+- **Active Branch**: `stage/04-staff`.
+- **Accepted Main BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`.
+- **Canonical Hosted Main SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`.
 
-Summary of Merged Scope:
+Checkpoint Accomplishments:
 
-1. **Customers Visual & Functional Vertical Slice**: Real Customers module, header refresh, KPI summary cards, customer list table, waitlist follow-up queue, customer detail & operational booking history inspector.
-2. **Canonical Streaming JSON Body Reader**: `src/lib/hosted-json-response.ts` implementing `readResponseBodyText` and `readHostedJsonResponse` with chunk-by-chunk streaming UTF-8 decoding (`TextDecoder({ stream: true })`), 10 MB size limit, empty body detection, content-type inspection, and single-pass `JSON.parse`.
-3. **Runtime Contract Validation**: Added type guards `isFetchCustomersSuccess`, `isFetchCustomerDetailSuccess`, and `isApiErrorEnvelope` preventing unvalidated payloads from being cast as valid success.
-4. **Customer Boundary Consumers**: Integrated reader and validators in `fetchBranchCustomers`, `fetchCustomerDetail`, and `searchBranchCustomers`, adding `Accept: application/json` headers.
-5. **False-Empty UI Prevention**: Hardened `CustomersView.tsx` against false-empty zero KPI states on unexpected/malformed responses.
-6. **Next Gate**: Stop and await explicit owner authorization for Stage 04 (Staff). No new stage or branch started.
+1. **Repository Verification**: Proved desktop baseline at `fb17b71d17d02ca33041e0331ec09a6174aad9a4`, created `stage/04-staff` branch.
+2. **Hosted Staff Discovery**: Analyzed hosted `public.staff`, `public.staff_services`, RLS policies, role canonicalization (`crm`, `manager`, `owner`), and query patterns in `src/lib/queries/staff.ts`.
+3. **Contract & Security Matrix**: Defined authoritative read/write boundaries, branch isolation enforcement, data minimization, and rejected dormant/cross-module scope (Attendance, Schedule, Payroll, Onboarding).
+4. **UI State & Action Matrices**: Enumerated all operational and failure states (loading, populated, empty roster, no search matches, 401, 403, network drop).
+5. **Proposed Stage 04 Slice**: Outlined `StaffView`, `StaffHeader`, `StaffKpiSummary`, `StaffListCard`, and `StaffInspectorCard` following canonical desktop architecture.
+6. **Next Step**: Await independent review of the Stage 04 audit checkpoint before beginning functional implementation.

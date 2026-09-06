@@ -4,31 +4,30 @@ Stage 00 = **ACCEPTED / MERGED — CLOSED** on `main` at `79ef30b9da7267b6f01a6b
 Stage 01 = **ACCEPTED / MERGED — CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 Stage 02 = **ACCEPTED / MERGED — CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03 = **ACCEPTED / MERGED — CLOSED** on `main` at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
+Stage 04 (Staff) = **AUDIT CHECKPOINT COMPLETE — PUSHED AND STOPPED FOR REVIEW**.
 
-Stage 04 (Staff) = **NOT STARTED / NOT AUTHORIZED**.
+Stage 05+ = **NOT STARTED / NOT AUTHORIZED**.
 
 ## Verification Record
 
-- **Active Branch**: `main`.
-- **Accepted Stage 03 Implementation SHA**: `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
-- **Canonical Hosted Main SHA**: `653f4d0ba04f1af76a7006209a74e40022d7de84`.
-- **Evidence Record**:
-  - **OWNER-PROVIDED MANUAL RUNTIME EVIDENCE**: Owner completed native Windows Desktop visual and functional runtime verification.
-  - **REPOSITORY-RECORDED PRODUCTION EVIDENCE**:
-    - `pnpm format:check` — PASSED
-    - `pnpm lint` — PASSED (0 errors, 0 warnings)
-    - `pnpm typecheck` — PASSED (`tsc --noEmit` clean)
-    - `pnpm test` — PASSED (11 test files, 192 vitest tests passed)
-    - `pnpm build` — PASSED (Vite production bundle built cleanly)
-    - `cargo fmt --check` — PASSED
-    - `cargo check` — PASSED (Clean build)
-    - `cargo test` — PASSED (0 failures)
-    - `cargo clippy` — PASSED (0 warnings)
-    - `git diff --check` — PASSED (0 whitespace/conflict errors)
+- **Base Baseline (BASE_SHA)**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4` on `main`.
+- **Active Branch**: `stage/04-staff`.
+- **Canonical Hosted Main SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`.
+- **Checks Record**:
+  - `pnpm format:check` — PASSED
+  - `pnpm lint` — PASSED (0 errors, 0 warnings)
+  - `pnpm typecheck` — PASSED (`tsc --noEmit` clean)
+  - `pnpm test` — PASSED (11 test files, 192 vitest tests passed)
+  - `pnpm build` — PASSED (Vite production bundle built cleanly)
+  - `cargo fmt --check` — PASSED
+  - `cargo check` — PASSED (Clean build)
+  - `cargo test` — PASSED (0 failures)
+  - `cargo clippy` — PASSED (0 warnings)
+  - `git diff --check` — PASSED (0 whitespace/conflict errors)
 - **Scope Integrity**:
-  - Stage 03 Customers only.
-  - Zero direct renderer queries to `customers` table; zero customer write operations; zero financial/pricing surfaces; zero local disk caching.
-  - Tauri HTTP capability strictly unchanged.
-- **Stage Status**: Stage 03 accepted and merged into `main`. Stage 04 is **NOT AUTHORIZED**.
+  - Audit and architecture discovery only.
+  - Zero functional UI changes introduced in this pass.
+  - Zero schema or migration modifications.
+- **Stage Status**: Stage 04 Audit complete; awaiting independent review before functional UI implementation.
 
-Consult `docs/50-state/evidence/stage-03-customers.md` for full implementation details.
+Consult `docs/50-state/evidence/stage-04-staff.md` for full discovery findings.
