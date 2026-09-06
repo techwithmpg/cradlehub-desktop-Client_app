@@ -67,6 +67,7 @@ describe('customers-service', () => {
           return {
             ok: true,
             status: 200,
+            headers: new Headers({ 'content-type': 'application/json' }),
             json: async () => ({
               ok: true,
               tab: 'repeat',
@@ -146,6 +147,7 @@ describe('customers-service', () => {
         return {
           ok: false,
           status: 403,
+          headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({
             ok: false,
             code: 'FORBIDDEN',
@@ -215,6 +217,7 @@ describe('customers-service', () => {
         return {
           ok: true,
           status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => {
             throw new Error('Invalid JSON');
           },
@@ -229,6 +232,131 @@ describe('customers-service', () => {
       expect(res.ok).toBe(false);
       if (!res.ok) {
         expect(res.code).toBe('RESPONSE_PARSE_ERROR');
+        expect(res.message).toBe(
+          'Customer service returned an invalid JSON response (HTTP 200).',
+        );
+      }
+    });
+
+    it('handles non-JSON text/html 404 responses with HOSTED_API_NON_JSON_RESPONSE', async () => {
+      vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
+        'https://www.cradlewellnessliving.com',
+      );
+      const mockSupabase = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+      vi.spyOn(supabaseModule, 'getSupabaseClient').mockReturnValue(
+        mockSupabase,
+      );
+
+      const mockFetchHtml404 = vi.fn(async () => {
+        return {
+          ok: false,
+          status: 404,
+          headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+          text: async () => '<html><body>404 Not Found</body></html>',
+          json: async () => {
+            throw new Error('Unexpected token < in JSON at position 0');
+          },
+        } as unknown as Response;
+      });
+
+      const res = await fetchBranchCustomers(
+        { branchId: 'branch-1' },
+        mockFetchHtml404 as unknown as typeof fetch,
+      );
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
+        expect(res.message).toBe(
+          'The hosted Customers endpoint is not available on the current deployment.',
+        );
+        // Security check: raw HTML body not leaked
+        expect(res.message).not.toContain('<html>');
+        expect(res.message).not.toContain('test-token');
+      }
+    });
+
+    it('handles non-JSON text/html 500 responses with HOSTED_API_NON_JSON_RESPONSE', async () => {
+      vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
+        'https://www.cradlewellnessliving.com',
+      );
+      const mockSupabase = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+      vi.spyOn(supabaseModule, 'getSupabaseClient').mockReturnValue(
+        mockSupabase,
+      );
+
+      const mockFetchHtml500 = vi.fn(async () => {
+        return {
+          ok: false,
+          status: 500,
+          headers: new Headers({ 'content-type': 'text/html' }),
+          text: async () => '<html><body>500 Internal Error</body></html>',
+        } as unknown as Response;
+      });
+
+      const res = await fetchBranchCustomers(
+        { branchId: 'branch-1' },
+        mockFetchHtml500 as unknown as typeof fetch,
+      );
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
+        expect(res.message).toBe(
+          'The hosted Customers service returned an unexpected server response.',
+        );
+      }
+    });
+
+    it('handles unexpected 3xx redirects with HOSTED_API_NON_JSON_RESPONSE', async () => {
+      vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
+        'https://www.cradlewellnessliving.com',
+      );
+      const mockSupabase = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+      vi.spyOn(supabaseModule, 'getSupabaseClient').mockReturnValue(
+        mockSupabase,
+      );
+
+      const mockFetchRedirect = vi.fn(async () => {
+        return {
+          ok: false,
+          status: 308,
+          headers: new Headers({
+            'content-type': 'text/plain',
+            location: 'https://www.cradlewellnessliving.com',
+          }),
+        } as unknown as Response;
+      });
+
+      const res = await fetchBranchCustomers(
+        { branchId: 'branch-1' },
+        mockFetchRedirect as unknown as typeof fetch,
+      );
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
+        expect(res.message).toBe(
+          'The hosted Customers endpoint redirected unexpectedly.',
+        );
       }
     });
   });
@@ -256,6 +384,7 @@ describe('customers-service', () => {
         return {
           ok: true,
           status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({
             ok: true,
             customer: {
@@ -304,6 +433,44 @@ describe('customers-service', () => {
         expect(res.customer.pressurePreference).toBe('Medium-Firm');
         expect(res.bookingHistory).toHaveLength(1);
         expect(res.bookingHistory[0].serviceName).toBe('Deep Tissue Massage');
+      }
+    });
+
+    it('handles non-JSON error responses in fetchCustomerDetail', async () => {
+      vi.spyOn(bookingsService, 'getHostedApiBaseUrl').mockReturnValue(
+        'https://www.cradlewellnessliving.com',
+      );
+      const mockSupabase = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+      vi.spyOn(supabaseModule, 'getSupabaseClient').mockReturnValue(
+        mockSupabase,
+      );
+
+      const mockFetchDetail404 = vi.fn(async () => {
+        return {
+          ok: false,
+          status: 404,
+          headers: new Headers({ 'content-type': 'text/html' }),
+        } as unknown as Response;
+      });
+
+      const res = await fetchCustomerDetail(
+        'c-123',
+        'branch-1',
+        mockFetchDetail404 as unknown as typeof fetch,
+      );
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
+        expect(res.message).toBe(
+          'The hosted Customers endpoint is not available on the current deployment.',
+        );
       }
     });
   });

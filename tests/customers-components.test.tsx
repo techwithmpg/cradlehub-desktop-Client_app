@@ -319,24 +319,29 @@ describe('Customers Workspace Component Suite', () => {
     );
   });
 
-  it('handles authoritative list error truthfully without rendering fake empty state or zero KPIs', async () => {
+  it('handles authoritative list error truthfully without rendering fake empty state or zero KPIs and renders exactly one unavailable presentation', async () => {
     vi.mocked(customersService.fetchBranchCustomers).mockResolvedValueOnce({
       ok: false,
       code: 'CRM_PERMISSION_DENIED',
       message: 'Access to customer roster denied for this branch.',
     });
 
-    render(<CustomersView authContext={mockAuthContext} />);
+    const { container } = render(
+      <CustomersView authContext={mockAuthContext} />,
+    );
 
-    // Error banner is displayed
-    expect(await screen.findByRole('alert')).toBeDefined();
-    expect(
-      screen.getAllByText('Access to customer roster denied for this branch.')
-        .length,
-    ).toBeGreaterThanOrEqual(1);
-
-    // Unavailable workspace placeholder is displayed
+    // Single authoritative unavailable alert card is displayed
+    const alertCard = await screen.findByRole('alert');
+    expect(alertCard).toBeDefined();
     expect(screen.getByText('Customer Service Unavailable')).toBeDefined();
+    expect(
+      screen.getByText('Access to customer roster denied for this branch.'),
+    ).toBeDefined();
+
+    // No duplicate error banner rendered
+    expect(container.querySelectorAll('.bookings-error-banner')).toHaveLength(
+      0,
+    );
 
     // Fake empty messages are NOT rendered
     expect(screen.queryByText('No customers in this segment')).toBeNull();
@@ -346,7 +351,7 @@ describe('Customers Workspace Component Suite', () => {
     expect(screen.queryByLabelText('Total Customers: 0')).toBeNull();
 
     // Retry button is available
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Retry Request' })).toBeDefined();
   });
 
   it('clears stale customer detail and shows detail error on detail fetch failure', async () => {

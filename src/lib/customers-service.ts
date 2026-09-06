@@ -7,6 +7,28 @@ import type {
   FetchCustomerDetailResult,
 } from '../types/customers';
 
+function parseNonJsonErrorMessage(
+  status: number,
+  serviceName: string = 'Customer service',
+): string {
+  if (status === 404) {
+    return 'The hosted Customers endpoint is not available on the current deployment.';
+  }
+  if (status === 500) {
+    return 'The hosted Customers service returned an unexpected server response.';
+  }
+  if (status >= 300 && status < 400) {
+    return 'The hosted Customers endpoint redirected unexpectedly.';
+  }
+  return `${serviceName} returned an unexpected HTTP ${status} response instead of JSON.`;
+}
+
+function isJsonContentType(contentType: string | null): boolean {
+  if (!contentType) return false;
+  const lower = contentType.toLowerCase();
+  return lower.includes('application/json') || lower.includes('+json');
+}
+
 /**
  * Fetch branch customers, segments, search results, KPIs, and waitlist follow-ups
  * from the authoritative hosted Desktop Customers API.
@@ -65,6 +87,15 @@ export async function fetchBranchCustomers(
       },
     });
 
+    const contentType = response.headers.get('content-type');
+    if (!isJsonContentType(contentType)) {
+      return {
+        ok: false,
+        code: 'HOSTED_API_NON_JSON_RESPONSE',
+        message: parseNonJsonErrorMessage(response.status, 'Customer service'),
+      };
+    }
+
     let body: unknown;
     try {
       body = await response.json();
@@ -72,7 +103,7 @@ export async function fetchBranchCustomers(
       return {
         ok: false,
         code: 'RESPONSE_PARSE_ERROR',
-        message: 'Unable to parse customer response from server.',
+        message: `Customer service returned an invalid JSON response (HTTP ${response.status}).`,
       };
     }
 
@@ -151,6 +182,18 @@ export async function fetchCustomerDetail(
       },
     });
 
+    const contentType = response.headers.get('content-type');
+    if (!isJsonContentType(contentType)) {
+      return {
+        ok: false,
+        code: 'HOSTED_API_NON_JSON_RESPONSE',
+        message: parseNonJsonErrorMessage(
+          response.status,
+          'Customer detail service',
+        ),
+      };
+    }
+
     let body: unknown;
     try {
       body = await response.json();
@@ -158,7 +201,7 @@ export async function fetchCustomerDetail(
       return {
         ok: false,
         code: 'RESPONSE_PARSE_ERROR',
-        message: 'Unable to parse customer detail response from server.',
+        message: `Customer detail service returned an invalid JSON response (HTTP ${response.status}).`,
       };
     }
 

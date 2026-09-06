@@ -671,6 +671,31 @@ export async function searchBranchCustomers(
     );
   }
 
+  const contentType = response.headers.get('content-type');
+  const isJson =
+    contentType &&
+    (contentType.toLowerCase().includes('application/json') ||
+      contentType.toLowerCase().includes('+json'));
+
+  if (!isJson) {
+    if (response.status === 404) {
+      throw new Error(
+        'The hosted Customers endpoint is not available on the current deployment.',
+      );
+    }
+    if (response.status === 500) {
+      throw new Error(
+        'The hosted Customers service returned an unexpected server response.',
+      );
+    }
+    if (response.status >= 300 && response.status < 400) {
+      throw new Error('The hosted Customers endpoint redirected unexpectedly.');
+    }
+    throw new Error(
+      `Customer search service returned an unexpected HTTP ${response.status} response instead of JSON.`,
+    );
+  }
+
   let body: {
     ok?: boolean;
     data?: Array<{
@@ -692,7 +717,7 @@ export async function searchBranchCustomers(
     body = await response.json();
   } catch {
     throw new Error(
-      `Server responded with status ${response.status}, but the response could not be parsed.`,
+      `Customer search service returned an invalid JSON response (HTTP ${response.status}).`,
     );
   }
 

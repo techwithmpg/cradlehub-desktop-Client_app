@@ -395,17 +395,17 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 
       {/* 2. Authoritative Error State */}
       {listError ? (
-        <>
-          <div
-            className="bookings-error-banner"
-            role="alert"
-            aria-live="assertive"
-          >
+        <div
+          className="workspace-placeholder customers-unavailable-card"
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="placeholder-icon-wrapper placeholder-error-icon-wrapper">
             <svg
-              className="bookings-error-icon"
+              className="placeholder-icon placeholder-error-icon"
               viewBox="0 0 24 24"
-              width="18"
-              height="18"
+              width="24"
+              height="24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -416,57 +416,18 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <div className="bookings-error-content">
-              <h4 className="bookings-error-title">Customer Service Error</h4>
-              <p className="bookings-error-message">{listError}</p>
-            </div>
-            <button
-              type="button"
-              className="bookings-retry-btn"
-              onClick={() => void fetchList(true)}
-            >
-              Retry
-            </button>
           </div>
-
-          <div
-            className="workspace-placeholder"
-            role="status"
-            style={{ margin: '32px auto' }}
+          <h3 className="placeholder-title">Customer Service Unavailable</h3>
+          <p className="placeholder-desc">{listError}</p>
+          <button
+            type="button"
+            className="bookings-empty-reset-btn"
+            style={{ marginTop: '16px' }}
+            onClick={() => void fetchList(true)}
           >
-            <div
-              className="placeholder-icon-wrapper"
-              style={{ background: '#fef2f2', borderColor: '#fecaca' }}
-            >
-              <svg
-                className="placeholder-icon"
-                style={{ color: '#b91c1c' }}
-                viewBox="0 0 24 24"
-                width="24"
-                height="24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-            </div>
-            <h3 className="placeholder-title">Customer Service Unavailable</h3>
-            <p className="placeholder-desc">{listError}</p>
-            <button
-              type="button"
-              className="bookings-empty-reset-btn"
-              style={{ marginTop: '16px' }}
-              onClick={() => void fetchList(true)}
-            >
-              Retry Request
-            </button>
-          </div>
-        </>
+            Retry Request
+          </button>
+        </div>
       ) : isLoadingList ? (
         /* Loading Skeleton */
         <div

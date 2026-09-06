@@ -275,6 +275,7 @@ describe('customer lookup hosted API boundary', () => {
     const customFetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({
         ok: true,
         tab: 'all',
@@ -329,5 +330,27 @@ describe('customer lookup hosted API boundary', () => {
         last_booking_date: '2026-08-01',
       },
     ]);
+  });
+
+  it('handles non-JSON error responses in searchBranchCustomers gracefully', async () => {
+    const fakeClient = {
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: { access_token: 'auth-token-123' } },
+        }),
+      },
+    } as unknown as SupabaseClient;
+
+    const customFetch404 = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: new Headers({ 'content-type': 'text/html' }),
+    } as unknown as Response);
+
+    await expect(
+      searchBranchCustomers('branch-1', 'Maria', fakeClient, customFetch404),
+    ).rejects.toThrow(
+      /The hosted Customers endpoint is not available on the current deployment/,
+    );
   });
 });

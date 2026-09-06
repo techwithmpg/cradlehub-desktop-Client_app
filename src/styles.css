@@ -1080,8 +1080,17 @@ body {
   margin-bottom: 14px;
 }
 
+.placeholder-icon-wrapper.placeholder-error-icon-wrapper {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
 .placeholder-icon {
   color: #047857;
+}
+
+.placeholder-icon.placeholder-error-icon {
+  color: #b91c1c;
 }
 
 .placeholder-title {
@@ -1098,6 +1107,10 @@ body {
   color: var(--color-muted);
   margin: 0;
   max-width: 320px;
+}
+
+.customers-unavailable-card {
+  margin: 32px auto;
 }
 
 /* -------------------------------------------------------------
