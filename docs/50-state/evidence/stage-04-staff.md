@@ -3,14 +3,14 @@
 ## Status & Governance
 
 - **Target**: CradleHub Desktop
-- **Stage**: Stage 04 — Staff (Audit & Evidence Truth Correction)
+- **Stage**: Stage 04 — Staff (Audit Evidence Precision Fix)
 - **Branch**: `stage/04-staff`
 - **Accepted Main BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
 - **INITIAL_AUDIT_SHA**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`
-- **CORRECTION_BASE_SHA**: `fb39c364028ca386a3da4d68c31469b116c539c9`
+- **CORRECTION_BASE_SHA**: `a97746772e49ffa443f38a740786afd73110f10a`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
-- **Current Status**: **STAGE 04 AUDIT EVIDENCE TRUTH CORRECTION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
+- **Current Status**: **STAGE 04 AUDIT EVIDENCE PRECISION FIX READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
 - **Stage 04 Functional UI Implementation**: **NOT YET STARTED / AWAITING CHECKPOINT REVIEW**.
 - **Stage Authorization**: Only Stage 04 is authorized. Other modules remain separate or dormant.
 
@@ -286,18 +286,24 @@ Stage 04 Staff will strictly reuse existing accepted desktop infrastructure from
 
 ## 11. Verification & Checks Record
 
-### A. Current Documentation Correction Checks (Executed on latest HEAD)
+### A. Current Correction Pre-Commit Validation
+
+The following checks were executed against the final documentation working tree immediately before commit. No source files changed in the subsequent commit operation:
 
 - `pnpm format:check` — **PASSED** (all files match Prettier style)
 - `pnpm lint` — **PASSED** (0 errors, 0 warnings across all files)
 - `pnpm typecheck` — **PASSED** (`tsc --noEmit` clean)
 - `pnpm test` — **PASSED** (11 test files, 192/192 vitest tests passed)
-- `pnpm build` — **PASSED** (Vite production client built cleanly in 1.43s)
+- `pnpm build` — **PASSED** (Vite production bundle built cleanly)
 - `git diff --check` — **PASSED** (0 whitespace / conflict errors)
 
-### B. Previously Recorded Audit Checks (Historical within Stage 04)
+### B. Previously Recorded Stage 04 Checks (Historical within Stage 04)
 
-- `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` — **PASSED** (executed during initial audit checkpoint `2ad6b23357bcf49d1224a34e3cf4219c2122359f`).
+- `cargo fmt --check` — **PASSED**
+- `cargo clippy -- -D warnings` — **PASSED**
+- `cargo test` — **PASSED**
+
+_(Executed during initial audit checkpoint `2ad6b23357bcf49d1224a34e3cf4219c2122359f` and not rerun for docs-only precision corrections)._
 
 ---
 
@@ -317,7 +323,7 @@ Stage 04 Staff will strictly reuse existing accepted desktop infrastructure from
 - **Rollback**:
   - `BASE_SHA`: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
   - Rollback command: `git checkout main && git branch -D stage/04-staff`
-  - Implementation files modified in this checkpoint: **NONE** (Documentation and evidence truth corrections only).
+  - Implementation files modified in this checkpoint: **NONE** (Documentation and evidence precision corrections only).
 
 ---
 
