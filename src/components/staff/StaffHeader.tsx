@@ -50,18 +50,19 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
         {onOpenAddStaff && (
           <button
             type="button"
-            className="bookings-header-new-btn"
+            className="bookings-header-primary-btn"
             data-testid="add-staff-btn"
             onClick={onOpenAddStaff}
             aria-label="Add new staff member"
           >
             <svg
+              className="bookings-header-btn-icon"
               viewBox="0 0 24 24"
               width="16"
               height="16"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             >

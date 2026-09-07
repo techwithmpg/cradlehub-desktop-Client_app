@@ -4,7 +4,7 @@ Stage 00 = **ACCEPTED / MERGED — CLOSED** on `main` at `79ef30b9da7267b6f01a6b
 Stage 01 = **ACCEPTED / MERGED — CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 Stage 02 = **ACCEPTED / MERGED — CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03 = **ACCEPTED / MERGED — CLOSED** on `main` at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
-Stage 04 (Staff) = **STAGE 04 STAFF MANAGEMENT WORKSPACE READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
+Stage 04 (Staff) = **STAGE 04 STAFF BOOKING-SYSTEM UI UNIFICATION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
 
 Other Modules = **NOT STARTED / NOT AUTHORIZED**.
 
@@ -14,7 +14,7 @@ Other Modules = **NOT STARTED / NOT AUTHORIZED**.
 - **Initial Audit Commit (INITIAL_AUDIT_SHA)**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`.
 - **Audit Confirmed Commit (AUDIT_CONFIRMED_SHA)**: `1fcd2b892d39a8b611a49825511bd34740fd2f7a`.
 - **Previous Functional SHA (PREVIOUS_FUNCTIONAL_SHA)**: `25e017b4504171f6f90b1cfaf3a8a5aab65b9065`.
-- **Correction Start SHA (CORRECTION_START_SHA)**: `18cfecdd82ba8de0611725113353da94b0defced`.
+- **Correction Start SHA (CORRECTION_START_SHA)**: `5f2d95b2d7ae9333e6199f0e12df2910f153ddae`.
 - **Active Branch**: `stage/04-staff`.
 - **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`.
 - **Checks Record (Current Stage 04 Staff Management Workspace)**:
@@ -22,14 +22,18 @@ Other Modules = **NOT STARTED / NOT AUTHORIZED**.
   - `pnpm lint` — PASSED (0 errors, 0 warnings across all files)
   - `pnpm typecheck` — PASSED (`tsc --noEmit` clean)
   - `pnpm test` — PASSED (13 test files, 267/267 vitest tests passed)
-  - `pnpm build` — PASSED (Vite production build clean)
+  - `pnpm build` — PASSED (Vite production build clean in 5.69s)
   - `git diff --check` — PASSED (0 whitespace / conflict errors)
 - **Scope Integrity**:
-  - Staff Management Workspace mirroring Bookings layout and interaction architecture.
+  - Staff Management Workspace unified 100% with Bookings layout, tokens, and interaction architecture.
+  - In-card scope tabs replace standalone page tab strip.
+  - Simplified 4-column DataGrid prevents table overflow.
+  - Recomposed inspector matches BookingInspectorCard design and structure.
+  - Rebuilt Schedule view with focused list + inspector and responsive calendar modal.
   - Documents strictly out of scope.
   - Performance metrics contract-backed unavailable state.
   - Offboarding gated with `OFFBOARDING CONTRACT REQUIRED`.
   - Zero schema or migration modifications.
-- **Stage Status**: Stage 04 Staff Management Workspace complete; ready for independent review.
+- **Stage Status**: Stage 04 Staff Management Workspace UI/UX Unification complete; ready for independent review.
 
 Consult `docs/50-state/evidence/stage-04-staff.md` for full discovery and implementation evidence.

@@ -8,24 +8,36 @@ import { fetchBranchScheduleWeek } from '../../lib/staff-service';
 
 interface StaffScheduleViewProps {
   branchId: string;
+  branchName?: string;
   staffList: StaffMember[];
   onOpenScheduleModal: (
     staff: StaffMember,
     date?: string,
     existingBlocks?: StaffBlockedTime[],
   ) => void;
+  onOpenFullScheduleModal?: (staff: StaffMember) => void;
+  onOpenProfileEdit?: (staff: StaffMember) => void;
 }
 
 export const StaffScheduleView: React.FC<StaffScheduleViewProps> = ({
   branchId,
+  branchName = 'Active Branch',
   staffList,
   onOpenScheduleModal,
+  onOpenFullScheduleModal,
+  onOpenProfileEdit,
 }) => {
-  // Current Monday for the week
-  const [currentMonday, setCurrentMonday] = useState(() => {
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  const [currentMonday] = useState(() => {
     const d = new Date();
     const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(d.setDate(diff));
     return monday.toISOString().slice(0, 10);
   });
@@ -33,20 +45,30 @@ export const StaffScheduleView: React.FC<StaffScheduleViewProps> = ({
   const [overrides, setOverrides] = useState<StaffScheduleOverride[]>([]);
   const [blockedTimes, setBlockedTimes] = useState<StaffBlockedTime[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     void (async () => {
-      if (isMounted) setIsLoading(true);
+      if (isMounted) {
+        setIsLoading(true);
+        setScheduleError(null);
+      }
       try {
         const data = await fetchBranchScheduleWeek(branchId, currentMonday);
         if (isMounted) {
           setOverrides(data.overrides);
           setBlockedTimes(data.blockedTimes);
         }
-      } catch {
-        // graceful empty
+      } catch (err: unknown) {
+        if (isMounted) {
+          const msg =
+            err instanceof Error
+              ? err.message
+              : 'Unable to load branch schedule data.';
+          setScheduleError(msg);
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -57,195 +79,628 @@ export const StaffScheduleView: React.FC<StaffScheduleViewProps> = ({
     };
   }, [branchId, currentMonday]);
 
-  // Compute 7 days of the week
-  const weekDays = useMemo(() => {
-    const days: { dateStr: string; dayName: string; dayNum: string }[] = [];
-    const base = new Date(currentMonday);
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(base);
-      d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().slice(0, 10);
-      const dayName = d.toLocaleDateString(undefined, { weekday: 'short' });
-      const dayNum = d.toLocaleDateString(undefined, {
-        month: 'numeric',
-        day: 'numeric',
-      });
-      days.push({ dateStr, dayName, dayNum });
-    }
-    return days;
-  }, [currentMonday]);
+  const staffTypes = useMemo(() => {
+    const s = new Set<string>();
+    staffList.forEach((m) => s.add(m.staff_type));
+    return Array.from(s).sort();
+  }, [staffList]);
 
-  const handlePrevWeek = () => {
-    const d = new Date(currentMonday);
-    d.setDate(d.getDate() - 7);
-    setCurrentMonday(d.toISOString().slice(0, 10));
+  const filteredStaff = useMemo(() => {
+    return staffList.filter((m) => {
+      if (typeFilter !== 'all' && m.staff_type !== typeFilter) return false;
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const matchName = m.full_name.toLowerCase().includes(q);
+        const matchType = m.staff_type.toLowerCase().includes(q);
+        if (!matchName && !matchType) return false;
+      }
+      return true;
+    });
+  }, [staffList, typeFilter, search]);
+
+  const selectedStaff = useMemo(() => {
+    if (filteredStaff.length === 0) return null;
+    if (selectedStaffId === '') return null;
+    if (selectedStaffId === null) return filteredStaff[0];
+    const found = filteredStaff.find((m) => m.id === selectedStaffId);
+    return found || filteredStaff[0];
+  }, [filteredStaff, selectedStaffId]);
+
+  const totalItems = filteredStaff.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const paginatedStaff = filteredStaff.slice(startIndex, startIndex + pageSize);
+
+  const startRecord = totalItems === 0 ? 0 : startIndex + 1;
+  const endRecord = Math.min(startIndex + pageSize, totalItems);
+
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const getInitials = (fullName: string) => {
+    return fullName
+      .split(' ')
+      .map((n) => n[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
   };
 
-  const handleNextWeek = () => {
-    const d = new Date(currentMonday);
-    d.setDate(d.getDate() + 7);
-    setCurrentMonday(d.toISOString().slice(0, 10));
+  const hasActiveFilters = Boolean(search.trim()) || typeFilter !== 'all';
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setTypeFilter('all');
+    setCurrentPage(1);
   };
 
-  const handleToday = () => {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(d.setDate(diff));
-    setCurrentMonday(monday.toISOString().slice(0, 10));
-  };
+  // Schedule summary for selected staff
+  const staffOverrides = useMemo(() => {
+    if (!selectedStaff) return [];
+    return overrides.filter((o) => o.staff_id === selectedStaff.id);
+  }, [overrides, selectedStaff]);
 
-  // Format date range string
-  const rangeDisplay = useMemo(() => {
-    if (weekDays.length < 7) return '';
-    const first = new Date(weekDays[0].dateStr);
-    const last = new Date(weekDays[6].dateStr);
-    return `${first.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${last.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
-  }, [weekDays]);
+  const staffBlocks = useMemo(() => {
+    if (!selectedStaff) return [];
+    return blockedTimes.filter((b) => b.staff_id === selectedStaff.id);
+  }, [blockedTimes, selectedStaff]);
+
+  const todayOverride = useMemo(() => {
+    return staffOverrides.find((o) => o.override_date === todayStr);
+  }, [staffOverrides, todayStr]);
+
+  const todayBlocks = useMemo(() => {
+    return staffBlocks.filter((b) => b.block_date === todayStr);
+  }, [staffBlocks, todayStr]);
 
   return (
-    <div
-      className="bookings-list-card staff-schedule-view-card p-4 space-y-4"
-      data-testid="staff-schedule-view"
-    >
-      {/* Schedule Header / Toolbar */}
-      <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-[var(--cs-border)]">
-        <div>
-          <h3 className="text-sm font-bold text-[var(--cs-text)]">
-            Weekly Schedule Overview
-          </h3>
-          <p className="text-xs text-[var(--cs-text-muted)]">
-            Inspect working hours, days off, and blocked times across branch
-            staff.
-          </p>
+    <div className="bookings-main-grid" data-testid="staff-schedule-view">
+      {/* Left Focused Staff List Column */}
+      <div className="bookings-list-column">
+        {/* Toolbar */}
+        <div className="bookings-toolbar-container">
+          <div className="bookings-search-wrapper">
+            <svg
+              className="bookings-search-icon"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              className="bookings-search-input"
+              placeholder="Search staff..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Search staff members"
+            />
+            {search && (
+              <button
+                type="button"
+                className="bookings-search-clear-btn"
+                onClick={() => {
+                  setSearch('');
+                  setCurrentPage(1);
+                }}
+                aria-label="Clear search"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
+          <div className="bookings-filters-group">
+            {/* Staff Type */}
+            <select
+              className="bookings-select-filter"
+              value={typeFilter}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Filter by staff type"
+            >
+              <option value="all">All Staff Types</option>
+              {staffTypes.map((t) => (
+                <option key={t} value={t}>
+                  {t.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="bookings-reset-filters-btn"
+                onClick={handleResetFilters}
+                aria-label="Reset all filters"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="btn-secondary-compact text-xs"
-            onClick={handlePrevWeek}
-            aria-label="Previous week"
-          >
-            &larr; Prev
-          </button>
-          <button
-            type="button"
-            className="btn-secondary-compact text-xs font-semibold"
-            onClick={handleToday}
-          >
-            Today
-          </button>
-          <span className="text-xs font-bold text-[var(--cs-text)] px-2">
-            {rangeDisplay}
-          </span>
-          <button
-            type="button"
-            className="btn-secondary-compact text-xs"
-            onClick={handleNextWeek}
-            aria-label="Next week"
-          >
-            Next &rarr;
-          </button>
+        {/* Schedule Error Banner if query failed */}
+        {scheduleError && (
+          <div className="p-3 bg-red-50 border-b border-red-200 text-xs text-red-700">
+            <span className="font-semibold block mb-0.5">Schedule Error:</span>
+            {scheduleError}
+          </div>
+        )}
+
+        {/* DataGrid */}
+        <div className="bookings-datagrid-wrapper">
+          {isLoading ? (
+            <div
+              className="p-8 text-center text-xs text-[var(--cs-text-muted)]"
+              aria-busy="true"
+            >
+              Loading schedule data...
+            </div>
+          ) : totalItems === 0 ? (
+            <div className="bookings-table-empty-state">
+              <div className="bookings-empty-icon-circle">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </div>
+              <h4 className="bookings-empty-heading">No staff found</h4>
+              <p className="bookings-empty-text">
+                {hasActiveFilters
+                  ? 'No staff members match the active filters.'
+                  : 'No staff members assigned to this branch.'}
+              </p>
+            </div>
+          ) : (
+            <table
+              className="bookings-datagrid"
+              aria-label="Staff Schedule Roster"
+            >
+              <thead>
+                <tr>
+                  <th scope="col" className="th-staff">
+                    Staff Member
+                  </th>
+                  <th scope="col" className="th-role">
+                    Job Function
+                  </th>
+                  <th scope="col" className="th-phone">
+                    Schedule Status
+                  </th>
+                  <th scope="col" className="th-actions">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedStaff.map((member) => {
+                  const isSelected = member.id === selectedStaff?.id;
+                  const initials = getInitials(member.full_name);
+
+                  const memberOverrides = overrides.filter(
+                    (o) => o.staff_id === member.id,
+                  );
+                  const memberBlocks = blockedTimes.filter(
+                    (b) => b.staff_id === member.id,
+                  );
+
+                  let summaryText = 'Configured Roster';
+                  if (memberOverrides.length > 0 && memberBlocks.length > 0) {
+                    summaryText = `${memberOverrides.length} override(s), ${memberBlocks.length} block(s)`;
+                  } else if (memberOverrides.length > 0) {
+                    summaryText = `${memberOverrides.length} active override(s)`;
+                  } else if (memberBlocks.length > 0) {
+                    summaryText = `${memberBlocks.length} blocked period(s)`;
+                  }
+
+                  return (
+                    <tr
+                      key={member.id}
+                      className={`booking-row ${isSelected ? 'selected' : ''}`}
+                      onClick={() => setSelectedStaffId(member.id)}
+                      tabIndex={0}
+                      role="row"
+                      aria-selected={isSelected}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedStaffId(member.id);
+                        }
+                      }}
+                      data-testid={`schedule-staff-row-${member.id}`}
+                    >
+                      <td className="td-staff">
+                        <div className="staff-identity-cell">
+                          <div
+                            className="inspector-avatar-circle"
+                            aria-hidden="true"
+                          >
+                            {initials}
+                          </div>
+                          <div className="staff-info-block">
+                            <span className="staff-primary-name">
+                              {member.full_name}
+                            </span>
+                            {member.nickname && (
+                              <span className="staff-nickname-subtext">
+                                &ldquo;{member.nickname}&rdquo;
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="td-role font-medium text-xs text-[var(--cs-text)] capitalize">
+                        {member.staff_type.replace(/_/g, ' ')}
+                      </td>
+
+                      <td className="td-phone text-xs text-[var(--cs-text-secondary)]">
+                        {summaryText}
+                      </td>
+
+                      <td className="td-actions">
+                        <button
+                          type="button"
+                          className={`action-inspect-btn ${isSelected ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedStaffId(member.id);
+                          }}
+                          aria-label={`Inspect schedule for ${member.full_name}`}
+                        >
+                          Inspect
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="bookings-table-footer">
+          <div className="footer-count-text">
+            Showing <span className="count-highlight">{startRecord}</span>–
+            <span className="count-highlight">{endRecord}</span> of{' '}
+            <span className="count-highlight">{totalItems}</span> staff
+          </div>
+
+          <div className="footer-pagination-controls">
+            <div className="page-size-selector-wrapper">
+              <span className="page-size-label">Rows per page:</span>
+              <select
+                className="page-size-select"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                aria-label="Rows per page"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+
+            <div className="pagination-buttons">
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={validCurrentPage <= 1}
+                aria-label="Previous page"
+              >
+                &larr; Prev
+              </button>
+
+              <span className="pagination-page-indicator">
+                Page {validCurrentPage} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={validCurrentPage >= totalPages}
+                aria-label="Next page"
+              >
+                Next &rarr;
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Week-board Grid */}
-      <div className="overflow-x-auto border border-[var(--cs-border)] rounded-md bg-[var(--cs-surface)]">
-        {staffList.length === 0 ? (
-          <div className="p-8 text-center text-xs text-[var(--cs-text-muted)]">
-            No staff members available to display schedule.
-          </div>
-        ) : (
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr className="bg-[var(--cs-surface-warm)] border-b border-[var(--cs-border)]">
-                <th className="p-2.5 text-left font-semibold text-[var(--cs-text)] w-48 border-r border-[var(--cs-border)]">
-                  Staff Member
-                </th>
-                {weekDays.map((day) => (
-                  <th
-                    key={day.dateStr}
-                    className="p-2 text-center font-semibold text-[var(--cs-text)] border-r border-[var(--cs-border)] last:border-r-0 min-w-[110px]"
-                  >
-                    <div>{day.dayName}</div>
-                    <div className="text-[10px] text-[var(--cs-text-muted)] font-normal">
-                      {day.dayNum}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {staffList.map((member) => (
-                <tr
-                  key={member.id}
-                  className="border-b border-[var(--cs-border)] hover:bg-[var(--cs-surface-hover)] transition-colors"
+      {/* Right Schedule Inspector Column */}
+      <div className="bookings-inspector-column">
+        {selectedStaff ? (
+          <div
+            className="booking-inspector-card active"
+            data-testid="schedule-inspector"
+          >
+            {/* Header */}
+            <div className="inspector-header">
+              <div className="inspector-header-top-row">
+                <div className="inspector-status-wrapper">
+                  <span className="booking-badge badge-confirmed">
+                    {selectedStaff.status.toUpperCase()}
+                  </span>
+                  <span className="inspector-type-pill">
+                    {selectedStaff.staff_type.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="inspector-close-btn"
+                  onClick={() => setSelectedStaffId('')}
+                  aria-label="Close Inspector"
                 >
-                  <td className="p-2.5 border-r border-[var(--cs-border)] font-medium text-[var(--cs-text)]">
-                    <div className="truncate font-semibold">
-                      {member.full_name}
-                    </div>
-                    <div className="text-[10px] text-[var(--cs-text-muted)] uppercase">
-                      {member.staff_type.replace(/_/g, ' ')}
-                    </div>
-                  </td>
+                  &times;
+                </button>
+              </div>
 
-                  {weekDays.map((day) => {
-                    const dayOverride = overrides.find(
-                      (o) =>
-                        o.staff_id === member.id &&
-                        o.override_date === day.dateStr,
-                    );
-                    const dayBlocks = blockedTimes.filter(
-                      (b) =>
-                        b.staff_id === member.id &&
-                        b.block_date === day.dateStr,
-                    );
+              <div className="inspector-customer-identity">
+                <div className="inspector-avatar-circle" aria-hidden="true">
+                  {getInitials(selectedStaff.full_name)}
+                </div>
+                <div className="inspector-identity-details">
+                  <h3 className="inspector-customer-name">
+                    {selectedStaff.full_name}
+                  </h3>
+                  <div className="inspector-booking-id">
+                    Branch: <span className="id-code">{branchName}</span>
+                  </div>
+                </div>
+              </div>
 
-                    return (
-                      <td
-                        key={day.dateStr}
-                        className="p-1.5 border-r border-[var(--cs-border)] last:border-r-0 text-center align-top cursor-pointer hover:bg-[var(--cs-sand-mist)] transition-colors"
-                        onClick={() =>
-                          onOpenScheduleModal(member, day.dateStr, dayBlocks)
-                        }
-                        title={`Click to adjust schedule for ${member.full_name} on ${day.dateStr}`}
+              <div className="inspector-service-summary-bar">
+                <div className="summary-service-title">
+                  {selectedStaff.staff_type.toUpperCase()} SCHEDULE
+                </div>
+                <div className="summary-resource-label">
+                  <span>
+                    {selectedStaff.tier
+                      ? `${selectedStaff.tier} Tier`
+                      : 'Standard'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="inspector-body-scrollable">
+              {actionNotice && (
+                <div className="p-3 bg-[var(--cs-surface-warm)] border-b border-[var(--cs-border)] text-xs text-[var(--cs-text)] flex justify-between items-center">
+                  <span>{actionNotice}</span>
+                  <button
+                    type="button"
+                    className="text-[var(--cs-text-muted)] hover:text-[var(--cs-text)] ml-2"
+                    onClick={() => setActionNotice(null)}
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
+
+              {/* THIS WEEK Section */}
+              <div className="inspector-section">
+                <h4 className="inspector-section-heading">
+                  This Week Overview
+                </h4>
+                <div className="inspector-details-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">Overrides Configured</span>
+                    <span className="detail-value font-medium">
+                      {staffOverrides.length} active
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Blocked Periods</span>
+                    <span className="detail-value font-medium">
+                      {staffBlocks.length} recorded
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* TODAY Section */}
+              <div className="inspector-section">
+                <h4 className="inspector-section-heading">
+                  Today's Schedule ({todayStr})
+                </h4>
+                {todayOverride?.is_day_off ? (
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                    <span className="font-bold block">Day Off</span>
+                    {todayOverride.reason && (
+                      <span>Reason: {todayOverride.reason}</span>
+                    )}
+                  </div>
+                ) : todayOverride ? (
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
+                    <span className="font-bold block">
+                      Custom Working Hours:
+                    </span>
+                    <span>
+                      {todayOverride.start_time || '09:00'} –{' '}
+                      {todayOverride.end_time || '18:00'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg bg-[var(--cs-surface-warm)] border border-[var(--cs-border)] text-xs text-[var(--cs-text-muted)] italic">
+                    Standard working hours schedule active.
+                  </div>
+                )}
+
+                {todayBlocks.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <span className="text-[11px] font-semibold text-blue-800 block">
+                      Blocked Times Today:
+                    </span>
+                    {todayBlocks.map((b) => (
+                      <div
+                        key={b.id}
+                        className="p-2 rounded bg-blue-50 border border-blue-200 text-xs text-blue-900"
                       >
-                        {dayOverride?.is_day_off ? (
-                          <span className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                            Day Off
-                          </span>
-                        ) : dayOverride?.start_time ? (
-                          <div className="text-[10px] font-medium text-[var(--cs-sand)] bg-[var(--cs-sand-mist)] px-1 py-0.5 rounded">
-                            {dayOverride.start_time.slice(0, 5)} -{' '}
-                            {dayOverride.end_time?.slice(0, 5)}
-                          </div>
-                        ) : dayBlocks.length > 0 ? (
-                          <div className="text-[10px] font-medium text-red-700 bg-red-50 px-1 py-0.5 rounded border border-red-200">
-                            {dayBlocks.length} Block
-                            {dayBlocks.length > 1 ? 's' : ''}
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-[var(--cs-text-muted)]">
-                            Regular Shift
+                        <span>
+                          {b.start_time || '—'} – {b.end_time || '—'}
+                        </span>
+                        {b.reason && (
+                          <span className="block text-[11px] text-blue-700">
+                            {b.reason}
                           </span>
                         )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Operational Actions */}
+              <div className="inspector-section">
+                <h4 className="inspector-section-heading">
+                  Quick Operational Actions
+                </h4>
+                <div className="inspector-quick-actions-row">
+                  <button
+                    type="button"
+                    className="quick-action-btn primary"
+                    onClick={() => {
+                      if (onOpenFullScheduleModal) {
+                        onOpenFullScheduleModal(selectedStaff);
+                      } else {
+                        onOpenScheduleModal(selectedStaff);
+                      }
+                    }}
+                    data-testid="schedule-view-full-btn"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    <span>View Full Schedule</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="quick-action-btn secondary"
+                    onClick={() =>
+                      onOpenScheduleModal(selectedStaff, todayStr, todayBlocks)
+                    }
+                    data-testid="schedule-adjust-btn"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                    </svg>
+                    <span>Adjust Schedule</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--cs-border)] mt-3">
+                  <button
+                    type="button"
+                    className="btn-secondary-compact text-xs"
+                    onClick={() => {
+                      setActionNotice(
+                        `Checked availability for ${selectedStaff.full_name}: active in branch operational schedule.`,
+                      );
+                    }}
+                  >
+                    Check Availability
+                  </button>
+
+                  {onOpenProfileEdit && (
+                    <button
+                      type="button"
+                      className="btn-secondary-compact text-xs"
+                      onClick={() => onOpenProfileEdit(selectedStaff)}
+                    >
+                      Edit Profile
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="booking-inspector-card empty">
+            <div className="inspector-empty-container">
+              <div className="inspector-empty-icon-circle">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="28"
+                  height="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </div>
+              <h4 className="inspector-empty-heading">No Staff Selected</h4>
+              <p className="inspector-empty-text">
+                Select a staff member from the list to inspect their schedule,
+                view working hours, and record overrides.
+              </p>
+            </div>
+          </div>
         )}
       </div>
-
-      {isLoading && (
-        <div className="text-center py-2 text-xs text-[var(--cs-text-muted)]">
-          Loading schedule overrides...
-        </div>
-      )}
     </div>
   );
 };

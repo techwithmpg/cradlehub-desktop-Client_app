@@ -7,17 +7,18 @@ import type {
   StaffMember,
   StaffOnboardingRequest,
   StaffPrimaryTab,
+  StaffScheduleOverride,
   StaffStatusFilter,
 } from '../../types/staff';
 import {
   fetchBranchAssignableServices,
   fetchBranchOnboardingRequests,
+  fetchBranchScheduleWeek,
   fetchBranchStaff,
   filterStaff,
   reviewOnboardingRequest,
 } from '../../lib/staff-service';
 import { StaffHeader } from './StaffHeader';
-import { StaffPrimaryTabs } from './StaffPrimaryTabs';
 import { StaffKpiSummary } from './StaffKpiSummary';
 import { StaffListCard } from './StaffListCard';
 import { StaffInspectorCard } from './StaffInspectorCard';
@@ -28,6 +29,7 @@ import { StaffRolesView } from './StaffRolesView';
 import { StaffPerformanceView } from './StaffPerformanceView';
 import { StaffCapabilityModal } from './modals/StaffCapabilityModal';
 import { StaffScheduleModal } from './modals/StaffScheduleModal';
+import { StaffFullScheduleModal } from './modals/StaffFullScheduleModal';
 import { StaffRoleModal } from './modals/StaffRoleModal';
 import { StaffApplicationApprovalModal } from './modals/StaffApplicationApprovalModal';
 import { StaffAddGuidanceModal } from './modals/StaffAddGuidanceModal';
@@ -36,6 +38,15 @@ import { StaffOffboardingNoticeModal } from './modals/StaffOffboardingNoticeModa
 interface StaffViewProps {
   authContext: AuthContext;
 }
+
+const STAFF_TABS: Array<{ id: StaffPrimaryTab; label: string }> = [
+  { id: 'roster', label: 'Staff Roster' },
+  { id: 'schedule', label: 'Schedule View' },
+  { id: 'applications', label: 'Applications' },
+  { id: 'performance', label: 'Performance' },
+  { id: 'capabilities', label: 'Capabilities & Services' },
+  { id: 'roles', label: 'Roles & Permissions' },
+];
 
 export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   const [activeTab, setActiveTab] = useState<StaffPrimaryTab>('roster');
@@ -46,6 +57,10 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   const [onboardingRequests, setOnboardingRequests] = useState<
     StaffOnboardingRequest[]
   >([]);
+  const [scheduleOverrides, setScheduleOverrides] = useState<
+    StaffScheduleOverride[]
+  >([]);
+  const [scheduleBlocks, setScheduleBlocks] = useState<StaffBlockedTime[]>([]);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -73,6 +88,8 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     date?: string;
     existingBlocks?: StaffBlockedTime[];
   } | null>(null);
+  const [fullScheduleStaff, setFullScheduleStaff] =
+    useState<StaffMember | null>(null);
   const [roleModalStaff, setRoleModalStaff] = useState<StaffMember | null>(
     null,
   );
@@ -81,15 +98,25 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   const [offboardingModalStaff, setOffboardingModalStaff] =
     useState<StaffMember | null>(null);
 
+  const currentMonday = useMemo(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff));
+    return monday.toISOString().slice(0, 10);
+  }, []);
+
   // Load all initial workspace data
   const loadWorkspaceData = useCallback(async () => {
     setError(null);
     try {
-      const [staffRes, servicesRes, onboardingRes] = await Promise.all([
-        fetchBranchStaff(authContext.branchId),
-        fetchBranchAssignableServices(authContext.branchId),
-        fetchBranchOnboardingRequests(authContext.branchId),
-      ]);
+      const [staffRes, servicesRes, onboardingRes, scheduleRes] =
+        await Promise.all([
+          fetchBranchStaff(authContext.branchId),
+          fetchBranchAssignableServices(authContext.branchId),
+          fetchBranchOnboardingRequests(authContext.branchId),
+          fetchBranchScheduleWeek(authContext.branchId, currentMonday),
+        ]);
 
       if (!staffRes.ok) {
         setError(staffRes.message);
@@ -99,12 +126,14 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
 
       setBranchServices(servicesRes);
       setOnboardingRequests(onboardingRes);
+      setScheduleOverrides(scheduleRes.overrides);
+      setScheduleBlocks(scheduleRes.blockedTimes);
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'Failed to load staff workspace.';
       setError(msg);
     }
-  }, [authContext.branchId]);
+  }, [authContext.branchId, currentMonday]);
 
   useEffect(() => {
     let isMounted = true;
@@ -132,13 +161,13 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   // Selection Coherence (Derived)
   const selectedStaff = useMemo(() => {
     if (filteredStaffList.length === 0) return null;
-    if (selectedStaffId === '') return null; // explicitly closed
+    if (selectedStaffId === '') return null;
     if (selectedStaffId === null) return filteredStaffList[0];
     const found = filteredStaffList.find((m) => m.id === selectedStaffId);
     return found || filteredStaffList[0];
   }, [filteredStaffList, selectedStaffId]);
 
-  // Handle KPI Strip clicks (sets secondary status filter)
+  // Handle KPI Strip clicks (sets status filter)
   const handleKpiClick = useCallback((targetFilter: StaffStatusFilter) => {
     setFilters((prev) => ({ ...prev, status: targetFilter }));
     setCurrentPage(1);
@@ -233,16 +262,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     };
   }, [staffList]);
 
-  const pendingOnboardingCount = useMemo(
-    () => onboardingRequests.filter((r) => r.status === 'submitted').length,
-    [onboardingRequests],
-  );
-
   return (
     <div
       className="bookings-view-container staff-view-container"
-      role="main"
-      aria-label="Staff Management"
       data-testid="staff-view"
     >
       {/* 1. Module Header */}
@@ -252,59 +274,49 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         onOpenAddStaff={() => setIsAddGuidanceOpen(true)}
       />
 
-      {/* 2. Primary 6-Tab Row */}
-      <StaffPrimaryTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        rosterCount={staffList.length}
-        applicationsCount={pendingOnboardingCount}
-      />
-
-      {/* 3. Success / Error Banners */}
+      {/* Success Notification Banner */}
       {successNotice && (
         <div
-          className="bookings-success-banner"
+          className="p-3 mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between"
           role="status"
-          data-testid="staff-success-banner"
         >
-          <div className="bookings-notice-content">
-            <span className="bookings-notice-title">{successNotice}</span>
-          </div>
+          <span>{successNotice}</span>
           <button
             type="button"
-            className="bookings-notice-dismiss"
+            className="text-emerald-700 hover:text-emerald-900 font-bold ml-2"
             onClick={() => setSuccessNotice(null)}
-            aria-label="Dismiss notice"
           >
             &times;
           </button>
         </div>
       )}
 
+      {/* Error State with Retry */}
       {error && (
         <div
-          className="bookings-error-banner"
+          className="bookings-error-card"
           role="alert"
           data-testid="staff-error-banner"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <span>{error}</span>
+          <div className="bookings-error-icon-circle">
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+          <h3 className="bookings-error-title">Unable to Load Staff</h3>
+          <p className="bookings-error-message">{error}</p>
           <button
             type="button"
-            onClick={handleRefresh}
+            onClick={loadWorkspaceData}
             className="bookings-retry-btn"
             data-testid="staff-retry-btn"
           >
@@ -313,7 +325,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         </div>
       )}
 
-      {/* 4. Loading Skeleton */}
+      {/* Loading Skeleton */}
       {isLoading ? (
         <div
           className="bookings-loading-state"
@@ -328,23 +340,72 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
           </div>
         </div>
       ) : (
-        <>
-          {/* TAB 1: Staff Roster (Default) */}
+        <div className="space-y-4">
+          {/* KPI Summary Strip - Displayed when on Roster tab */}
           {activeTab === 'roster' && (
-            <div
-              className="space-y-4"
-              role="tabpanel"
-              id="staff-primary-panel-roster"
-            >
-              {/* KPI Strip */}
-              <StaffKpiSummary
-                kpis={kpis}
-                activeFilter={filters.status}
-                onKpiClick={handleKpiClick}
-              />
+            <StaffKpiSummary
+              kpis={kpis}
+              activeFilter={filters.status}
+              onKpiClick={handleKpiClick}
+            />
+          )}
 
-              {/* Main Two-Column Grid */}
-              <div className="bookings-main-grid">
+          {/* Main Staff Management Workspace Card */}
+          <div
+            className="bookings-list-card staff-management-card"
+            data-testid="staff-workspace-card"
+          >
+            {/* In-Card Primary Function Tabs (Mirroring Bookings Scope Tabs) */}
+            <div
+              className="bookings-scope-tabs-container"
+              role="tablist"
+              aria-label="Staff Management Views"
+            >
+              {STAFF_TABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                let countBadge: React.ReactNode = null;
+                if (tab.id === 'roster') {
+                  countBadge = (
+                    <span className="tab-pill-badge">{staffList.length}</span>
+                  );
+                } else if (tab.id === 'applications') {
+                  const pendingCount = onboardingRequests.filter(
+                    (r) => r.status === 'submitted',
+                  ).length;
+                  if (pendingCount > 0) {
+                    countBadge = (
+                      <span className="tab-pill-badge">{pendingCount}</span>
+                    );
+                  }
+                }
+
+                return (
+                  <button
+                    key={tab.id}
+                    role="tab"
+                    type="button"
+                    aria-selected={isActive}
+                    className={`bookings-scope-tab-btn ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setCurrentPage(1);
+                    }}
+                    data-testid={`staff-primary-tab-${tab.id}`}
+                  >
+                    <span>{tab.label}</span>
+                    {countBadge}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* TAB 1: Staff Roster */}
+            {activeTab === 'roster' && (
+              <div
+                className="bookings-main-grid p-0"
+                role="tabpanel"
+                id="staff-primary-panel-roster"
+              >
                 <div className="bookings-list-column">
                   <StaffListCard
                     staffList={filteredStaffList}
@@ -358,7 +419,6 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     pageSize={pageSize}
                     onPageChange={setCurrentPage}
                     onPageSizeChange={setPageSize}
-                    branchServices={branchServices}
                   />
                 </div>
 
@@ -369,6 +429,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     onOpenScheduleModal={(m) =>
                       setScheduleModalData({ staff: m })
                     }
+                    onOpenFullScheduleModal={(m) => setFullScheduleStaff(m)}
                     onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
                     onOpenRoleModal={(m) => setRoleModalStaff(m)}
                     onOpenOffboardingModal={(m) => setOffboardingModalStaff(m)}
@@ -376,63 +437,101 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   />
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 2: Schedule View */}
-          {activeTab === 'schedule' && (
-            <div role="tabpanel" id="staff-primary-panel-schedule">
-              <StaffScheduleView
-                branchId={authContext.branchId}
-                staffList={staffList}
-                onOpenScheduleModal={(staff, date, existingBlocks) =>
-                  setScheduleModalData({ staff, date, existingBlocks })
-                }
-              />
-            </div>
-          )}
+            {/* TAB 2: Schedule View */}
+            {activeTab === 'schedule' && (
+              <div
+                className="p-0"
+                role="tabpanel"
+                id="staff-primary-panel-schedule"
+              >
+                <StaffScheduleView
+                  branchId={authContext.branchId}
+                  branchName={authContext.branchName}
+                  staffList={staffList}
+                  onOpenScheduleModal={(staff, date, existingBlocks) =>
+                    setScheduleModalData({ staff, date, existingBlocks })
+                  }
+                  onOpenFullScheduleModal={(staff) =>
+                    setFullScheduleStaff(staff)
+                  }
+                  onOpenProfileEdit={(staff) => {
+                    setSelectedStaffId(staff.id);
+                    setActiveTab('roster');
+                  }}
+                />
+              </div>
+            )}
 
-          {/* TAB 3: Applications */}
-          {activeTab === 'applications' && (
-            <div role="tabpanel" id="staff-primary-panel-applications">
-              <StaffApplicationsView
-                requests={onboardingRequests}
-                onOpenApprovalModal={(req) => setApprovalModalRequest(req)}
-                onRejectRequest={handleRejectApplication}
-              />
-            </div>
-          )}
+            {/* TAB 3: Applications */}
+            {activeTab === 'applications' && (
+              <div
+                className="p-0"
+                role="tabpanel"
+                id="staff-primary-panel-applications"
+              >
+                <StaffApplicationsView
+                  requests={onboardingRequests}
+                  onOpenApprovalModal={(req) => setApprovalModalRequest(req)}
+                  onRejectRequest={handleRejectApplication}
+                />
+              </div>
+            )}
 
-          {/* TAB 4: Performance */}
-          {activeTab === 'performance' && (
-            <div role="tabpanel" id="staff-primary-panel-performance">
-              <StaffPerformanceView />
-            </div>
-          )}
+            {/* TAB 4: Performance */}
+            {activeTab === 'performance' && (
+              <div
+                className="p-0"
+                role="tabpanel"
+                id="staff-primary-panel-performance"
+              >
+                <StaffPerformanceView />
+              </div>
+            )}
 
-          {/* TAB 5: Capabilities & Services */}
-          {activeTab === 'capabilities' && (
-            <div role="tabpanel" id="staff-primary-panel-capabilities">
-              <StaffCapabilitiesView
-                staffList={staffList}
-                onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
-              />
-            </div>
-          )}
+            {/* TAB 5: Capabilities & Services */}
+            {activeTab === 'capabilities' && (
+              <div
+                className="p-0"
+                role="tabpanel"
+                id="staff-primary-panel-capabilities"
+              >
+                <StaffCapabilitiesView
+                  staffList={staffList}
+                  branchServices={branchServices}
+                  onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
+                />
+              </div>
+            )}
 
-          {/* TAB 6: Roles & Permissions */}
-          {activeTab === 'roles' && (
-            <div role="tabpanel" id="staff-primary-panel-roles">
-              <StaffRolesView
-                staffList={staffList}
-                onOpenRoleModal={(m) => setRoleModalStaff(m)}
-              />
-            </div>
-          )}
-        </>
+            {/* TAB 6: Roles & Permissions */}
+            {activeTab === 'roles' && (
+              <div
+                className="p-0"
+                role="tabpanel"
+                id="staff-primary-panel-roles"
+              >
+                <StaffRolesView
+                  staffList={staffList}
+                  onOpenRoleModal={(m) => setRoleModalStaff(m)}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
-      {/* 5. Modals */}
+      {/* Canonical Modals */}
+      <StaffAddGuidanceModal
+        isOpen={isAddGuidanceOpen}
+        onClose={() => setIsAddGuidanceOpen(false)}
+        onSwitchToApplications={() => {
+          setIsAddGuidanceOpen(false);
+          setActiveTab('applications');
+        }}
+      />
+
       <StaffCapabilityModal
         isOpen={Boolean(capabilityModalStaff)}
         onClose={() => setCapabilityModalStaff(null)}
@@ -451,6 +550,19 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         onScheduleAdjusted={handleRefresh}
       />
 
+      <StaffFullScheduleModal
+        isOpen={Boolean(fullScheduleStaff)}
+        onClose={() => setFullScheduleStaff(null)}
+        staff={fullScheduleStaff}
+        branchName={authContext.branchName}
+        overrides={scheduleOverrides}
+        blockedTimes={scheduleBlocks}
+        onOpenAdjustSchedule={(staff, date) => {
+          setFullScheduleStaff(null);
+          setScheduleModalData({ staff, date });
+        }}
+      />
+
       <StaffRoleModal
         isOpen={Boolean(roleModalStaff)}
         onClose={() => setRoleModalStaff(null)}
@@ -467,12 +579,6 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         branchName={authContext.branchName}
         branchServices={branchServices}
         onApproved={handleRefresh}
-      />
-
-      <StaffAddGuidanceModal
-        isOpen={isAddGuidanceOpen}
-        onClose={() => setIsAddGuidanceOpen(false)}
-        onSwitchToApplications={() => setActiveTab('applications')}
       />
 
       <StaffOffboardingNoticeModal

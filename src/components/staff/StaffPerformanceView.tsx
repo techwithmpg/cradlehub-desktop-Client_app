@@ -3,25 +3,34 @@ import React from 'react';
 export const StaffPerformanceView: React.FC = () => {
   return (
     <div
-      className="bookings-list-card staff-performance-view-card p-8 text-center"
+      className="bookings-datagrid-wrapper p-8"
       data-testid="staff-performance-view"
     >
-      <div className="max-w-md mx-auto space-y-3 py-6">
-        <div className="w-12 h-12 mx-auto rounded-full bg-[var(--cs-surface-warm)] border border-[var(--cs-border)] flex items-center justify-center text-xl">
-          📊
+      <div className="bookings-table-empty-state max-w-lg mx-auto py-8">
+        <div className="bookings-empty-icon-circle">
+          <svg
+            viewBox="0 0 24 24"
+            width="28"
+            height="28"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+          </svg>
         </div>
-        <h3 className="text-sm font-bold text-[var(--cs-text)]">
-          Staff Performance Metrics
-        </h3>
-        <p className="text-xs text-[var(--cs-text-muted)] leading-relaxed">
+        <h4 className="bookings-empty-heading">
           Performance metrics are not available in the current Staff data
           contract.
+        </h4>
+        <p className="bookings-empty-text">
+          Operational metrics such as service throughput, attendance compliance,
+          and booking ratings require dedicated aggregate reporting contracts.
         </p>
-        <div className="p-3 rounded bg-[var(--cs-surface-warm)] border border-[var(--cs-border-soft)] text-[11px] text-[var(--cs-text-secondary)] text-left">
-          <strong>Note:</strong> Performance metrics such as service throughput,
-          attendance compliance, and booking ratings require dedicated aggregate
-          data contracts that are currently under review.
-        </div>
       </div>
     </div>
   );

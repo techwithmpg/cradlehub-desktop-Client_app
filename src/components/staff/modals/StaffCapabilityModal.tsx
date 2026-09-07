@@ -21,6 +21,7 @@ export const StaffCapabilityModal: React.FC<StaffCapabilityModalProps> = ({
     () => new Set(staff?.services.map((s) => s.service_id) || []),
   );
   const [search, setSearch] = useState('');
+  const [viewFilter, setViewFilter] = useState<'all' | 'selected'>('all');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,10 +46,14 @@ export const StaffCapabilityModal: React.FC<StaffCapabilityModalProps> = ({
   }, [isOpen, isSaving, onClose]);
 
   const filteredServices = useMemo(() => {
+    let list = branchServices;
+    if (viewFilter === 'selected') {
+      list = list.filter((s) => selectedIds.has(s.id));
+    }
     const query = search.trim().toLowerCase();
-    if (!query) return branchServices;
-    return branchServices.filter((s) => s.name.toLowerCase().includes(query));
-  }, [branchServices, search]);
+    if (!query) return list;
+    return list.filter((s) => s.name.toLowerCase().includes(query));
+  }, [branchServices, viewFilter, selectedIds, search]);
 
   if (!isOpen || !staff) return null;
 
@@ -88,143 +93,195 @@ export const StaffCapabilityModal: React.FC<StaffCapabilityModalProps> = ({
 
   return (
     <div
-      className="modal-overlay-backdrop"
+      className="bookings-modal-backdrop"
       role="dialog"
       aria-modal="true"
       aria-labelledby="capability-modal-title"
       data-testid="staff-capability-modal"
+      onClick={onClose}
     >
-      <div className="modal-container-card" style={{ maxWidth: 540 }}>
+      <div
+        className="bookings-modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: '92vw',
+          width: '720px',
+          maxHeight: '88vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {/* Header */}
-        <div className="modal-header-row">
+        <div className="bookings-modal-header border-b border-[var(--cs-border)] pb-3">
           <div>
-            <h2 id="capability-modal-title" className="modal-title-text">
-              Manage Capabilities
-            </h2>
-            <p className="modal-subtitle-text">
-              Assign qualified services for{' '}
-              <strong className="text-[var(--cs-text)]">
-                {staff.full_name}
-              </strong>
+            <h3
+              id="capability-modal-title"
+              className="bookings-modal-title text-base"
+            >
+              Edit Service Capabilities
+            </h3>
+            <p className="text-xs text-[var(--cs-text-muted)]">
+              {staff.full_name} ({staff.staff_type.replace(/_/g, ' ')}) &bull;{' '}
+              <span className="font-semibold text-[var(--cs-brand-green)]">
+                {selectedIds.size} of {branchServices.length}
+              </span>{' '}
+              services assigned
             </p>
           </div>
           <button
             type="button"
-            className="modal-close-icon-btn"
+            className="bookings-modal-close-btn"
             onClick={onClose}
+            aria-label="Close dialog"
             disabled={isSaving}
-            aria-label="Close capability editor"
           >
             &times;
           </button>
         </div>
 
-        {/* Toolbar */}
-        <div className="modal-body-content space-y-3">
-          <div className="flex items-center justify-between gap-2">
+        {/* Error Banner */}
+        {error && (
+          <div className="p-3 bg-red-50 border-b border-red-200 text-xs text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Search & Scope Switcher */}
+        <div className="p-3 border-b border-[var(--cs-border)] bg-[var(--cs-surface-warm)] flex items-center justify-between gap-3 flex-wrap">
+          <div className="bookings-search-wrapper flex-1 min-w-[200px]">
+            <svg
+              className="bookings-search-icon"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
             <input
               type="text"
-              className="form-input-control text-xs"
-              placeholder="Search branch service catalog..."
+              className="bookings-search-input text-xs"
+              placeholder="Search services..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search services"
+              aria-label="Search available services"
             />
-            <div className="flex gap-2 shrink-0">
+            {search && (
               <button
                 type="button"
-                className="btn-secondary-compact text-xs"
-                onClick={handleSelectAll}
+                className="bookings-search-clear-btn"
+                onClick={() => setSearch('')}
               >
-                Select All
+                &times;
               </button>
-              <button
-                type="button"
-                className="btn-secondary-compact text-xs"
-                onClick={handleClearAll}
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-
-          <div className="text-xs text-[var(--cs-text-muted)] font-medium">
-            {selectedIds.size} of {branchServices.length} services assigned
-          </div>
-
-          {/* Service Checkbox List */}
-          <div
-            className="border border-[var(--cs-border)] rounded-md overflow-y-auto max-h-[300px] p-2 space-y-1.5 bg-[var(--cs-surface)]"
-            role="group"
-            aria-label="Service capability choices"
-          >
-            {filteredServices.length === 0 ? (
-              <div className="text-center py-6 text-xs text-[var(--cs-text-muted)]">
-                {search
-                  ? 'No matching services found.'
-                  : 'No services available for this branch.'}
-              </div>
-            ) : (
-              filteredServices.map((svc) => {
-                const checked = selectedIds.has(svc.id);
-                return (
-                  <label
-                    key={svc.id}
-                    className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
-                      checked
-                        ? 'bg-[var(--cs-sand-mist)] text-[var(--cs-sand)] font-medium'
-                        : 'hover:bg-[var(--cs-surface-hover)] text-[var(--cs-text)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleService(svc.id)}
-                        className="rounded border-[var(--cs-border)] text-[var(--cs-sand)] focus:ring-[var(--cs-sand)]"
-                      />
-                      <span className="text-xs">{svc.name}</span>
-                    </div>
-                    {svc.duration_minutes && (
-                      <span className="text-[11px] text-[var(--cs-text-muted)]">
-                        {svc.duration_minutes}m
-                      </span>
-                    )}
-                  </label>
-                );
-              })
             )}
           </div>
 
-          {error && (
-            <div
-              className="p-2.5 rounded bg-red-50 border border-red-200 text-red-700 text-xs"
-              role="alert"
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className={`px-2.5 py-1 text-xs rounded border font-medium ${
+                viewFilter === 'all'
+                  ? 'bg-[var(--cs-surface)] border-[var(--cs-brand-green)] text-[var(--cs-text)] shadow-sm'
+                  : 'border-[var(--cs-border)] text-[var(--cs-text-muted)] bg-[var(--cs-surface)]'
+              }`}
+              onClick={() => setViewFilter('all')}
             >
-              {error}
+              All Services ({branchServices.length})
+            </button>
+            <button
+              type="button"
+              className={`px-2.5 py-1 text-xs rounded border font-medium ${
+                viewFilter === 'selected'
+                  ? 'bg-[var(--cs-surface)] border-[var(--cs-brand-green)] text-[var(--cs-text)] shadow-sm'
+                  : 'border-[var(--cs-border)] text-[var(--cs-text-muted)] bg-[var(--cs-surface)]'
+              }`}
+              onClick={() => setViewFilter('selected')}
+            >
+              Selected ({selectedIds.size})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary-compact text-[11px]"
+              onClick={handleSelectAll}
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              className="btn-secondary-compact text-[11px]"
+              onClick={handleClearAll}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {/* Service Checklist Grid */}
+        <div className="p-4 overflow-y-auto flex-1 max-h-[420px]">
+          {filteredServices.length === 0 ? (
+            <div className="text-center py-8 text-xs text-[var(--cs-text-muted)] italic">
+              No services match your search or filter.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {filteredServices.map((service) => {
+                const isChecked = selectedIds.has(service.id);
+                return (
+                  <label
+                    key={service.id}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors text-xs ${
+                      isChecked
+                        ? 'bg-[var(--cs-sand-mist)] border-[var(--cs-brand-green)] text-[var(--cs-text)]'
+                        : 'bg-[var(--cs-surface)] border-[var(--cs-border)] text-[var(--cs-text-secondary)] hover:bg-[var(--cs-surface-hover)]'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleService(service.id)}
+                      className="mt-0.5 rounded text-[var(--cs-brand-green)]"
+                    />
+                    <div className="flex-1">
+                      <span className="font-semibold block">
+                        {service.name}
+                      </span>
+                      <span className="text-[10px] text-[var(--cs-text-muted)] font-mono">
+                        ID: {service.id.slice(0, 8)}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="modal-footer-row">
+        <div className="bookings-modal-footer">
           <button
             type="button"
-            className="btn-secondary text-xs"
-            data-testid="cancel-capability-modal"
+            className="btn-secondary-compact text-xs"
             onClick={onClose}
             disabled={isSaving}
+            data-testid="cancel-capability-modal"
           >
             Cancel
           </button>
           <button
             type="button"
-            className="btn-primary text-xs"
-            data-testid="save-capability-modal"
+            className="bookings-header-primary-btn text-xs py-1.5 px-4"
             onClick={handleSave}
             disabled={isSaving}
+            data-testid="save-capability-modal"
           >
-            {isSaving ? 'Saving Capabilities...' : 'Save Capabilities'}
+            {isSaving ? 'Saving...' : `Save ${selectedIds.size} Services`}
           </button>
         </div>
       </div>

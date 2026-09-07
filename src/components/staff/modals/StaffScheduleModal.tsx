@@ -102,20 +102,34 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
 
   return (
     <div
-      className="modal-overlay-backdrop"
+      className="bookings-modal-backdrop"
       role="dialog"
       aria-modal="true"
       aria-labelledby="schedule-modal-title"
       data-testid="staff-schedule-modal"
+      onClick={onClose}
     >
-      <div className="modal-container-card" style={{ maxWidth: 480 }}>
+      <div
+        className="bookings-modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: '92vw',
+          width: '560px',
+          maxHeight: '88vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {/* Header */}
-        <div className="modal-header-row">
+        <div className="bookings-modal-header border-b border-[var(--cs-border)] pb-3">
           <div>
-            <h2 id="schedule-modal-title" className="modal-title-text">
+            <h3
+              id="schedule-modal-title"
+              className="bookings-modal-title text-base"
+            >
               Adjust Schedule
-            </h2>
-            <p className="modal-subtitle-text">
+            </h3>
+            <p className="text-xs text-[var(--cs-text-muted)]">
               Override operational schedule for{' '}
               <strong className="text-[var(--cs-text)]">
                 {staff.full_name}
@@ -124,7 +138,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
           </div>
           <button
             type="button"
-            className="modal-close-icon-btn"
+            className="bookings-modal-close-btn"
             onClick={onClose}
             disabled={isSaving}
             aria-label="Close schedule adjustment"
@@ -134,7 +148,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="modal-body-content space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto flex-1">
           {/* Adjustment Type Selector */}
           <div>
             <label className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1.5">
@@ -143,10 +157,10 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className={`text-xs py-2 px-3 rounded border text-left font-medium transition-colors ${
+                className={`text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'working_hours'
-                    ? 'border-[var(--cs-sand)] bg-[var(--cs-sand-mist)] text-[var(--cs-sand)]'
-                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text)] hover:bg-[var(--cs-surface-hover)]'
+                    ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
+                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text-secondary)] hover:bg-[var(--cs-surface-hover)]'
                 }`}
                 onClick={() => setAdjustmentType('working_hours')}
               >
@@ -154,10 +168,10 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               </button>
               <button
                 type="button"
-                className={`text-xs py-2 px-3 rounded border text-left font-medium transition-colors ${
+                className={`text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'day_off'
-                    ? 'border-[var(--cs-sand)] bg-[var(--cs-sand-mist)] text-[var(--cs-sand)]'
-                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text)] hover:bg-[var(--cs-surface-hover)]'
+                    ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
+                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text-secondary)] hover:bg-[var(--cs-surface-hover)]'
                 }`}
                 onClick={() => setAdjustmentType('day_off')}
               >
@@ -165,10 +179,10 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               </button>
               <button
                 type="button"
-                className={`text-xs py-2 px-3 rounded border text-left font-medium transition-colors ${
+                className={`text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'blocked_time'
-                    ? 'border-[var(--cs-sand)] bg-[var(--cs-sand-mist)] text-[var(--cs-sand)]'
-                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text)] hover:bg-[var(--cs-surface-hover)]'
+                    ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
+                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text-secondary)] hover:bg-[var(--cs-surface-hover)]'
                 }`}
                 onClick={() => setAdjustmentType('blocked_time')}
               >
@@ -176,10 +190,10 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               </button>
               <button
                 type="button"
-                className={`text-xs py-2 px-3 rounded border text-left font-medium transition-colors ${
+                className={`text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'remove_override'
-                    ? 'border-[var(--cs-sand)] bg-[var(--cs-sand-mist)] text-[var(--cs-sand)]'
-                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text)] hover:bg-[var(--cs-surface-hover)]'
+                    ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
+                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text-secondary)] hover:bg-[var(--cs-surface-hover)]'
                 }`}
                 onClick={() => setAdjustmentType('remove_override')}
               >
@@ -189,10 +203,10 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
             {existingBlocks.length > 0 && (
               <button
                 type="button"
-                className={`w-full mt-2 text-xs py-2 px-3 rounded border text-left font-medium transition-colors ${
+                className={`w-full mt-2 text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'remove_block'
-                    ? 'border-[var(--cs-sand)] bg-[var(--cs-sand-mist)] text-[var(--cs-sand)]'
-                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text)] hover:bg-[var(--cs-surface-hover)]'
+                    ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
+                    : 'border-[var(--cs-border)] bg-[var(--cs-surface)] text-[var(--cs-text-secondary)] hover:bg-[var(--cs-surface-hover)]'
                 }`}
                 onClick={() => setAdjustmentType('remove_block')}
               >
@@ -212,7 +226,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
             <input
               id="schedule-date"
               type="date"
-              className="form-input-control text-xs w-full"
+              className="bookings-search-input text-xs w-full"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
@@ -231,7 +245,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
                 <input
                   id="schedule-start-time"
                   type="time"
-                  className="form-input-control text-xs w-full"
+                  className="bookings-search-input text-xs w-full"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                 />
@@ -246,7 +260,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
                 <input
                   id="schedule-end-time"
                   type="time"
-                  className="form-input-control text-xs w-full"
+                  className="bookings-search-input text-xs w-full"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                 />
@@ -265,7 +279,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               </label>
               <select
                 id="schedule-block-select"
-                className="form-input-control text-xs w-full"
+                className="bookings-select-filter text-xs w-full"
                 value={blockId}
                 onChange={(e) => setBlockId(e.target.value)}
               >
@@ -291,7 +305,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
                 id="schedule-reason"
                 type="text"
                 placeholder="e.g. Doctor appointment, Training, Personal leave..."
-                className="form-input-control text-xs w-full"
+                className="bookings-search-input text-xs w-full"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />
@@ -309,10 +323,10 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="modal-footer-row">
+        <div className="bookings-modal-footer">
           <button
             type="button"
-            className="btn-secondary text-xs"
+            className="btn-secondary-compact text-xs"
             onClick={onClose}
             disabled={isSaving}
           >
@@ -320,7 +334,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
           </button>
           <button
             type="button"
-            className="btn-primary text-xs"
+            className="bookings-header-primary-btn text-xs py-1.5 px-4"
             onClick={handleSave}
             disabled={isSaving}
           >
