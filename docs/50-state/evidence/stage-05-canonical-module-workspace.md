@@ -8,7 +8,8 @@
 - **BASE_SHA**: `9bd83ab8f05ace193d026de896b70f3a4eff363d`
 - **PRIOR_REVIEW_SHA**: `5d0990507ba00cab30d3d6f1cfa4d9ad7703a0c6`
 - **IMPLEMENTATION_HEAD_SHA**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`
-- **EVIDENCE_ACCOUNTING_SHA**: `16035f77605c83f475813a8f812bc14da130552a`
+- **PRIOR_EVIDENCE_ACCOUNTING_HEAD**: `9ae995b9cfd65c93836a7e7e1bb4ad49eb2092f8`
+- **Accounting Note**: The SHA of the final documentation-only evidence correction is intentionally not self-embedded in this file. The final pushed branch tip is recorded in the agent closeout report and independently verified from GitHub.
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **Current Status**: **STAGE 05 — READY FOR INDEPENDENT REVIEW / OWNER VISUAL CONFIRMATION PENDING**.
