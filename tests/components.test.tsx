@@ -386,7 +386,7 @@ describe('Stage 01 UI Components', () => {
       expect(handleSignOut).toHaveBeenCalled();
     });
 
-    it('mounts active modules into a single neutral ModuleWorkspaceHost without module-specific shell wrappers or hidden inactive modules', async () => {
+    it('mounts active modules into a single neutral ModuleWorkspaceHost and ModuleWorkspaceMount without duplicate title hooks or hidden inactive modules', async () => {
       const user = userEvent.setup();
       render(
         <CanonicalShell
@@ -397,9 +397,15 @@ describe('Stage 01 UI Components', () => {
         />,
       );
 
-      // Verify exactly one ModuleWorkspaceHost exists
-      const hosts = screen.getAllByTestId('module-workspace-host');
-      expect(hosts).toHaveLength(1);
+      // Verify exactly one ModuleWorkspaceHost, one ModuleWorkspaceMount, and one active-module-title hook exist
+      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
+      expect(screen.getAllByTestId('module-workspace-mount')).toHaveLength(1);
+      expect(screen.getAllByTestId('active-module-title')).toHaveLength(1);
+
+      // Permanent shell chrome is present
+      expect(screen.getByTestId('canonical-shell')).toBeDefined();
+      expect(screen.getByTestId('top-branch-indicator')).toBeDefined();
+      expect(screen.getByTestId('status-chip')).toBeDefined();
 
       // Initial: Today placeholder
       expect(screen.getByTestId('active-module-title').textContent).toBe(
@@ -411,29 +417,36 @@ describe('Stage 01 UI Components', () => {
 
       // Navigate to Bookings
       await user.click(screen.getByTestId('nav-item-bookings'));
+      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
+      expect(screen.getAllByTestId('module-workspace-mount')).toHaveLength(1);
+      expect(screen.getAllByTestId('active-module-title')).toHaveLength(1);
       expect(screen.getByTestId('active-module-title').textContent).toBe(
         'Bookings',
       );
-      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
+      // Inactive modules are not hidden-mounted
       expect(screen.queryByTestId('customers-view-container')).toBeNull();
       expect(screen.queryByTestId('staff-view-container')).toBeNull();
       expect(screen.queryByTestId('module-unavailable-panel')).toBeNull();
 
       // Navigate to Customers
       await user.click(screen.getByTestId('nav-item-customers'));
+      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
+      expect(screen.getAllByTestId('module-workspace-mount')).toHaveLength(1);
+      expect(screen.getAllByTestId('active-module-title')).toHaveLength(1);
       expect(screen.getByTestId('active-module-title').textContent).toBe(
         'Customers',
       );
-      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
       expect(screen.queryByTestId('bookings-view-container')).toBeNull();
       expect(screen.queryByTestId('staff-view-container')).toBeNull();
 
       // Navigate to Staff
       await user.click(screen.getByTestId('nav-item-staff'));
+      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
+      expect(screen.getAllByTestId('module-workspace-mount')).toHaveLength(1);
+      expect(screen.getAllByTestId('active-module-title')).toHaveLength(1);
       expect(screen.getByTestId('active-module-title').textContent).toBe(
         'Staff',
       );
-      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
       expect(screen.queryByTestId('bookings-view-container')).toBeNull();
       expect(screen.queryByTestId('customers-view-container')).toBeNull();
     });

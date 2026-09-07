@@ -343,41 +343,25 @@ export function CanonicalShell({
             }
           >
             <ModuleWorkspaceMount>
+              <span
+                className="sr-only"
+                aria-hidden="true"
+                data-testid="active-module-title"
+              >
+                {currentNavConfig.label}
+              </span>
+
               {activeModule === 'bookings' ? (
-                <>
-                  <div className="workspace-page-header visually-hidden-module-header">
-                    <span className="sr-only" data-testid="active-module-title">
-                      {currentNavConfig.label}
-                    </span>
-                  </div>
-                  <BookingsView authContext={authContext} />
-                </>
+                <BookingsView authContext={authContext} />
               ) : activeModule === 'customers' ? (
-                <>
-                  <div className="workspace-page-header visually-hidden-module-header">
-                    <span className="sr-only" data-testid="active-module-title">
-                      {currentNavConfig.label}
-                    </span>
-                  </div>
-                  <CustomersView authContext={authContext} />
-                </>
+                <CustomersView authContext={authContext} />
               ) : activeModule === 'staff' ? (
-                <>
-                  <div className="workspace-page-header visually-hidden-module-header">
-                    <span className="sr-only" data-testid="active-module-title">
-                      {currentNavConfig.label}
-                    </span>
-                  </div>
-                  <StaffView authContext={authContext} />
-                </>
+                <StaffView authContext={authContext} />
               ) : (
                 <>
                   {/* Module Workspace Header */}
                   <div className="workspace-page-header">
-                    <h1
-                      className="workspace-page-title"
-                      data-testid="active-module-title"
-                    >
+                    <h1 className="workspace-page-title">
                       {currentNavConfig.label}
                     </h1>
                   </div>
