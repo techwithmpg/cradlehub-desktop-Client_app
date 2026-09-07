@@ -4,16 +4,18 @@
 
 - **Target**: CradleHub Desktop (`https://github.com/techwithmpg/cradlehub-desktop-Client_app`)
 - **Stage**: Stage 05 — Canonical Module Body / Workspace Extraction
-- **Branch**: `stage/05-canonical-module-workspace`
-- **BASE_SHA**: `9bd83ab8f05ace193d026de896b70f3a4eff363d`
+- **PRE_STAGE_MAIN_SHA**: `9bd83ab8f05ace193d026de896b70f3a4eff363d`
+- **ACCEPTED_STAGE_BRANCH_TIP**: `65c7eb371652c3f272b75bda55c437481867abc1` (`stage/05-canonical-module-workspace`)
 - **PRIOR_REVIEW_SHA**: `5d0990507ba00cab30d3d6f1cfa4d9ad7703a0c6`
 - **IMPLEMENTATION_HEAD_SHA**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`
 - **PRIOR_EVIDENCE_ACCOUNTING_HEAD**: `9ae995b9cfd65c93836a7e7e1bb4ad49eb2092f8`
-- **Accounting Note**: The SHA of the final documentation-only evidence correction is intentionally not self-embedded in this file. The final pushed branch tip is recorded in the agent closeout report and independently verified from GitHub.
-- **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
+- **MERGE_STYLE**: `FAST-FORWARD` (`git merge --ff-only`)
+- **MAIN_AFTER_FAST_FORWARD**: `65c7eb371652c3f272b75bda55c437481867abc1`
+- **HOSTED_REFERENCE**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
-- **Current Status**: **STAGE 05 — READY FOR INDEPENDENT REVIEW / OWNER VISUAL CONFIRMATION PENDING**.
-- **Owner Evidence Status**: **OWNER VISUAL CONFIRMATION: PENDING**.
+- **Current Status**: **STAGE 05 — ACCEPTED / MERGED / CLOSED** on `main`.
+- **OWNER CONFIRMATION**: Owner explicitly accepted Stage 05 after independent review.
+- **Accounting Note**: The SHA of the final documentation closeout commit on `main` is intentionally not self-embedded in this file. The final pushed `main` tip is recorded in the agent closeout report and independently verified from GitHub.
 - **Stage Authorization**: Owner-authorized Stage 05 architectural extraction to consolidate the proven module workspace architecture from Bookings and Staff into one canonical workspace component family (`src/components/workspace/`), migrating Bookings and Staff to consume it with no intentional visual change.
 
 ---
@@ -229,9 +231,9 @@ git diff --check   # Verified
 
 ## 9. Runtime / Viewport Evidence
 
-**AGENT VIEWPORT QA**: NOT PERFORMED — exact runtime inspection unavailable in this agent environment. Owner runtime visual inspection remains required.
-
-**Visual Equivalence Assessment**: Repository-level structural and automated regression checks passed; runtime visual equivalence remains pending owner inspection.
+- **AGENT VIEWPORT QA**: NOT PERFORMED — exact runtime inspection unavailable in the agent environment.
+- **OWNER CONFIRMATION**: Owner explicitly accepted Stage 05 after independent review.
+- **Visual Impact**: **NO INTENTIONAL VISUAL CHANGE**.
 
 ---
 
@@ -245,21 +247,22 @@ git diff --check   # Verified
 
 ## 11. Known Limitations Preserved
 
-1. Legacy `bookings-*` CSS selector class names remain internal implementation details inside the canonical React workspace primitives.
+1. Legacy `bookings-*` CSS selector class names remain internal implementation details of the canonical workspace system.
 2. Complex domain modals (e.g., `NewBookingModal`, `StaffCapabilityModal`, `StaffRoleModal`, `StaffScheduleModal`) retain their domain structures and were intentionally not over-abstracted into a new dialog API.
-3. Customers module internal workspace composition has not been migrated (only shell-level mounting was neutralized).
-4. Stage 05 owner runtime visual confirmation is pending.
-5. Schedule has not started and is not part of Stage 05.
+3. Customers internal workspace composition was not migrated in Stage 05 (only shell-level mounting was neutralized).
+4. No speculative data persistence/cache was introduced.
+5. Schedule has NOT started.
+6. Stage 06 requires a separate explicitly authorized stage.
 
 ---
 
 ## 12. Rollback Point
 
-- **Rollback Target SHA**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` (accepted `main` baseline).
+- **Rollback Target SHA**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` (accepted pre-Stage-05 `main` baseline).
 
 ---
 
 ## 13. Next Work
 
-- **Schedule has NOT started and is NOT part of Stage 05.**
-- Next architectural stage will be scheduled only upon explicit owner authorization.
+- **Schedule / Stage 06 has NOT started and is NOT part of Stage 05.**
+- Next architectural stage requires separate explicit owner authorization.

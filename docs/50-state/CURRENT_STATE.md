@@ -5,11 +5,15 @@ Stage 01 is **ACCEPTED / MERGED / CLOSED** at `c9720805975004dbe11367f1ad9999270
 Stage 02 is **ACCEPTED / MERGED / CLOSED** at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03 is **ACCEPTED / MERGED / CLOSED** at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
 Stage 04 is **ACCEPTED / MERGED / CLOSED** at `9bd83ab8f05ace193d026de896b70f3a4eff363d`.
-Stage 05 (Canonical Module Workspace) is **READY FOR INDEPENDENT REVIEW / OWNER VISUAL CONFIRMATION PENDING** on `stage/05-canonical-module-workspace`.
+Stage 05 (Canonical Module Workspace) is **ACCEPTED / MERGED / CLOSED** on `main`.
 
-- **Accepted Pre-Stage Baseline (BASE_SHA)**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` on `main`.
-- **Branch**: `stage/05-canonical-module-workspace`.
-- **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **Pre-Stage Main Baseline (PRE_STAGE_MAIN_SHA)**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` on `main`.
+- **Accepted Stage Branch Tip (ACCEPTED_STAGE_BRANCH_TIP)**: `65c7eb371652c3f272b75bda55c437481867abc1` (`stage/05-canonical-module-workspace`).
+- **Implementation Code SHA (IMPLEMENTATION_HEAD_SHA)**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`.
+- **Merge Style**: `FAST-FORWARD` (`git merge --ff-only`).
+- **Main Immediately After Fast-Forward**: `65c7eb371652c3f272b75bda55c437481867abc1`.
+- **Canonical Hosted Reference (HOSTED_REFERENCE)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **Owner Confirmation**: Owner explicitly accepted Stage 05 after independent review.
 - **Canonical Workspace Family**:
   - `src/components/workspace/ModuleWorkspaceHost.tsx`: Permanent neutral structural host in `CanonicalShell`.
   - `src/components/workspace/ModuleWorkspaceMount.tsx`: Neutral structural mount container in `CanonicalShell`.
@@ -30,13 +34,13 @@ Stage 05 (Canonical Module Workspace) is **READY FOR INDEPENDENT REVIEW / OWNER 
   - `Staff`: Completely migrated to canonical primitives preserving all 6 functional tabs, persistent summary, and sibling inspector with zero visual change.
   - `Customers`: Compatibility preserved with `ModuleWorkspaceHost` & `ModuleWorkspaceMount`. No redesign.
   - `Placeholders`: Kept truthful unavailable state; no fake dashboards or speculative caches.
-- **Verification Baseline on Branch**:
-  - 290 passing vitest tests across 14 test files (including 17 new canonical component tests and 20 shell integration tests).
+- **Verification Baseline on Merged Main**:
+  - 290 passing vitest tests across 14 test files (including 17 canonical component tests and 20 shell integration tests).
   - ESLint 0 errors / 0 warnings.
   - TypeScript `tsc --noEmit` clean.
   - Vite production build clean.
   - `pnpm format:check` clean.
   - `git diff --check` clean.
-- **Next Authorized Architectural Work**: Owner & ChatGPT independent review of Stage 05. Schedule has NOT started.
+- **Next Authorized Architectural Work**: Schedule / Stage 06 has NOT started and requires separate explicit owner authorization.
 
 See [Stage 05 evidence](evidence/stage-05-canonical-module-workspace.md) for full implementation details.

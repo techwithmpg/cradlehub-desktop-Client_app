@@ -5,11 +5,15 @@ Stage 01: **ACCEPTED / MERGED / CLOSED** on `main` at `c9720805975004dbe11367f1a
 Stage 02: **ACCEPTED / MERGED / CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03: **ACCEPTED / MERGED / CLOSED** on `main` at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
 Stage 04: **ACCEPTED / MERGED / CLOSED** on `main` at `9bd83ab8f05ace193d026de896b70f3a4eff363d`.
-Stage 05 (Canonical Module Workspace): **READY FOR INDEPENDENT REVIEW / OWNER VISUAL CONFIRMATION PENDING** on `stage/05-canonical-module-workspace`.
+Stage 05 (Canonical Module Workspace): **ACCEPTED / MERGED / CLOSED** on `main`.
 
-- **Pre-Stage Base (BASE_SHA)**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` on `main`.
-- **Branch**: `stage/05-canonical-module-workspace`.
-- **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **Pre-Stage Base (PRE_STAGE_MAIN_SHA)**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` on `main`.
+- **Accepted Stage Branch Tip (ACCEPTED_STAGE_BRANCH_TIP)**: `65c7eb371652c3f272b75bda55c437481867abc1` (`stage/05-canonical-module-workspace`).
+- **Implementation Code SHA (IMPLEMENTATION_HEAD_SHA)**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`.
+- **Merge Style**: `FAST-FORWARD` (`git merge --ff-only`).
+- **Main Immediately After Fast-Forward**: `65c7eb371652c3f272b75bda55c437481867abc1`.
+- **Canonical Hosted Reference (HOSTED_REFERENCE)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **Owner Confirmation**: Owner explicitly accepted Stage 05 after independent review.
 
 Summary of Stage 05 Deliverables:
 
@@ -34,10 +38,10 @@ Summary of Stage 05 Deliverables:
    - **Customers**: Unaffected; mounts cleanly inside `ModuleWorkspaceHost` & `ModuleWorkspaceMount`.
    - **Placeholders**: Maintained truthful unavailable messages without background DOM persistence or fake dashboards.
 3. **Verification**:
-   - All 14 test suites and 290 tests passing cleanly.
+   - All 14 test suites and 290 tests passing cleanly on merged `main`.
    - ESLint, TypeScript, Vite build, Prettier format check, and git diff check passing with 0 errors.
 4. **Next Steps**:
-   - Owner and ChatGPT independent review.
-   - Schedule (Stage 06) has NOT started and is NOT part of Stage 05.
+   - Awaiting explicit owner authorization for the next stage.
+   - Schedule / Stage 06 has NOT started and is NOT part of Stage 05.
 
 Consult `docs/50-state/evidence/stage-05-canonical-module-workspace.md` for full discovery, implementation, and closeout records.
