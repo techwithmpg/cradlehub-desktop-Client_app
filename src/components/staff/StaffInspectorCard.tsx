@@ -124,7 +124,7 @@ export const StaffInspectorCard: React.FC<StaffInspectorCardProps> = ({
                     : 'Invite Sent'}
               </span>
               {selectedStaff.is_head && (
-                <span className="staff-head-badge">Head Therapist</span>
+                <span className="staff-head-badge">Department Head</span>
               )}
             </div>
           </div>
@@ -216,7 +216,7 @@ export const StaffInspectorCard: React.FC<StaffInspectorCardProps> = ({
               </div>
 
               <div className="inspector-detail-row">
-                <dt className="detail-term">Therapist Skill Tier</dt>
+                <dt className="detail-term">Skill Tier</dt>
                 <dd className="detail-val">
                   <span
                     className={`staff-tier-badge staff-tier-${selectedStaff.tier.toLowerCase()}`}
@@ -230,20 +230,18 @@ export const StaffInspectorCard: React.FC<StaffInspectorCardProps> = ({
                 <dt className="detail-term">Department Supervision</dt>
                 <dd className="detail-val">
                   {selectedStaff.is_head ? (
-                    <span className="badge-positive">
-                      Department Lead / Head
-                    </span>
+                    <span className="badge-positive">Department Head</span>
                   ) : (
-                    <span className="text-muted">Standard Provider</span>
+                    <span className="text-muted">Not a department head</span>
                   )}
                 </dd>
               </div>
 
               <div className="inspector-detail-row">
-                <dt className="detail-term">Cross-Branch Dispatch</dt>
+                <dt className="detail-term">Cross-Branch Eligibility</dt>
                 <dd className="detail-val">
                   {selectedStaff.is_cross_branch
-                    ? 'Cross-branch active'
+                    ? 'Eligible for cross-branch assignment'
                     : 'Single branch only'}
                 </dd>
               </div>
@@ -252,14 +250,9 @@ export const StaffInspectorCard: React.FC<StaffInspectorCardProps> = ({
                 <dt className="detail-term">Account Login Link</dt>
                 <dd className="detail-val">
                   {selectedStaff.auth_user_id ? (
-                    <span className="text-emerald-700">
-                      Linked to Login User (
-                      {selectedStaff.auth_user_id.slice(0, 8)}...)
-                    </span>
+                    <span className="text-emerald-700">Account linked</span>
                   ) : (
-                    <span className="text-amber-700">
-                      Pending Account Claim
-                    </span>
+                    <span className="text-amber-700">Not linked</span>
                   )}
                 </dd>
               </div>

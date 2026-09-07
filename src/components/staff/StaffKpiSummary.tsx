@@ -45,7 +45,7 @@ export const StaffKpiSummary: React.FC<StaffKpiSummaryProps> = ({
       key: 'activeStaff',
       label: 'Active',
       count: kpis.activeStaff,
-      subtext: 'Operational roster staff',
+      subtext: 'Active branch staff',
       filterTarget: 'active' as StaffStatusFilter,
       icon: (
         <svg
@@ -121,27 +121,41 @@ export const StaffKpiSummary: React.FC<StaffKpiSummaryProps> = ({
       <div className="bookings-kpi-grid staff-kpi-grid">
         {items.map((item) => {
           const isSelected = activeFilter === item.filterTarget;
-          return (
-            <div
-              key={item.key}
-              className={`bookings-kpi-cell ${item.accentClass} ${onKpiClick ? 'interactive' : ''} ${isSelected ? 'selected-kpi-cell' : ''}`}
-              onClick={() => onKpiClick?.(item.filterTarget)}
-              role="article"
-              aria-label={`${item.label}: ${item.count}`}
-              tabIndex={onKpiClick ? 0 : undefined}
-              onKeyDown={(e) => {
-                if (onKpiClick && (e.key === 'Enter' || e.key === ' ')) {
-                  e.preventDefault();
-                  onKpiClick(item.filterTarget);
-                }
-              }}
-            >
+          const content = (
+            <>
               <div className="bookings-kpi-cell-top">
                 <div className="bookings-kpi-icon-wrapper">{item.icon}</div>
                 <span className="bookings-kpi-label">{item.label}</span>
               </div>
               <div className="bookings-kpi-count">{item.count}</div>
               <div className="bookings-kpi-subtext">{item.subtext}</div>
+            </>
+          );
+
+          if (onKpiClick) {
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`bookings-kpi-cell ${item.accentClass} interactive ${isSelected ? 'selected-kpi-cell' : ''}`}
+                onClick={() => onKpiClick(item.filterTarget)}
+                aria-pressed={isSelected}
+                aria-label={`${item.label}: ${item.count}, ${item.subtext}`}
+                data-testid={`staff-kpi-${item.key}`}
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <div
+              key={item.key}
+              className={`bookings-kpi-cell ${item.accentClass} ${isSelected ? 'selected-kpi-cell' : ''}`}
+              aria-label={`${item.label}: ${item.count}`}
+              data-testid={`staff-kpi-${item.key}`}
+            >
+              {content}
             </div>
           );
         })}

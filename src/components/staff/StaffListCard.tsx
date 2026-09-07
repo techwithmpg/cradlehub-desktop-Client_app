@@ -272,8 +272,7 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
                   No staff members assigned
                 </h3>
                 <p className="bookings-empty-desc">
-                  There are no operational staff members registered for this
-                  branch.
+                  No staff members are assigned to this branch.
                 </p>
               </>
             ) : (
@@ -309,73 +308,138 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
                 <th
                   scope="col"
                   className="sortable-th"
-                  onClick={() => handleSort('name')}
+                  aria-sort={
+                    sortField === 'name'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
-                  <div className="th-content">
-                    <span>Staff Member</span>
-                    {sortField === 'name' && (
-                      <span className="sort-arrow">
-                        {sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    className="th-sort-btn"
+                    onClick={() => handleSort('name')}
+                    data-testid="sort-staff-name-btn"
+                  >
+                    <div className="th-content">
+                      <span>Staff Member</span>
+                      {sortField === 'name' && (
+                        <span className="sort-arrow">
+                          {sortOrder === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </button>
                 </th>
                 <th
                   scope="col"
                   className="sortable-th"
-                  onClick={() => handleSort('role')}
+                  aria-sort={
+                    sortField === 'role'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
-                  <div className="th-content">
-                    <span>Role</span>
-                    {sortField === 'role' && (
-                      <span className="sort-arrow">
-                        {sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    className="th-sort-btn"
+                    onClick={() => handleSort('role')}
+                    data-testid="sort-staff-role-btn"
+                  >
+                    <div className="th-content">
+                      <span>Role</span>
+                      {sortField === 'role' && (
+                        <span className="sort-arrow">
+                          {sortOrder === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </button>
                 </th>
                 <th
                   scope="col"
                   className="sortable-th"
-                  onClick={() => handleSort('type')}
+                  aria-sort={
+                    sortField === 'type'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
-                  <div className="th-content">
-                    <span>Staff Type</span>
-                    {sortField === 'type' && (
-                      <span className="sort-arrow">
-                        {sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    className="th-sort-btn"
+                    onClick={() => handleSort('type')}
+                    data-testid="sort-staff-type-btn"
+                  >
+                    <div className="th-content">
+                      <span>Staff Type</span>
+                      {sortField === 'type' && (
+                        <span className="sort-arrow">
+                          {sortOrder === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </button>
                 </th>
                 <th
                   scope="col"
                   className="sortable-th"
-                  onClick={() => handleSort('tier')}
+                  aria-sort={
+                    sortField === 'tier'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
-                  <div className="th-content">
-                    <span>Skill Tier</span>
-                    {sortField === 'tier' && (
-                      <span className="sort-arrow">
-                        {sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    className="th-sort-btn"
+                    onClick={() => handleSort('tier')}
+                    data-testid="sort-staff-tier-btn"
+                  >
+                    <div className="th-content">
+                      <span>Skill Tier</span>
+                      {sortField === 'tier' && (
+                        <span className="sort-arrow">
+                          {sortOrder === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </button>
                 </th>
                 <th scope="col">Phone</th>
                 <th
                   scope="col"
                   className="sortable-th"
-                  onClick={() => handleSort('status')}
+                  aria-sort={
+                    sortField === 'status'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
-                  <div className="th-content">
-                    <span>Status</span>
-                    {sortField === 'status' && (
-                      <span className="sort-arrow">
-                        {sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    className="th-sort-btn"
+                    onClick={() => handleSort('status')}
+                    data-testid="sort-staff-status-btn"
+                  >
+                    <div className="th-content">
+                      <span>Status</span>
+                      {sortField === 'status' && (
+                        <span className="sort-arrow">
+                          {sortOrder === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </button>
                 </th>
               </tr>
             </thead>

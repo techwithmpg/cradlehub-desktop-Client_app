@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { AuthContext } from '../../types/auth';
 import type {
   StaffKpiSummary as StaffKpiSummaryType,
@@ -25,7 +31,8 @@ const INITIAL_KPIS: StaffKpiSummaryType = {
 export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   const [activeFilter, setActiveFilter] = useState<StaffStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [isInspectorClosed, setIsInspectorClosed] = useState(false);
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [kpis, setKpis] = useState<StaffKpiSummaryType>(INITIAL_KPIS);
@@ -34,6 +41,52 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchVersionRef = useRef(0);
+
+  // Filtered staff by tab and search
+  const filteredStaff = useMemo(() => {
+    return staffList.filter((member) => {
+      // 1. Status Filter
+      if (activeFilter !== 'all' && member.status !== activeFilter) {
+        return false;
+      }
+
+      // 2. Search Query (full_name, nickname, phone, system_role, staff_type)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = member.full_name.toLowerCase().includes(q);
+        const matchesNickname = Boolean(
+          member.nickname && member.nickname.toLowerCase().includes(q),
+        );
+        const matchesPhone = Boolean(
+          member.phone && member.phone.toLowerCase().includes(q),
+        );
+        const matchesRole = member.system_role.toLowerCase().includes(q);
+        const matchesType = member.staff_type.toLowerCase().includes(q);
+
+        if (
+          !matchesName &&
+          !matchesNickname &&
+          !matchesPhone &&
+          !matchesRole &&
+          !matchesType
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [staffList, activeFilter, searchQuery]);
+
+  // Derive coherent selection: preserve selected if visible, fallback to first visible, or null on 0 matches
+  const effectiveSelectedStaff = useMemo(() => {
+    if (isInspectorClosed || filteredStaff.length === 0) return null;
+    if (selectedStaffId) {
+      const found = filteredStaff.find((item) => item.id === selectedStaffId);
+      if (found) return found;
+    }
+    return filteredStaff[0];
+  }, [filteredStaff, selectedStaffId, isInspectorClosed]);
 
   const loadRoster = useCallback(
     async (isRefresh = false) => {
@@ -55,23 +108,12 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         if (!res.ok) {
           setError(res.message);
           setStaffList([]);
-          setSelectedStaff(null);
           setKpis(INITIAL_KPIS);
           return;
         }
 
-        const data = res.data;
-        setStaffList(data);
+        setStaffList(res.data);
         setKpis(res.kpis);
-
-        // Maintain selection or select first
-        setSelectedStaff((prev) => {
-          if (prev) {
-            const found = data.find((item) => item.id === prev.id);
-            return found || (data.length > 0 ? data[0] : null);
-          }
-          return data.length > 0 ? data[0] : null;
-        });
       } catch (err: unknown) {
         if (currentVersion !== fetchVersionRef.current) return;
         const msg =
@@ -80,7 +122,6 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
             : 'Failed to load staff roster. Please check your connection and try again.';
         setError(msg);
         setStaffList([]);
-        setSelectedStaff(null);
         setKpis(INITIAL_KPIS);
       } finally {
         if (currentVersion === fetchVersionRef.current) {
@@ -108,22 +149,12 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         if (!res.ok) {
           setError(res.message);
           setStaffList([]);
-          setSelectedStaff(null);
           setKpis(INITIAL_KPIS);
           return;
         }
 
-        const data = res.data;
-        setStaffList(data);
+        setStaffList(res.data);
         setKpis(res.kpis);
-
-        setSelectedStaff((prev) => {
-          if (prev) {
-            const found = data.find((item) => item.id === prev.id);
-            return found || (data.length > 0 ? data[0] : null);
-          }
-          return data.length > 0 ? data[0] : null;
-        });
       } catch (err: unknown) {
         if (!isMounted || currentVersion !== fetchVersionRef.current) return;
         const msg =
@@ -132,7 +163,6 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
             : 'Failed to load staff roster. Please check your connection and try again.';
         setError(msg);
         setStaffList([]);
-        setSelectedStaff(null);
         setKpis(INITIAL_KPIS);
       } finally {
         if (isMounted && currentVersion === fetchVersionRef.current) {
@@ -148,11 +178,12 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   }, [authContext.branchId]);
 
   const handleSelectStaff = (member: StaffMember) => {
-    setSelectedStaff(member);
+    setSelectedStaffId(member.id);
+    setIsInspectorClosed(false);
   };
 
   const handleCloseInspector = () => {
-    setSelectedStaff(null);
+    setIsInspectorClosed(true);
   };
 
   return (
@@ -236,14 +267,16 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 searchQuery={searchQuery}
                 onSearchChange={(q) => setSearchQuery(q)}
                 onResetSearch={() => setSearchQuery('')}
-                selectedId={selectedStaff ? selectedStaff.id : null}
+                selectedId={
+                  effectiveSelectedStaff ? effectiveSelectedStaff.id : null
+                }
                 onSelectStaff={handleSelectStaff}
               />
             </div>
 
             <div className="bookings-inspector-column">
               <StaffInspectorCard
-                selectedStaff={selectedStaff}
+                selectedStaff={effectiveSelectedStaff}
                 branchName={authContext.branchName}
                 onClose={handleCloseInspector}
               />

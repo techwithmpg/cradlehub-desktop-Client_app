@@ -122,11 +122,12 @@ describe('Staff Workspace Component Suite', () => {
       expect(screen.queryByTestId('staff-skeleton')).toBeNull();
     });
 
-    // Check KPI counts
-    expect(screen.getByLabelText('Total Staff: 3')).toBeDefined();
-    expect(screen.getByLabelText('Active: 1')).toBeDefined();
-    expect(screen.getByLabelText('Awaiting Approval: 1')).toBeDefined();
-    expect(screen.getByLabelText('Invites Sent: 1')).toBeDefined();
+    // Check KPI testids and button semantics
+    const totalKpi = screen.getByTestId('staff-kpi-totalStaff');
+    const activeKpi = screen.getByTestId('staff-kpi-activeStaff');
+    expect(totalKpi.tagName.toLowerCase()).toBe('button');
+    expect(activeKpi.tagName.toLowerCase()).toBe('button');
+    expect(activeKpi.getAttribute('aria-pressed')).toBe('false');
 
     // Check staff rows
     expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
@@ -139,7 +140,7 @@ describe('Staff Workspace Component Suite', () => {
     );
   });
 
-  it('filters staff roster by status tabs and KPI clicks', async () => {
+  it('filters staff roster by status tabs and KPI clicks and updates aria-pressed', async () => {
     vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
       ok: true,
       data: mockStaffRoster,
@@ -162,6 +163,9 @@ describe('Staff Workspace Component Suite', () => {
     expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
     expect(screen.queryByTestId('staff-row-s-2')).toBeNull();
     expect(screen.queryByTestId('staff-row-s-3')).toBeNull();
+    expect(
+      screen.getByTestId('staff-kpi-activeStaff').getAttribute('aria-pressed'),
+    ).toBe('true');
 
     // Filter by Awaiting tab
     fireEvent.click(screen.getByTestId('staff-tab-awaiting'));
@@ -169,17 +173,153 @@ describe('Staff Workspace Component Suite', () => {
     expect(screen.getByTestId('staff-row-s-2')).toBeDefined();
     expect(screen.queryByTestId('staff-row-s-3')).toBeNull();
 
-    // Click Invites Sent KPI Card
-    fireEvent.click(screen.getByLabelText('Invites Sent: 1'));
+    // Click Invites Sent KPI Button
+    fireEvent.click(screen.getByTestId('staff-kpi-invitedStaff'));
     expect(screen.queryByTestId('staff-row-s-1')).toBeNull();
     expect(screen.queryByTestId('staff-row-s-2')).toBeNull();
     expect(screen.getByTestId('staff-row-s-3')).toBeDefined();
+    expect(
+      screen.getByTestId('staff-kpi-invitedStaff').getAttribute('aria-pressed'),
+    ).toBe('true');
 
     // Reset to All Staff tab
     fireEvent.click(screen.getByTestId('staff-tab-all'));
     expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
     expect(screen.getByTestId('staff-row-s-2')).toBeDefined();
     expect(screen.getByTestId('staff-row-s-3')).toBeDefined();
+  });
+
+  it('enforces selection coherence when selected staff member is filtered or searched out', async () => {
+    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
+      ok: true,
+      data: mockStaffRoster,
+      kpis: {
+        totalStaff: 3,
+        activeStaff: 1,
+        awaitingStaff: 1,
+        invitedStaff: 1,
+      },
+    });
+
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+    });
+
+    // 1. Initial selection is Maria Santos (s-1, active)
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Maria Santos',
+    );
+
+    // 2. Filter to 'awaiting' tab (excludes Maria Santos, leaves Juan Dela Cruz)
+    fireEvent.click(screen.getByTestId('staff-tab-awaiting'));
+    await waitFor(() => {
+      expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+        'Juan Dela Cruz',
+      );
+    });
+
+    // 3. Switch to 'all' tab and search for 'Pending' (excludes Maria and Juan, leaves Pending invitation)
+    fireEvent.click(screen.getByTestId('staff-tab-all'));
+    const searchInput = screen.getByTestId('staff-search-input');
+    fireEvent.change(searchInput, { target: { value: 'Pending' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+        'Pending invitation',
+      );
+    });
+
+    // 4. Search for nonexistent term (0 results -> inspector cleared)
+    fireEvent.change(searchInput, { target: { value: 'Nonexistent' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-inspector-empty')).toBeDefined();
+      expect(screen.getByText('No Staff Selected')).toBeDefined();
+    });
+
+    // 5. Clear search (returns to all tab results -> Maria Santos selected)
+    fireEvent.click(screen.getByLabelText('Clear search'));
+    await waitFor(() => {
+      expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+        'Maria Santos',
+      );
+    });
+  });
+
+  it('supports keyboard-operable table column sorting with aria-sort', async () => {
+    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
+      ok: true,
+      data: mockStaffRoster,
+      kpis: {
+        totalStaff: 3,
+        activeStaff: 1,
+        awaitingStaff: 1,
+        invitedStaff: 1,
+      },
+    });
+
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+    });
+
+    const sortNameBtn = screen.getByTestId('sort-staff-name-btn');
+    const sortRoleBtn = screen.getByTestId('sort-staff-role-btn');
+
+    // Default sort is name ascending
+    const nameTh = sortNameBtn.closest('th');
+    expect(nameTh?.getAttribute('aria-sort')).toBe('ascending');
+
+    // Activate sort by name again -> toggles to descending
+    fireEvent.click(sortNameBtn);
+    expect(nameTh?.getAttribute('aria-sort')).toBe('descending');
+
+    // Activate sort by role -> role becomes ascending
+    fireEvent.click(sortRoleBtn);
+    const roleTh = sortRoleBtn.closest('th');
+    expect(roleTh?.getAttribute('aria-sort')).toBe('ascending');
+    expect(nameTh?.getAttribute('aria-sort')).toBe('none');
+  });
+
+  it('displays truthful business labels and avoids misleading provider/head/UUID copy', async () => {
+    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
+      ok: true,
+      data: mockStaffRoster,
+      kpis: {
+        totalStaff: 3,
+        activeStaff: 1,
+        awaitingStaff: 1,
+        invitedStaff: 1,
+      },
+    });
+
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+    });
+
+    // Maria is Head -> inspector should say "Department Head" (not "Head Therapist")
+    expect(screen.getAllByText('Department Head').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Head Therapist')).toBeNull();
+
+    // Skill tier label should be "Skill Tier" (not "Therapist Skill Tier")
+    expect(screen.getAllByText('Skill Tier').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Therapist Skill Tier')).toBeNull();
+
+    // Cross-Branch label should be "Cross-Branch Eligibility" (not "Cross-Branch Dispatch")
+    expect(screen.getByText('Cross-Branch Eligibility')).toBeDefined();
+    expect(screen.queryByText('Cross-Branch Dispatch')).toBeNull();
+
+    // Account login linkage should show human status and no raw UUID
+    expect(screen.getByText('Account linked')).toBeDefined();
+    expect(screen.queryByText(/u-1/)).toBeNull();
+
+    // Select Juan Dela Cruz (non-head, unlinked)
+    fireEvent.click(screen.getByTestId('staff-row-s-2'));
+    expect(screen.getByText('Not a department head')).toBeDefined();
+    expect(screen.queryByText('Standard Provider')).toBeNull();
   });
 
   it('searches staff by full name, nickname, and phone', async () => {

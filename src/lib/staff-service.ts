@@ -21,29 +21,12 @@ const STAFF_SELECT = `
   )
 `;
 
-interface RawStaffServiceRow {
-  service_id: string;
-  services:
-    { id: string; name: string } | Array<{ id: string; name: string }> | null;
-}
-
-interface RawStaffRow {
-  id: string;
-  branch_id: string;
-  auth_user_id: string | null;
-  full_name: string;
-  nickname: string | null;
-  phone: string | null;
-  avatar_url: string | null;
-  tier: string | null;
-  system_role: string | null;
-  staff_type: string | null;
-  is_head: boolean | null;
-  is_active: boolean | null;
-  is_cross_branch: boolean | null;
-  created_at: string;
-  updated_at?: string;
-  staff_services?: RawStaffServiceRow[] | null;
+interface RawStaffServiceItem {
+  service_id?: unknown;
+  services?:
+    | { id?: unknown; name?: unknown }
+    | Array<{ id?: unknown; name?: unknown }>
+    | null;
 }
 
 /**
@@ -94,32 +77,54 @@ export function calculateStaffKpis(roster: StaffMember[]): StaffKpiSummary {
 
 /**
  * Normalizes raw database capabilities into minimized service records.
+ * Returns null if nested capability data is malformed (does not fabricate names).
+ * Returns [] for valid empty / unassigned capabilities.
  */
-function extractCapabilities(
-  rawServices: RawStaffServiceRow[] | null | undefined,
-): StaffServiceCapability[] {
-  if (!Array.isArray(rawServices)) return [];
+export function extractCapabilities(
+  rawServices: unknown,
+): StaffServiceCapability[] | null {
+  if (rawServices === null || rawServices === undefined) return [];
+  if (!Array.isArray(rawServices)) return null;
 
   const capabilities: StaffServiceCapability[] = [];
   for (const item of rawServices) {
-    if (!item || typeof item !== 'object') continue;
-    const serviceId = item.service_id;
-    let serviceName = '';
+    if (typeof item !== 'object' || item === null) return null;
+    const raw = item as RawStaffServiceItem;
 
-    if (item.services) {
-      if (Array.isArray(item.services)) {
-        serviceName = item.services[0]?.name || '';
-      } else if (typeof item.services === 'object') {
-        serviceName = item.services.name || '';
+    if (typeof raw.service_id !== 'string' || !raw.service_id.trim()) {
+      return null;
+    }
+    const serviceId = raw.service_id.trim();
+
+    let serviceName: string;
+    if (raw.services && typeof raw.services === 'object') {
+      if (Array.isArray(raw.services)) {
+        if (raw.services.length === 0) return null;
+        const first = raw.services[0];
+        if (
+          typeof first !== 'object' ||
+          first === null ||
+          typeof first.name !== 'string' ||
+          !first.name.trim()
+        ) {
+          return null;
+        }
+        serviceName = first.name.trim();
+      } else {
+        const svcObj = raw.services as { name?: unknown };
+        if (typeof svcObj.name !== 'string' || !svcObj.name.trim()) {
+          return null;
+        }
+        serviceName = svcObj.name.trim();
       }
+    } else {
+      return null;
     }
 
-    if (serviceId) {
-      capabilities.push({
-        service_id: serviceId,
-        service_name: serviceName || 'Unnamed Service',
-      });
-    }
+    capabilities.push({
+      service_id: serviceId,
+      service_name: serviceName,
+    });
   }
 
   return capabilities;
@@ -127,47 +132,117 @@ function extractCapabilities(
 
 /**
  * Validates and transforms a raw staff row into a typed StaffMember.
- * Returns null if the row fails essential contract validation.
+ * Fails closed by returning null if required modern schema fields are missing or malformed.
+ * Does not fabricate defaults or modern business classifications.
  */
-export function normalizeStaffMember(row: unknown): StaffMember | null {
+export function normalizeStaffMember(
+  row: unknown,
+  expectedBranchId?: string,
+): StaffMember | null {
   if (typeof row !== 'object' || row === null) return null;
-  const obj = row as Partial<RawStaffRow>;
+  const obj = row as Record<string, unknown>;
 
+  // 1. id: non-empty string
+  if (typeof obj.id !== 'string' || !obj.id.trim()) return null;
+
+  // 2. branch_id: non-empty string, matches expectedBranchId if supplied
+  if (typeof obj.branch_id !== 'string' || !obj.branch_id.trim()) return null;
+  if (expectedBranchId && obj.branch_id.trim() !== expectedBranchId.trim()) {
+    return null;
+  }
+
+  // 3. auth_user_id: string or null
+  if (obj.auth_user_id !== null && typeof obj.auth_user_id !== 'string') {
+    return null;
+  }
+
+  // 4. full_name: non-empty string
+  if (typeof obj.full_name !== 'string' || !obj.full_name.trim()) return null;
+
+  // 5. nickname: string or null
   if (
-    typeof obj.id !== 'string' ||
-    !obj.id ||
-    typeof obj.branch_id !== 'string' ||
-    typeof obj.full_name !== 'string' ||
-    typeof obj.created_at !== 'string'
+    obj.nickname !== null &&
+    obj.nickname !== undefined &&
+    typeof obj.nickname !== 'string'
   ) {
     return null;
   }
 
-  const isActive = Boolean(obj.is_active);
+  // 6. phone: string or null
+  if (
+    obj.phone !== null &&
+    obj.phone !== undefined &&
+    typeof obj.phone !== 'string'
+  ) {
+    return null;
+  }
+
+  // 7. avatar_url: string or null
+  if (
+    obj.avatar_url !== null &&
+    obj.avatar_url !== undefined &&
+    typeof obj.avatar_url !== 'string'
+  ) {
+    return null;
+  }
+
+  // 8. tier: non-empty string
+  if (typeof obj.tier !== 'string' || !obj.tier.trim()) return null;
+
+  // 9. system_role: non-empty string
+  if (typeof obj.system_role !== 'string' || !obj.system_role.trim())
+    return null;
+
+  // 10. staff_type: non-empty string
+  if (typeof obj.staff_type !== 'string' || !obj.staff_type.trim()) return null;
+
+  // 11. is_head: boolean
+  if (typeof obj.is_head !== 'boolean') return null;
+
+  // 12. is_active: boolean
+  if (typeof obj.is_active !== 'boolean') return null;
+
+  // 13. is_cross_branch: boolean
+  if (typeof obj.is_cross_branch !== 'boolean') return null;
+
+  // 14. created_at: non-empty string
+  if (typeof obj.created_at !== 'string' || !obj.created_at.trim()) return null;
+
+  // 15. updated_at: string or undefined or null
+  if (
+    obj.updated_at !== undefined &&
+    obj.updated_at !== null &&
+    typeof obj.updated_at !== 'string'
+  ) {
+    return null;
+  }
+
+  // 16. staff_services: nested capability validation
+  const services = extractCapabilities(obj.staff_services);
+  if (services === null) return null;
+
   const status = deriveStaffStatus({
-    is_active: isActive,
-    auth_user_id: obj.auth_user_id,
+    is_active: obj.is_active,
+    auth_user_id: obj.auth_user_id as string | null,
     full_name: obj.full_name,
   });
 
-  const services = extractCapabilities(obj.staff_services);
-
   return {
-    id: obj.id,
-    branch_id: obj.branch_id,
-    auth_user_id: obj.auth_user_id || null,
-    full_name: obj.full_name,
-    nickname: obj.nickname || null,
-    phone: obj.phone || null,
-    avatar_url: obj.avatar_url || null,
-    tier: obj.tier || 'mid',
-    system_role: obj.system_role || 'staff',
-    staff_type: obj.staff_type || 'therapist',
-    is_head: Boolean(obj.is_head),
-    is_active: isActive,
-    is_cross_branch: Boolean(obj.is_cross_branch),
-    created_at: obj.created_at,
-    updated_at: obj.updated_at,
+    id: obj.id.trim(),
+    branch_id: obj.branch_id.trim(),
+    auth_user_id: obj.auth_user_id ? (obj.auth_user_id as string).trim() : null,
+    full_name: obj.full_name.trim(),
+    nickname: obj.nickname ? (obj.nickname as string).trim() : null,
+    phone: obj.phone ? (obj.phone as string).trim() : null,
+    avatar_url: obj.avatar_url ? (obj.avatar_url as string).trim() : null,
+    tier: obj.tier.trim(),
+    system_role: obj.system_role.trim(),
+    staff_type: obj.staff_type.trim(),
+    is_head: obj.is_head,
+    is_active: obj.is_active,
+    is_cross_branch: obj.is_cross_branch,
+    created_at: obj.created_at.trim(),
+    updated_at: obj.updated_at ? (obj.updated_at as string).trim() : undefined,
     status,
     services,
   };
@@ -265,7 +340,7 @@ export async function fetchBranchStaff(
   branchId: string,
   client?: SupabaseClient,
 ): Promise<FetchStaffResult> {
-  if (!branchId) {
+  if (!branchId || typeof branchId !== 'string' || !branchId.trim()) {
     return {
       ok: false,
       code: 'INVALID_BRANCH',
@@ -273,13 +348,12 @@ export async function fetchBranchStaff(
     };
   }
 
-  const supabase = client ?? getSupabaseClient();
-
   try {
+    const supabase = client ?? getSupabaseClient();
     const { data, error } = await supabase
       .from('staff')
       .select(STAFF_SELECT)
-      .eq('branch_id', branchId)
+      .eq('branch_id', branchId.trim())
       .order('full_name', { ascending: true });
 
     if (error) {
@@ -301,11 +375,11 @@ export async function fetchBranchStaff(
 
     const roster: StaffMember[] = [];
     for (const row of data) {
-      const normalized = normalizeStaffMember(row);
+      const normalized = normalizeStaffMember(row, branchId.trim());
       if (!normalized) {
         return {
           ok: false,
-          code: 'CORRUPTED_ROW',
+          code: 'INVALID_PAYLOAD',
           message: 'Staff service returned an invalid data payload.',
         };
       }

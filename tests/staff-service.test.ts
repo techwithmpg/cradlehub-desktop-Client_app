@@ -223,6 +223,241 @@ describe('staff-service', () => {
       expect(normalizeStaffMember({ id: 's-1', branch_id: 'b-1' })).toBeNull();
     });
 
+    it('fails closed when staff_type is missing or empty', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: null,
+        full_name: 'Staff Member',
+        tier: 'senior',
+        system_role: 'staff',
+        is_head: false,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        staff_services: [],
+      };
+      expect(
+        normalizeStaffMember({ ...base, staff_type: undefined }),
+      ).toBeNull();
+      expect(normalizeStaffMember({ ...base, staff_type: '' })).toBeNull();
+      expect(normalizeStaffMember({ ...base, staff_type: '   ' })).toBeNull();
+    });
+
+    it('fails closed when system_role is missing or empty', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: null,
+        full_name: 'Staff Member',
+        tier: 'senior',
+        staff_type: 'therapist',
+        is_head: false,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        staff_services: [],
+      };
+      expect(
+        normalizeStaffMember({ ...base, system_role: undefined }),
+      ).toBeNull();
+      expect(normalizeStaffMember({ ...base, system_role: '' })).toBeNull();
+    });
+
+    it('fails closed when tier is missing or empty', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: null,
+        full_name: 'Staff Member',
+        system_role: 'staff',
+        staff_type: 'therapist',
+        is_head: false,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        staff_services: [],
+      };
+      expect(normalizeStaffMember({ ...base, tier: undefined })).toBeNull();
+      expect(normalizeStaffMember({ ...base, tier: '' })).toBeNull();
+    });
+
+    it('fails closed when is_active is missing or non-boolean', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: null,
+        full_name: 'Staff Member',
+        tier: 'senior',
+        system_role: 'staff',
+        staff_type: 'therapist',
+        is_head: false,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        staff_services: [],
+      };
+      expect(
+        normalizeStaffMember({ ...base, is_active: undefined }),
+      ).toBeNull();
+      expect(normalizeStaffMember({ ...base, is_active: 'true' })).toBeNull();
+      expect(normalizeStaffMember({ ...base, is_active: 1 })).toBeNull();
+    });
+
+    it('fails closed when is_head or is_cross_branch are non-boolean', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: null,
+        full_name: 'Staff Member',
+        tier: 'senior',
+        system_role: 'staff',
+        staff_type: 'therapist',
+        is_active: true,
+        created_at: '2026-01-01T00:00:00Z',
+        staff_services: [],
+      };
+      expect(
+        normalizeStaffMember({
+          ...base,
+          is_head: 'yes',
+          is_cross_branch: false,
+        }),
+      ).toBeNull();
+      expect(
+        normalizeStaffMember({
+          ...base,
+          is_head: true,
+          is_cross_branch: 'no',
+        }),
+      ).toBeNull();
+    });
+
+    it('fails closed when nullable fields have non-string invalid types', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: 12345, // invalid type
+        full_name: 'Staff Member',
+        tier: 'senior',
+        system_role: 'staff',
+        staff_type: 'therapist',
+        is_head: false,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        staff_services: [],
+      };
+      expect(normalizeStaffMember(base)).toBeNull();
+      expect(
+        normalizeStaffMember({ ...base, auth_user_id: null, nickname: 123 }),
+      ).toBeNull();
+      expect(
+        normalizeStaffMember({ ...base, auth_user_id: null, phone: true }),
+      ).toBeNull();
+      expect(
+        normalizeStaffMember({ ...base, auth_user_id: null, avatar_url: {} }),
+      ).toBeNull();
+    });
+
+    it('fails closed when nested service capability is malformed and does not fabricate Unnamed Service', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: null,
+        full_name: 'Staff Member',
+        tier: 'senior',
+        system_role: 'staff',
+        staff_type: 'therapist',
+        is_head: false,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+      };
+
+      // Service relation with missing name
+      expect(
+        normalizeStaffMember({
+          ...base,
+          staff_services: [
+            {
+              service_id: 'srv-1',
+              services: { id: 'srv-1', name: '' },
+            },
+          ],
+        }),
+      ).toBeNull();
+
+      // Service relation with null service object
+      expect(
+        normalizeStaffMember({
+          ...base,
+          staff_services: [
+            {
+              service_id: 'srv-1',
+              services: null,
+            },
+          ],
+        }),
+      ).toBeNull();
+
+      // Service relation with empty array
+      expect(
+        normalizeStaffMember({
+          ...base,
+          staff_services: [
+            {
+              service_id: 'srv-1',
+              services: [],
+            },
+          ],
+        }),
+      ).toBeNull();
+    });
+
+    it('accepts valid empty capability array or null without inventing services', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: null,
+        full_name: 'Staff Member',
+        tier: 'senior',
+        system_role: 'staff',
+        staff_type: 'therapist',
+        is_head: false,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+      };
+
+      const memberEmpty = normalizeStaffMember({ ...base, staff_services: [] });
+      expect(memberEmpty?.services).toEqual([]);
+
+      const memberNull = normalizeStaffMember({
+        ...base,
+        staff_services: null,
+      });
+      expect(memberNull?.services).toEqual([]);
+    });
+
+    it('fails closed when returned branch_id does not match expected branch invariant', () => {
+      const base = {
+        id: 's-1',
+        branch_id: 'other-branch',
+        auth_user_id: null,
+        full_name: 'Staff Member',
+        tier: 'senior',
+        system_role: 'staff',
+        staff_type: 'therapist',
+        is_head: false,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        staff_services: [],
+      };
+      expect(normalizeStaffMember(base, 'expected-branch')).toBeNull();
+      expect(normalizeStaffMember(base, 'other-branch')).not.toBeNull();
+    });
+
     it('typeguard isStaffMember checks status and services array', () => {
       expect(isStaffMember(null)).toBe(false);
       expect(
@@ -420,7 +655,10 @@ describe('staff-service', () => {
 
       expect(res.ok).toBe(false);
       if (!res.ok) {
-        expect(res.code).toBe('CORRUPTED_ROW');
+        expect(res.code).toBe('INVALID_PAYLOAD');
+        expect(res.message).toBe(
+          'Staff service returned an invalid data payload.',
+        );
       }
     });
 
