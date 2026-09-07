@@ -6,14 +6,16 @@
 - **Stage**: Stage 04 — Staff (Staff Management Workspace)
 - **Branch**: `stage/04-staff`
 - **BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
-- **HEAD_SHA**: `a7dcd763f86ae284ecc4370405897c58f92c45bf`
+- **HEAD_SHA (implementation under review)**: `a7dcd763f86ae284ecc4370405897c58f92c45bf`
+- **Evidence restoration commit**: `44111a7c4bd53a2e08b959e4fa6416086fd43d10`
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **INITIAL_AUDIT_SHA**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`
 - **AUDIT_CONFIRMED_SHA**: `1fcd2b892d39a8b611a49825511bd34740fd2f7a`
 - **PREVIOUS_FUNCTIONAL_SHA**: `25e017b4504171f6f90b1cfaf3a8a5aab65b9065`
 - **FRAME_CORRECTION_SHA**: `d15ff7964d62e185e1aba9600c6f3350b097de4f`
-- **Current Status**: **STAGE 04 STAFF EVIDENCE RESTORATION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
+- **IMPLEMENTATION_HEAD_SHA**: `a7dcd763f86ae284ecc4370405897c58f92c45bf`
+- **Current Status**: **STAGE 04 STAFF FINAL EVIDENCE ACCOUNTING READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
 - **Stage Authorization**: Owner-authorized Stage 04 Staff Management Workspace implementation, persistent workspace frame stabilization, and full-width DataGrid utilization correction.
 
 ---
@@ -56,9 +58,7 @@ The Stage 04 Staff Management Workspace provides an operational staff administra
 
 ---
 
-## 2. Changed Files
-
-The full-width DataGrid correction and frame stabilization comprise the following files:
+## 2. Changed Files for Full-Width Implementation & Evidence
 
 - `src/components/staff/StaffListCard.tsx`
 - `src/components/staff/StaffApplicationsView.tsx`
@@ -75,7 +75,9 @@ The full-width DataGrid correction and frame stabilization comprise the followin
 
 ---
 
-## 3. Verification Record
+## 3. Verification Records
+
+### Previously Recorded Full-Width Implementation Validation (`a7dcd763f86ae284ecc4370405897c58f92c45bf`)
 
 - `pnpm format:check` — PASSED
 - `pnpm lint` — PASSED, 0 errors / 0 warnings
@@ -84,7 +86,12 @@ The full-width DataGrid correction and frame stabilization comprise the followin
 - `pnpm build` — PASSED
 - `git diff --check` — PASSED
 
-_(Note: Verification checks executed locally via workspace toolchain; GitHub CI commit status checks are not enabled for this repository)._
+_(Executed locally via workspace toolchain for the implementation commit; GitHub CI commit status checks are not enabled for this repository)._
+
+### Evidence Restoration & Accounting Validation
+
+- `pnpm format:check` — PASSED
+- `git diff --check` — PASSED
 
 ---
 
@@ -93,17 +100,14 @@ _(Note: Verification checks executed locally via workspace toolchain; GitHub CI 
 - **OWNER-PROVIDED MANUAL RUNTIME EVIDENCE**:
   `Owner visually re-tested the current Staff workspace after the full-width DataGrid correction and reported that it visually looks okay.`
 
-- **Agent/Local Runtime Observations**:
-  - Environment: Windows x64 desktop runtime (WebKit / Tauri client rendering simulation).
-  - 1440×900: Staff Roster DataGrid spans 100% of the left management card width. Action column sits naturally against the right edge. No blank gaps. Inspector remains stable in right column.
-  - 1366×768: Columns distribute cleanly across available width without triggering horizontal scrollbars.
-  - 1024×768: Single-column fallback responsive layout preserves full card width and table readability.
+- **AGENT-REPORTED LOCAL VIEWPORT OBSERVATIONS**:
+  `Previous agent report stated 1440×900, 1366×768 and 1024×768 layout checks. Exact native-window provenance was not independently verified.`
 
 ---
 
 ## 5. Security & Data Impact
 
-- UI/layout correction only.
+- Documentation and UI/layout correction only.
 - No database schema migrations or production data mutations.
 - No hosted-system code changes.
 - No new renderer privileges or service-role/admin credentials introduced.
@@ -116,7 +120,7 @@ _(Note: Verification checks executed locally via workspace toolchain; GitHub CI 
 
 - **Offboarding Gate**: Staff offboarding remains gated with `OFFBOARDING CONTRACT REQUIRED` due to soft-delete / foreign key constraints requiring backend contract alignment.
 - **Performance Tab**: Performance metrics remain unavailable in the current data contract; surfaces a truthful unavailable state.
-- **Universal ModuleWorkspace Status**: NOT STARTED — awaiting owner confirmation of final Staff workspace geometry before universal extraction.
+- **Universal ModuleWorkspace Status**: NOT STARTED — awaiting Stage 04 acceptance.
 - **Stage Status**: Owner has approved current visual geometry, but Stage 04 itself is not merged into `main`.
 
 ---
