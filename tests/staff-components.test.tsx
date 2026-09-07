@@ -177,18 +177,35 @@ describe('Staff Workspace Component Suite', () => {
     expect(screen.getByLabelText('Loading staff roster')).toBeDefined();
   });
 
-  it('renders populated roster with KPI summary cards and DataGrid', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
+  it('renders stable outer structure with inspector as a sibling to the workspace card', async () => {
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('staff-skeleton')).toBeNull();
     });
 
+    // 1. Module Header
+    expect(screen.getByTestId('staff-header')).toBeDefined();
+
+    // 2. Persistent Summary Frame
+    const summaryCard = screen.getByTestId('staff-summary-card');
+    expect(summaryCard).toBeDefined();
+
+    // 3. Main Workspace Card (Left Column)
+    const workspaceCard = screen.getByTestId('staff-workspace-card');
+    expect(workspaceCard).toBeDefined();
+
+    // 4. Persistent Context Inspector (Right Column)
+    const contextInspector = screen.getByTestId('staff-context-inspector');
+    expect(contextInspector).toBeDefined();
+
+    // 5. CRITICAL: Inspector is NOT a descendant of the workspace card
+    expect(
+      within(workspaceCard).queryByTestId('staff-context-inspector'),
+    ).toBeNull();
+  });
+
+  it('renders populated roster with KPI summary cards and DataGrid', async () => {
     render(<StaffView authContext={mockAuthContext} />);
 
     await waitFor(() => {
@@ -223,18 +240,169 @@ describe('Staff Workspace Component Suite', () => {
     );
   });
 
-  it('renders skill tier appropriately based on operational role in table and inspector', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
+  it('renders persistent summary card and updates truthful metrics for all 6 tabs', async () => {
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
     });
 
+    // Tab 1: Roster
+    expect(screen.getByTestId('staff-summary-card')).toBeDefined();
+    expect(screen.getByTestId('staff-kpi-totalStaff').textContent).toContain(
+      '4',
+    );
+    expect(screen.getByTestId('staff-kpi-activeStaff').textContent).toContain(
+      '2',
+    );
+    expect(screen.getByTestId('staff-kpi-awaitingStaff').textContent).toContain(
+      '1',
+    );
+    expect(screen.getByTestId('staff-kpi-invitedStaff').textContent).toContain(
+      '1',
+    );
+
+    // Tab 2: Schedule View
+    fireEvent.click(screen.getByTestId('staff-primary-tab-schedule'));
+    expect(screen.getByTestId('staff-summary-card')).toBeDefined();
+    expect(screen.getByTestId('staff-kpi-scheduleStaff').textContent).toContain(
+      '4',
+    );
+    expect(
+      screen.getByTestId('staff-kpi-scheduleOverrides').textContent,
+    ).toContain('0');
+    expect(
+      screen.getByTestId('staff-kpi-scheduleBlocks').textContent,
+    ).toContain('0');
+
+    // Tab 3: Applications
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    expect(screen.getByTestId('staff-summary-card')).toBeDefined();
+    expect(
+      screen.getByTestId('staff-kpi-totalApplications').textContent,
+    ).toContain('1');
+    expect(
+      screen.getByTestId('staff-kpi-pendingApplications').textContent,
+    ).toContain('1');
+    expect(
+      screen.getByTestId('staff-kpi-approvedApplications').textContent,
+    ).toContain('0');
+    expect(
+      screen.getByTestId('staff-kpi-rejectedApplications').textContent,
+    ).toContain('0');
+
+    // Tab 4: Performance (Truthful unavailable)
+    fireEvent.click(screen.getByTestId('staff-primary-tab-performance'));
+    expect(screen.getByTestId('staff-summary-card')).toBeDefined();
+    expect(
+      screen.getByTestId('staff-kpi-performance-unavailable'),
+    ).toBeDefined();
+    expect(
+      screen.getByText(
+        'Performance metrics are not available in the current Staff contract.',
+      ),
+    ).toBeDefined();
+
+    // Tab 5: Capabilities & Services
+    fireEvent.click(screen.getByTestId('staff-primary-tab-capabilities'));
+    expect(screen.getByTestId('staff-summary-card')).toBeDefined();
+    expect(
+      screen.getByTestId('staff-kpi-totalCapabilitiesStaff').textContent,
+    ).toContain('4');
+    expect(
+      screen.getByTestId('staff-kpi-withCapabilities').textContent,
+    ).toContain('2'); // s-1 (2 services), s-2 (1 service)
+    expect(
+      screen.getByTestId('staff-kpi-withoutCapabilities').textContent,
+    ).toContain('2'); // s-3 (0), s-4 (0)
+    expect(
+      screen.getByTestId('staff-kpi-totalAssignments').textContent,
+    ).toContain('3'); // 2 + 1 = 3
+
+    // Tab 6: Roles & Permissions
+    fireEvent.click(screen.getByTestId('staff-primary-tab-roles'));
+    expect(screen.getByTestId('staff-summary-card')).toBeDefined();
+    expect(
+      screen.getByTestId('staff-kpi-totalRolesStaff').textContent,
+    ).toContain('4');
+    expect(
+      screen.getByTestId('staff-kpi-linkedAccounts').textContent,
+    ).toContain('3'); // u-1, u-2, u-4
+    expect(
+      screen.getByTestId('staff-kpi-unlinkedAccounts').textContent,
+    ).toContain('1'); // s-3 is unlinked
+    expect(
+      screen.getByTestId('staff-kpi-departmentHeads').textContent,
+    ).toContain('1'); // s-1 is_head: true
+
+    // Switch back to Roster
+    fireEvent.click(screen.getByTestId('staff-primary-tab-roster'));
+    expect(screen.getByTestId('staff-summary-card')).toBeDefined();
+    expect(screen.getByTestId('staff-kpi-totalStaff')).toBeDefined();
+  });
+
+  it('persists selected staff across staff-centric tabs and isolates application selection', async () => {
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+    });
+
+    // Select Juan Dela Cruz (s-2) in Roster
+    fireEvent.click(screen.getByTestId('staff-row-s-2'));
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Juan Dela Cruz',
+    );
+
+    // Switch to Capabilities tab -> Juan Dela Cruz remains selected
+    fireEvent.click(screen.getByTestId('staff-primary-tab-capabilities'));
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Juan Dela Cruz',
+    );
+
+    // Switch to Roles tab -> Juan Dela Cruz remains selected
+    fireEvent.click(screen.getByTestId('staff-primary-tab-roles'));
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Juan Dela Cruz',
+    );
+
+    // Switch to Schedule tab -> Juan Dela Cruz remains selected
+    fireEvent.click(screen.getByTestId('staff-primary-tab-schedule'));
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Juan Dela Cruz',
+    );
+
+    // Switch to Applications tab -> Applicant Ana Gomez is selected
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Applicant Ana Gomez',
+    );
+
+    // Return to Roster -> Juan Dela Cruz is still selected!
+    fireEvent.click(screen.getByTestId('staff-primary-tab-roster'));
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Juan Dela Cruz',
+    );
+  });
+
+  it('keeps outer inspector shell mounted when closing selection and shows empty state', async () => {
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+    });
+
+    // Close staff inspector selection
+    const closeBtn = screen.getByLabelText('Close Inspector');
+    fireEvent.click(closeBtn);
+
+    // Outer context inspector shell remains in the DOM
+    expect(screen.getByTestId('staff-context-inspector')).toBeDefined();
+    expect(screen.getByTestId('staff-inspector-empty')).toBeDefined();
+    expect(screen.getByText('No Staff Selected')).toBeDefined();
+  });
+
+  it('renders skill tier appropriately based on operational role in table and inspector', async () => {
     render(<StaffView authContext={mockAuthContext} />);
 
     await waitFor(() => {
@@ -270,17 +438,6 @@ describe('Staff Workspace Component Suite', () => {
   });
 
   it('filters staff roster by status KPI clicks and toolbar and updates aria-pressed', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
-    });
-
     render(<StaffView authContext={mockAuthContext} />);
 
     await waitFor(() => {
@@ -323,17 +480,6 @@ describe('Staff Workspace Component Suite', () => {
   });
 
   it('supports multi-facet toolbar filtering by search, role, type, and capability', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
-    });
-
     render(<StaffView authContext={mockAuthContext} />);
 
     await waitFor(() => {
@@ -363,17 +509,6 @@ describe('Staff Workspace Component Suite', () => {
   });
 
   it('enforces selection coherence when selected staff member is filtered or searched out', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
-    });
-
     render(<StaffView authContext={mockAuthContext} />);
 
     await waitFor(() => {
@@ -463,17 +598,6 @@ describe('Staff Workspace Component Suite', () => {
   });
 
   it('switches internal inspector tabs and supports inline profile editing', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
-    });
-
     const updateProfileSpy = vi
       .spyOn(staffService, 'updateStaffProfile')
       .mockResolvedValue({
@@ -500,7 +624,7 @@ describe('Staff Workspace Component Suite', () => {
 
     // Switch to Services tab
     fireEvent.click(screen.getByTestId('inspector-tab-services'));
-    const inspectorCard = screen.getByTestId('staff-inspector-card');
+    const inspectorCard = screen.getByTestId('staff-context-inspector');
     expect(within(inspectorCard).getByText('Swedish Massage')).toBeDefined();
     expect(
       within(inspectorCard).getByText('Deep Tissue Massage'),
@@ -530,17 +654,6 @@ describe('Staff Workspace Component Suite', () => {
   });
 
   it('switches between all 6 primary workspace tabs', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
-    });
-
     render(<StaffView authContext={mockAuthContext} />);
 
     await waitFor(() => {
@@ -587,17 +700,6 @@ describe('Staff Workspace Component Suite', () => {
   });
 
   it('opens and interacts with canonical modals (Add guidance, Capability, Role, Offboarding)', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
-    });
-
     render(<StaffView authContext={mockAuthContext} />);
 
     await waitFor(() => {
@@ -699,17 +801,6 @@ describe('Staff Workspace Component Suite', () => {
   });
 
   it('renders in CanonicalShell when Staff navigation is selected', async () => {
-    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
-      ok: true,
-      data: mockStaffRoster,
-      kpis: {
-        totalStaff: 4,
-        activeStaff: 2,
-        awaitingStaff: 1,
-        invitedStaff: 1,
-      },
-    });
-
     render(
       <CanonicalShell
         authContext={mockAuthContext}

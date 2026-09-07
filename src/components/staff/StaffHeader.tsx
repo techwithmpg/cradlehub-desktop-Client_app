@@ -12,7 +12,10 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
   onOpenAddStaff,
 }) => {
   return (
-    <div className="bookings-header-container staff-header-container">
+    <div
+      className="bookings-header-container staff-header-container"
+      data-testid="staff-header"
+    >
       <div className="bookings-header-left">
         <h1 className="bookings-header-title">Staff</h1>
         <p className="bookings-header-subtitle">

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const StaffPerformanceView: React.FC = () => {
+export const StaffPerformanceContent: React.FC = () => {
   return (
     <div
       className="bookings-datagrid-wrapper p-8"
@@ -35,3 +35,6 @@ export const StaffPerformanceView: React.FC = () => {
     </div>
   );
 };
+
+// Backward-compatible alias
+export const StaffPerformanceView = StaffPerformanceContent;

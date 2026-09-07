@@ -19,14 +19,14 @@ import {
   reviewOnboardingRequest,
 } from '../../lib/staff-service';
 import { StaffHeader } from './StaffHeader';
-import { StaffKpiSummary } from './StaffKpiSummary';
+import { StaffSummaryCard } from './StaffKpiSummary';
 import { StaffListCard } from './StaffListCard';
-import { StaffInspectorCard } from './StaffInspectorCard';
-import { StaffScheduleView } from './StaffScheduleView';
-import { StaffApplicationsView } from './StaffApplicationsView';
-import { StaffCapabilitiesView } from './StaffCapabilitiesView';
-import { StaffRolesView } from './StaffRolesView';
-import { StaffPerformanceView } from './StaffPerformanceView';
+import { StaffContextInspector } from './StaffInspectorCard';
+import { StaffScheduleContent } from './StaffScheduleView';
+import { StaffApplicationsContent } from './StaffApplicationsView';
+import { StaffCapabilitiesContent } from './StaffCapabilitiesView';
+import { StaffRolesContent } from './StaffRolesView';
+import { StaffPerformanceContent } from './StaffPerformanceView';
 import { StaffCapabilityModal } from './modals/StaffCapabilityModal';
 import { StaffScheduleModal } from './modals/StaffScheduleModal';
 import { StaffFullScheduleModal } from './modals/StaffFullScheduleModal';
@@ -64,6 +64,8 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [scheduleLoading, setScheduleLoading] = useState<boolean>(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
@@ -77,7 +79,12 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+
+  // Selections: Persistent Staff ID for staff-centric tabs, separate Application ID for Applications tab
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<
+    string | null
+  >(null);
 
   // Modal States
   const [isAddGuidanceOpen, setIsAddGuidanceOpen] = useState(false);
@@ -106,9 +113,12 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     return monday.toISOString().slice(0, 10);
   }, []);
 
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
   // Load all initial workspace data
   const loadWorkspaceData = useCallback(async () => {
     setError(null);
+    setScheduleError(null);
     try {
       const [staffRes, servicesRes, onboardingRes, scheduleRes] =
         await Promise.all([
@@ -149,8 +159,10 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    setScheduleLoading(true);
     await loadWorkspaceData();
     setIsRefreshing(false);
+    setScheduleLoading(false);
   }, [loadWorkspaceData]);
 
   // Derived Filtered Staff List for Roster
@@ -158,14 +170,33 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     return filterStaff(staffList, filters);
   }, [staffList, filters]);
 
-  // Selection Coherence (Derived)
+  // Selection Coherence for Staff (Shared across staff-centric tabs)
   const selectedStaff = useMemo(() => {
-    if (filteredStaffList.length === 0) return null;
+    if (staffList.length === 0) return null;
     if (selectedStaffId === '') return null;
-    if (selectedStaffId === null) return filteredStaffList[0];
-    const found = filteredStaffList.find((m) => m.id === selectedStaffId);
-    return found || filteredStaffList[0];
-  }, [filteredStaffList, selectedStaffId]);
+    if (activeTab === 'roster') {
+      if (filteredStaffList.length === 0) return null;
+      if (selectedStaffId === null) return filteredStaffList[0];
+      const foundInFiltered = filteredStaffList.find(
+        (m) => m.id === selectedStaffId,
+      );
+      return foundInFiltered || filteredStaffList[0];
+    }
+    if (selectedStaffId === null) return staffList[0];
+    const foundInAll = staffList.find((m) => m.id === selectedStaffId);
+    return foundInAll || staffList[0];
+  }, [staffList, filteredStaffList, selectedStaffId, activeTab]);
+
+  // Selection Coherence for Applications (Isolated to Applications tab)
+  const selectedApplication = useMemo(() => {
+    if (onboardingRequests.length === 0) return null;
+    if (selectedApplicationId === '') return null;
+    if (selectedApplicationId === null) return onboardingRequests[0];
+    const found = onboardingRequests.find(
+      (r) => r.id === selectedApplicationId,
+    );
+    return found || onboardingRequests[0];
+  }, [onboardingRequests, selectedApplicationId]);
 
   // Handle KPI Strip clicks (sets status filter)
   const handleKpiClick = useCallback((targetFilter: StaffStatusFilter) => {
@@ -244,7 +275,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     [],
   );
 
-  // KPI calculations
+  // KPI calculations for Roster
   const kpis = useMemo(() => {
     let activeStaff = 0;
     let awaitingStaff = 0;
@@ -341,72 +372,76 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* KPI Summary Strip - Displayed when on Roster tab */}
-          {activeTab === 'roster' && (
-            <StaffKpiSummary
-              kpis={kpis}
-              activeFilter={filters.status}
-              onKpiClick={handleKpiClick}
-            />
-          )}
+          {/* 2. Persistent KPI / Summary Card (Mounted for all 6 tabs) */}
+          <StaffSummaryCard
+            activeTab={activeTab}
+            staffList={staffList}
+            onboardingRequests={onboardingRequests}
+            scheduleOverrides={scheduleOverrides}
+            scheduleBlocks={scheduleBlocks}
+            scheduleLoading={scheduleLoading}
+            scheduleError={scheduleError}
+            branchServices={branchServices}
+            kpis={kpis}
+            activeFilter={filters.status}
+            onRosterKpiClick={handleKpiClick}
+          />
 
-          {/* Main Staff Management Workspace Card */}
-          <div
-            className="bookings-list-card staff-management-card"
-            data-testid="staff-workspace-card"
-          >
-            {/* In-Card Primary Function Tabs (Mirroring Bookings Scope Tabs) */}
-            <div
-              className="bookings-scope-tabs-container"
-              role="tablist"
-              aria-label="Staff Management Views"
-            >
-              {STAFF_TABS.map((tab) => {
-                const isActive = activeTab === tab.id;
-                let countBadge: React.ReactNode = null;
-                if (tab.id === 'roster') {
-                  countBadge = (
-                    <span className="tab-pill-badge">{staffList.length}</span>
-                  );
-                } else if (tab.id === 'applications') {
-                  const pendingCount = onboardingRequests.filter(
-                    (r) => r.status === 'submitted',
-                  ).length;
-                  if (pendingCount > 0) {
-                    countBadge = (
-                      <span className="tab-pill-badge">{pendingCount}</span>
-                    );
-                  }
-                }
-
-                return (
-                  <button
-                    key={tab.id}
-                    role="tab"
-                    type="button"
-                    aria-selected={isActive}
-                    className={`bookings-scope-tab-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      setCurrentPage(1);
-                    }}
-                    data-testid={`staff-primary-tab-${tab.id}`}
-                  >
-                    <span>{tab.label}</span>
-                    {countBadge}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* TAB 1: Staff Roster */}
-            {activeTab === 'roster' && (
+          {/* 3. Persistent 2-Column Grid */}
+          <div className="bookings-main-grid staff-main-grid">
+            {/* Left Column: Staff Management Card */}
+            <div className="bookings-list-column">
               <div
-                className="bookings-main-grid p-0"
-                role="tabpanel"
-                id="staff-primary-panel-roster"
+                className="bookings-list-card staff-management-card"
+                data-testid="staff-workspace-card"
               >
-                <div className="bookings-list-column">
+                {/* In-Card Primary Function Tabs (Mirroring Bookings Scope Tabs) */}
+                <div
+                  className="bookings-scope-tabs-container"
+                  role="tablist"
+                  aria-label="Staff Management Views"
+                >
+                  {STAFF_TABS.map((tab) => {
+                    const isActive = activeTab === tab.id;
+                    let countBadge: React.ReactNode = null;
+                    if (tab.id === 'roster') {
+                      countBadge = (
+                        <span className="tab-pill-badge">
+                          {staffList.length}
+                        </span>
+                      );
+                    } else if (tab.id === 'applications') {
+                      const pendingCount = onboardingRequests.filter(
+                        (r) => r.status === 'submitted',
+                      ).length;
+                      if (pendingCount > 0) {
+                        countBadge = (
+                          <span className="tab-pill-badge">{pendingCount}</span>
+                        );
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={tab.id}
+                        role="tab"
+                        type="button"
+                        aria-selected={isActive}
+                        className={`bookings-scope-tab-btn ${isActive ? 'active' : ''}`}
+                        onClick={() => {
+                          setActiveTab(tab.id);
+                        }}
+                        data-testid={`staff-primary-tab-${tab.id}`}
+                      >
+                        <span>{tab.label}</span>
+                        {countBadge}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* TAB 1: Staff Roster Content */}
+                {activeTab === 'roster' && (
                   <StaffListCard
                     staffList={filteredStaffList}
                     totalStaffCount={staffList.length}
@@ -420,104 +455,88 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     onPageChange={setCurrentPage}
                     onPageSizeChange={setPageSize}
                   />
-                </div>
+                )}
 
-                <div className="bookings-inspector-column">
-                  <StaffInspectorCard
-                    staff={selectedStaff}
-                    onClose={() => setSelectedStaffId('')}
-                    onOpenScheduleModal={(m) =>
-                      setScheduleModalData({ staff: m })
-                    }
-                    onOpenFullScheduleModal={(m) => setFullScheduleStaff(m)}
-                    onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
-                    onOpenRoleModal={(m) => setRoleModalStaff(m)}
-                    onOpenOffboardingModal={(m) => setOffboardingModalStaff(m)}
-                    onStaffUpdated={handleStaffUpdated}
+                {/* TAB 2: Schedule View Content */}
+                {activeTab === 'schedule' && (
+                  <StaffScheduleContent
+                    branchName={authContext.branchName}
+                    staffList={staffList}
+                    selectedStaffId={selectedStaff?.id || null}
+                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    overrides={scheduleOverrides}
+                    blockedTimes={scheduleBlocks}
+                    isLoading={scheduleLoading}
+                    scheduleError={scheduleError}
                   />
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* TAB 2: Schedule View */}
-            {activeTab === 'schedule' && (
-              <div
-                className="p-0"
-                role="tabpanel"
-                id="staff-primary-panel-schedule"
-              >
-                <StaffScheduleView
-                  branchId={authContext.branchId}
-                  branchName={authContext.branchName}
-                  staffList={staffList}
-                  onOpenScheduleModal={(staff, date, existingBlocks) =>
-                    setScheduleModalData({ staff, date, existingBlocks })
-                  }
-                  onOpenFullScheduleModal={(staff) =>
-                    setFullScheduleStaff(staff)
-                  }
-                  onOpenProfileEdit={(staff) => {
-                    setSelectedStaffId(staff.id);
-                    setActiveTab('roster');
-                  }}
-                />
-              </div>
-            )}
+                {/* TAB 3: Applications Content */}
+                {activeTab === 'applications' && (
+                  <StaffApplicationsContent
+                    requests={onboardingRequests}
+                    selectedRequestId={selectedApplication?.id || null}
+                    onSelectRequest={(req) => setSelectedApplicationId(req.id)}
+                  />
+                )}
 
-            {/* TAB 3: Applications */}
-            {activeTab === 'applications' && (
-              <div
-                className="p-0"
-                role="tabpanel"
-                id="staff-primary-panel-applications"
-              >
-                <StaffApplicationsView
-                  requests={onboardingRequests}
-                  onOpenApprovalModal={(req) => setApprovalModalRequest(req)}
-                  onRejectRequest={handleRejectApplication}
-                />
-              </div>
-            )}
+                {/* TAB 4: Performance Content */}
+                {activeTab === 'performance' && <StaffPerformanceContent />}
 
-            {/* TAB 4: Performance */}
-            {activeTab === 'performance' && (
-              <div
-                className="p-0"
-                role="tabpanel"
-                id="staff-primary-panel-performance"
-              >
-                <StaffPerformanceView />
-              </div>
-            )}
+                {/* TAB 5: Capabilities & Services Content */}
+                {activeTab === 'capabilities' && (
+                  <StaffCapabilitiesContent
+                    staffList={staffList}
+                    branchServices={branchServices}
+                    selectedStaffId={selectedStaff?.id || null}
+                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
+                  />
+                )}
 
-            {/* TAB 5: Capabilities & Services */}
-            {activeTab === 'capabilities' && (
-              <div
-                className="p-0"
-                role="tabpanel"
-                id="staff-primary-panel-capabilities"
-              >
-                <StaffCapabilitiesView
-                  staffList={staffList}
-                  branchServices={branchServices}
-                  onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
-                />
+                {/* TAB 6: Roles & Permissions Content */}
+                {activeTab === 'roles' && (
+                  <StaffRolesContent
+                    staffList={staffList}
+                    selectedStaffId={selectedStaff?.id || null}
+                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onOpenRoleModal={(m) => setRoleModalStaff(m)}
+                  />
+                )}
               </div>
-            )}
+            </div>
 
-            {/* TAB 6: Roles & Permissions */}
-            {activeTab === 'roles' && (
-              <div
-                className="p-0"
-                role="tabpanel"
-                id="staff-primary-panel-roles"
-              >
-                <StaffRolesView
-                  staffList={staffList}
-                  onOpenRoleModal={(m) => setRoleModalStaff(m)}
-                />
-              </div>
-            )}
+            {/* Right Column: Persistent Context Inspector Shell */}
+            <div className="bookings-inspector-column">
+              <StaffContextInspector
+                activeTab={activeTab}
+                staff={selectedStaff}
+                selectedStaffId={selectedStaffId}
+                application={selectedApplication}
+                selectedApplicationId={selectedApplicationId}
+                branchName={authContext.branchName}
+                branchServices={branchServices}
+                scheduleOverrides={scheduleOverrides}
+                scheduleBlocks={scheduleBlocks}
+                todayStr={todayStr}
+                onCloseStaffSelection={() => setSelectedStaffId('')}
+                onCloseApplicationSelection={() => setSelectedApplicationId('')}
+                onOpenScheduleModal={(m, date, existingBlocks) =>
+                  setScheduleModalData({ staff: m, date, existingBlocks })
+                }
+                onOpenFullScheduleModal={(m) => setFullScheduleStaff(m)}
+                onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
+                onOpenRoleModal={(m) => setRoleModalStaff(m)}
+                onOpenOffboardingModal={(m) => setOffboardingModalStaff(m)}
+                onStaffUpdated={handleStaffUpdated}
+                onOpenApprovalModal={(req) => setApprovalModalRequest(req)}
+                onRejectApplication={handleRejectApplication}
+                onOpenProfileEdit={(m) => {
+                  setSelectedStaffId(m.id);
+                  setActiveTab('roster');
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
