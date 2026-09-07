@@ -4,10 +4,10 @@
 
 - **Target**: CradleHub Desktop
 - **Stage**: Stage 04 — Staff (Staff Management Workspace)
-- **Branch**: `stage/04-staff`
+- **Branch**: `stage/04-staff` (merged into `main`)
 - **BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
+- **Accepted Stage 04 Branch Tip**: `34096a5b7faef05e4faa9379c845aec812d7136c`
 - **HEAD_SHA (implementation under review)**: `a7dcd763f86ae284ecc4370405897c58f92c45bf`
-- **Evidence restoration commit**: `44111a7c4bd53a2e08b959e4fa6416086fd43d10`
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **INITIAL_AUDIT_SHA**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`
@@ -15,8 +15,8 @@
 - **PREVIOUS_FUNCTIONAL_SHA**: `25e017b4504171f6f90b1cfaf3a8a5aab65b9065`
 - **FRAME_CORRECTION_SHA**: `d15ff7964d62e185e1aba9600c6f3350b097de4f`
 - **IMPLEMENTATION_HEAD_SHA**: `a7dcd763f86ae284ecc4370405897c58f92c45bf`
-- **Current Status**: **STAGE 04 STAFF FINAL EVIDENCE ACCOUNTING READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
-- **Stage Authorization**: Owner-authorized Stage 04 Staff Management Workspace implementation, persistent workspace frame stabilization, and full-width DataGrid utilization correction.
+- **Current Status**: **STAGE 04 STAFF ACCEPTED / MERGED / CLOSED ON MAIN — PUSHED AND STOPPED**.
+- **Stage Authorization**: Owner-authorized Stage 04 Staff Management Workspace implementation, persistent workspace frame stabilization, full-width DataGrid utilization correction, and fast-forward merge into `main`.
 
 ---
 
@@ -88,9 +88,13 @@ The Stage 04 Staff Management Workspace provides an operational staff administra
 
 _(Executed locally via workspace toolchain for the implementation commit; GitHub CI commit status checks are not enabled for this repository)._
 
-### Evidence Restoration & Accounting Validation
+### Post-Merge Validation on `main`
 
 - `pnpm format:check` — PASSED
+- `pnpm lint` — PASSED, 0 errors / 0 warnings
+- `pnpm typecheck` — PASSED
+- `pnpm test` — PASSED, 13 files / 272 tests
+- `pnpm build` — PASSED
 - `git diff --check` — PASSED
 
 ---
@@ -107,7 +111,7 @@ _(Executed locally via workspace toolchain for the implementation commit; GitHub
 
 ## 5. Security & Data Impact
 
-- Documentation and UI/layout correction only.
+- UI/layout correction and documentation only.
 - No database schema migrations or production data mutations.
 - No hosted-system code changes.
 - No new renderer privileges or service-role/admin credentials introduced.
@@ -120,13 +124,18 @@ _(Executed locally via workspace toolchain for the implementation commit; GitHub
 
 - **Offboarding Gate**: Staff offboarding remains gated with `OFFBOARDING CONTRACT REQUIRED` due to soft-delete / foreign key constraints requiring backend contract alignment.
 - **Performance Tab**: Performance metrics remain unavailable in the current data contract; surfaces a truthful unavailable state.
-- **Universal ModuleWorkspace Status**: NOT STARTED — awaiting Stage 04 acceptance.
-- **Stage Status**: Owner has approved current visual geometry, but Stage 04 itself is not merged into `main`.
+- **Universal ModuleWorkspace Status**: NOT STARTED — awaiting next authorized stage.
+- **Stage Status**: Stage 04 Staff is fast-forward merged into `main` and closed.
 
 ---
 
-## 7. Rollback Strategy
+## 7. Stage 04 Closeout Record
 
-- **Correction Base**: `d15ff7964d62e185e1aba9600c6f3350b097de4f`
-- **Current Corrected Implementation**: `a7dcd763f86ae284ecc4370405897c58f92c45bf`
-- **Rollback Procedure**: Revert commit `a7dcd763f86ae284ecc4370405897c58f92c45bf` via `git revert a7dcd763f86ae284ecc4370405897c58f92c45bf` to return to the pre-full-width correction state if required.
+- **Owner Approval**: Owner visually reviewed final Staff workspace geometry, confirmed verdict `ACCEPTABLE FOR OWNER CONFIRMATION`, and explicitly authorized merge into `main`.
+- **Merge Method**: `FAST-FORWARD MERGE`
+  - From: `stage/04-staff @ 34096a5b7faef05e4faa9379c845aec812d7136c`
+  - Into: `main`
+  - Starting `main` Baseline: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
+  - Resulting `main` SHA: `34096a5b7faef05e4faa9379c845aec812d7136c`
+- **Post-Merge Verification**: Complete test, lint, typecheck, build, and format checks passed on `main`.
+- **Status**: Stage 04 is **ACCEPTED / MERGED / CLOSED** on `main`.
