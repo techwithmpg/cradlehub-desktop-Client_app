@@ -20,7 +20,7 @@ import {
 import { BookingsView } from './bookings/BookingsView';
 import { CustomersView } from './customers/CustomersView';
 import { StaffView } from './staff/StaffView';
-import { ModuleWorkspaceHost } from './workspace/ModuleWorkspaceHost';
+import { ModuleWorkspaceHost, ModuleWorkspaceMount } from './workspace';
 import type { AuthContext, NavModuleId } from '../types/auth';
 import { formatRoleLabel } from '../lib/roles';
 import { AUTHORIZED_NAV_ITEMS, type NavItemConfig } from '../lib/navigation';
@@ -342,71 +342,67 @@ export function CanonicalShell({
               activeModule === 'staff'
             }
           >
-            {activeModule === 'bookings' ? (
-              <div className="bookings-module-wrapper">
-                <div className="workspace-page-header visually-hidden-module-header">
-                  <h1
-                    className="workspace-page-title"
-                    data-testid="active-module-title"
-                  >
-                    {currentNavConfig.label}
-                  </h1>
-                </div>
-                <BookingsView authContext={authContext} />
-              </div>
-            ) : activeModule === 'customers' ? (
-              <div className="bookings-module-wrapper customers-module-wrapper">
-                <div className="workspace-page-header visually-hidden-module-header">
-                  <h1
-                    className="workspace-page-title"
-                    data-testid="active-module-title"
-                  >
-                    {currentNavConfig.label}
-                  </h1>
-                </div>
-                <CustomersView authContext={authContext} />
-              </div>
-            ) : activeModule === 'staff' ? (
-              <div className="bookings-module-wrapper staff-module-wrapper">
-                <div className="workspace-page-header visually-hidden-module-header">
-                  <h1
-                    className="workspace-page-title"
-                    data-testid="active-module-title"
-                  >
-                    {currentNavConfig.label}
-                  </h1>
-                </div>
-                <StaffView authContext={authContext} />
-              </div>
-            ) : (
-              <>
-                {/* Module Workspace Header */}
-                <div className="workspace-page-header">
-                  <h1
-                    className="workspace-page-title"
-                    data-testid="active-module-title"
-                  >
-                    {currentNavConfig.label}
-                  </h1>
-                </div>
-
-                {/* Clean, quiet empty state placeholder */}
-                <div
-                  className="workspace-placeholder"
-                  data-testid="module-unavailable-panel"
-                >
-                  <div className="placeholder-icon-wrapper" aria-hidden="true">
-                    <ModuleIcon size={24} className="placeholder-icon" />
+            <ModuleWorkspaceMount>
+              {activeModule === 'bookings' ? (
+                <>
+                  <div className="workspace-page-header visually-hidden-module-header">
+                    <span className="sr-only" data-testid="active-module-title">
+                      {currentNavConfig.label}
+                    </span>
                   </div>
-                  <h2 className="placeholder-title">
-                    {currentNavConfig.label}
-                  </h2>
-                  <p className="placeholder-desc">
-                    This module is not yet available in the desktop client.
-                  </p>
-                </div>
-              </>
-            )}
+                  <BookingsView authContext={authContext} />
+                </>
+              ) : activeModule === 'customers' ? (
+                <>
+                  <div className="workspace-page-header visually-hidden-module-header">
+                    <span className="sr-only" data-testid="active-module-title">
+                      {currentNavConfig.label}
+                    </span>
+                  </div>
+                  <CustomersView authContext={authContext} />
+                </>
+              ) : activeModule === 'staff' ? (
+                <>
+                  <div className="workspace-page-header visually-hidden-module-header">
+                    <span className="sr-only" data-testid="active-module-title">
+                      {currentNavConfig.label}
+                    </span>
+                  </div>
+                  <StaffView authContext={authContext} />
+                </>
+              ) : (
+                <>
+                  {/* Module Workspace Header */}
+                  <div className="workspace-page-header">
+                    <h1
+                      className="workspace-page-title"
+                      data-testid="active-module-title"
+                    >
+                      {currentNavConfig.label}
+                    </h1>
+                  </div>
+
+                  {/* Clean, quiet empty state placeholder */}
+                  <div
+                    className="workspace-placeholder"
+                    data-testid="module-unavailable-panel"
+                  >
+                    <div
+                      className="placeholder-icon-wrapper"
+                      aria-hidden="true"
+                    >
+                      <ModuleIcon size={24} className="placeholder-icon" />
+                    </div>
+                    <h2 className="placeholder-title">
+                      {currentNavConfig.label}
+                    </h2>
+                    <p className="placeholder-desc">
+                      This module is not yet available in the desktop client.
+                    </p>
+                  </div>
+                </>
+              )}
+            </ModuleWorkspaceMount>
           </ModuleWorkspaceHost>
         </main>
       </div>

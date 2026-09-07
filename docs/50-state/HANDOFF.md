@@ -15,9 +15,10 @@ Summary of Stage 05 Deliverables:
 
 1. **Canonical Shared Workspace Primitives (`src/components/workspace/`)**:
    - `ModuleWorkspaceHost`: Neutral structural mount boundary in `CanonicalShell`.
-   - `ModuleWorkspace`: Top-level workspace layout container.
+   - `ModuleWorkspaceMount`: Neutral structural mount container in `CanonicalShell`.
+   - `ModuleWorkspace`: Top-level workspace layout container without duplicate `main` landmarks.
    - `ModuleHeader`: Standardized header with title, subtitle, refresh button, primary action button, and custom action slots.
-   - `ModuleSummary`: Composable KPI metrics (`ModuleSummaryCard`, `ModuleKpiGrid`, `ModuleKpiCell`).
+   - `ModuleSummary`: Composable KPI metrics (`ModuleSummaryCard`, `ModuleKpiGrid`, `ModuleKpiCell` with native `<button type="button">` for interactive cells).
    - `ModuleMainGrid`: Standard 2-column layout (`ModulePrimaryColumn`, `ModuleInspectorColumn`).
    - `ModulePrimaryCard`: White operational card container.
    - `ModuleTabs`: Accessible in-card tab strip with ARIA keyboard navigation.
@@ -30,10 +31,10 @@ Summary of Stage 05 Deliverables:
 2. **Module Migrations**:
    - **Bookings**: Fully migrated to canonical workspace primitives with zero visual or behavioral regression.
    - **Staff**: Fully migrated to canonical workspace primitives, maintaining all 6 tabs, persistent summary, and sibling inspector with zero visual regression.
-   - **Customers**: Unaffected; mounts cleanly inside `ModuleWorkspaceHost`.
+   - **Customers**: Unaffected; mounts cleanly inside `ModuleWorkspaceHost` & `ModuleWorkspaceMount`.
    - **Placeholders**: Maintained truthful unavailable messages without background DOM persistence or fake dashboards.
 3. **Verification**:
-   - All 14 test suites and 288 tests passing cleanly.
+   - All 14 test suites and 290 tests passing cleanly.
    - ESLint, TypeScript, Vite build, Prettier format check, and git diff check passing with 0 errors.
 4. **Next Steps**:
    - Owner and ChatGPT independent review.

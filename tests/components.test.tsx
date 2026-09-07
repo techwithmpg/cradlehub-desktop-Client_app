@@ -385,6 +385,58 @@ describe('Stage 01 UI Components', () => {
       await user.click(screen.getByTestId('dropdown-signout-button'));
       expect(handleSignOut).toHaveBeenCalled();
     });
+
+    it('mounts active modules into a single neutral ModuleWorkspaceHost without module-specific shell wrappers or hidden inactive modules', async () => {
+      const user = userEvent.setup();
+      render(
+        <CanonicalShell
+          authContext={mockAuthContext}
+          onSignOut={vi.fn()}
+          isSigningOut={false}
+          signOutError={null}
+        />,
+      );
+
+      // Verify exactly one ModuleWorkspaceHost exists
+      const hosts = screen.getAllByTestId('module-workspace-host');
+      expect(hosts).toHaveLength(1);
+
+      // Initial: Today placeholder
+      expect(screen.getByTestId('active-module-title').textContent).toBe(
+        'Today',
+      );
+      expect(screen.queryByTestId('bookings-view-container')).toBeNull();
+      expect(screen.queryByTestId('customers-view-container')).toBeNull();
+      expect(screen.queryByTestId('staff-view-container')).toBeNull();
+
+      // Navigate to Bookings
+      await user.click(screen.getByTestId('nav-item-bookings'));
+      expect(screen.getByTestId('active-module-title').textContent).toBe(
+        'Bookings',
+      );
+      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
+      expect(screen.queryByTestId('customers-view-container')).toBeNull();
+      expect(screen.queryByTestId('staff-view-container')).toBeNull();
+      expect(screen.queryByTestId('module-unavailable-panel')).toBeNull();
+
+      // Navigate to Customers
+      await user.click(screen.getByTestId('nav-item-customers'));
+      expect(screen.getByTestId('active-module-title').textContent).toBe(
+        'Customers',
+      );
+      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
+      expect(screen.queryByTestId('bookings-view-container')).toBeNull();
+      expect(screen.queryByTestId('staff-view-container')).toBeNull();
+
+      // Navigate to Staff
+      await user.click(screen.getByTestId('nav-item-staff'));
+      expect(screen.getByTestId('active-module-title').textContent).toBe(
+        'Staff',
+      );
+      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
+      expect(screen.queryByTestId('bookings-view-container')).toBeNull();
+      expect(screen.queryByTestId('customers-view-container')).toBeNull();
+    });
   });
 
   describe('App integration flows', () => {

@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   ModuleWorkspaceHost,
+  ModuleWorkspaceMount,
   ModuleWorkspace,
   ModuleHeader,
   ModuleSummaryCard,
@@ -48,8 +49,22 @@ describe('Canonical Module Workspace Components', () => {
     });
   });
 
+  describe('ModuleWorkspaceMount', () => {
+    it('renders neutral structural mount container with canonical wrapper class', () => {
+      render(
+        <ModuleWorkspaceMount testId="test-mount">
+          <div>Mounted Content</div>
+        </ModuleWorkspaceMount>,
+      );
+
+      const mount = screen.getByTestId('test-mount');
+      expect(mount.className).toContain('bookings-module-wrapper');
+      expect(screen.getByText('Mounted Content')).toBeDefined();
+    });
+  });
+
   describe('ModuleWorkspace', () => {
-    it('renders main container with role and aria-label', () => {
+    it('renders neutral layout container without nested main role', () => {
       render(
         <ModuleWorkspace
           ariaLabel="Test Management"
@@ -60,7 +75,7 @@ describe('Canonical Module Workspace Components', () => {
       );
 
       const root = screen.getByTestId('test-workspace-root');
-      expect(root.getAttribute('role')).toBe('main');
+      expect(root.getAttribute('role')).toBeNull();
       expect(root.getAttribute('aria-label')).toBe('Test Management');
       expect(root.className).toContain('bookings-view-container');
     });
@@ -120,7 +135,7 @@ describe('Canonical Module Workspace Components', () => {
   });
 
   describe('ModuleSummary & KPI Grid', () => {
-    it('renders summary card with grid and clickable KPI cell', () => {
+    it('renders summary card with grid and native button interactive KPI cell', () => {
       const handleClick = vi.fn();
 
       render(
@@ -134,6 +149,12 @@ describe('Canonical Module Workspace Components', () => {
               onClick={handleClick}
               testId="kpi-active"
             />
+            <ModuleKpiCell
+              label="Static Total"
+              count={100}
+              subtext="Total count"
+              testId="kpi-static"
+            />
           </ModuleKpiGrid>
         </ModuleSummaryCard>,
       );
@@ -142,12 +163,15 @@ describe('Canonical Module Workspace Components', () => {
       expect(screen.getByText('42')).toBeDefined();
       expect(screen.getByText('Real-time count')).toBeDefined();
 
-      const cell = screen.getByTestId('kpi-active');
-      fireEvent.click(cell);
+      const btn = screen.getByRole('button', { name: /Active Bookings/i });
+      expect(btn).toBeDefined();
+      expect(btn.tagName.toLowerCase()).toBe('button');
+      fireEvent.click(btn);
       expect(handleClick).toHaveBeenCalledTimes(1);
 
-      fireEvent.keyDown(cell, { key: 'Enter' });
-      expect(handleClick).toHaveBeenCalledTimes(2);
+      const staticCell = screen.getByTestId('kpi-static');
+      expect(staticCell.tagName.toLowerCase()).toBe('div');
+      expect(staticCell.getAttribute('role')).toBe('article');
     });
   });
 

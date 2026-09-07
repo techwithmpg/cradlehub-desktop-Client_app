@@ -22,7 +22,6 @@ export const ModuleWorkspace: React.FC<ModuleWorkspaceProps> = ({
   return (
     <div
       className={`bookings-view-container ${className}`.trim()}
-      role="main"
       aria-label={ariaLabel}
       data-testid={testId}
     >

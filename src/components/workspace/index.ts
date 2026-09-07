@@ -1,4 +1,5 @@
 export * from './ModuleWorkspaceHost';
+export * from './ModuleWorkspaceMount';
 export * from './ModuleWorkspace';
 export * from './ModuleHeader';
 export * from './ModuleSummary';

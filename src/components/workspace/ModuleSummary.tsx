@@ -62,31 +62,39 @@ export const ModuleKpiCell: React.FC<ModuleKpiCellProps> = ({
   testId,
   ariaLabel,
 }) => {
-  return (
-    <div
-      className={`bookings-kpi-cell ${accentClass} ${onClick ? 'interactive' : ''} ${className}`.trim()}
-      onClick={onClick}
-      role={onClick ? 'button' : 'article'}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={
-        onClick
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onClick();
-              }
-            }
-          : undefined
-      }
-      aria-label={ariaLabel || `${label}: ${count}`}
-      data-testid={testId}
-    >
+  const content = (
+    <>
       <div className="bookings-kpi-cell-top">
         {icon && <div className="bookings-kpi-icon-wrapper">{icon}</div>}
         <span className="bookings-kpi-label">{label}</span>
       </div>
       <div className="bookings-kpi-count">{count}</div>
       {subtext && <div className="bookings-kpi-subtext">{subtext}</div>}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={`bookings-kpi-cell ${accentClass} interactive ${className}`.trim()}
+        onClick={onClick}
+        aria-label={ariaLabel || `${label}: ${count}`}
+        data-testid={testId}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={`bookings-kpi-cell ${accentClass} ${className}`.trim()}
+      role="article"
+      aria-label={ariaLabel || `${label}: ${count}`}
+      data-testid={testId}
+    >
+      {content}
     </div>
   );
 };

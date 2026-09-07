@@ -12,9 +12,10 @@ Stage 05 (Canonical Module Workspace) is **IN REVIEW / PUSHED AND STOPPED** on `
 - **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
 - **Canonical Workspace Family**:
   - `src/components/workspace/ModuleWorkspaceHost.tsx`: Permanent neutral structural host in `CanonicalShell`.
-  - `src/components/workspace/ModuleWorkspace.tsx`: Top-level workspace layout container (`.bookings-view-container`).
+  - `src/components/workspace/ModuleWorkspaceMount.tsx`: Neutral structural mount container in `CanonicalShell`.
+  - `src/components/workspace/ModuleWorkspace.tsx`: Top-level workspace layout container (`.bookings-view-container`) as neutral container without nested main landmark.
   - `src/components/workspace/ModuleHeader.tsx`: Canonical header primitive with title, subtitle, refresh button, primary action button, and custom slots.
-  - `src/components/workspace/ModuleSummary.tsx`: Composable KPI metrics (`ModuleSummaryCard`, `ModuleKpiGrid`, `ModuleKpiCell`).
+  - `src/components/workspace/ModuleSummary.tsx`: Composable KPI metrics (`ModuleSummaryCard`, `ModuleKpiGrid`, `ModuleKpiCell` with native button elements for interactive cells).
   - `src/components/workspace/ModuleMainGrid.tsx`: 2-column grid (`.bookings-main-grid`) with `ModulePrimaryColumn` and `ModuleInspectorColumn`.
   - `src/components/workspace/ModulePrimaryCard.tsx`: Operational card surface (`.bookings-list-card`).
   - `src/components/workspace/ModuleTabs.tsx`: In-card tab strip with ARIA and keyboard navigation.
@@ -27,10 +28,10 @@ Stage 05 (Canonical Module Workspace) is **IN REVIEW / PUSHED AND STOPPED** on `
 - **Module Migration**:
   - `Bookings`: Completely migrated to canonical primitives with zero visual or functional change.
   - `Staff`: Completely migrated to canonical primitives preserving all 6 functional tabs, persistent summary, and sibling inspector with zero visual change.
-  - `Customers`: Compatibility preserved with `ModuleWorkspaceHost`. No redesign.
+  - `Customers`: Compatibility preserved with `ModuleWorkspaceHost` & `ModuleWorkspaceMount`. No redesign.
   - `Placeholders`: Kept truthful unavailable state; no fake dashboards or speculative caches.
 - **Verification Baseline on Branch**:
-  - 288 passing vitest tests across 14 test files (including 16 new canonical component tests).
+  - 290 passing vitest tests across 14 test files (including 17 new canonical component tests and 20 shell integration tests).
   - ESLint 0 errors / 0 warnings.
   - TypeScript `tsc --noEmit` clean.
   - Vite production build clean.

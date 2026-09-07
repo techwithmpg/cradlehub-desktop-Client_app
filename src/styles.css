@@ -1490,6 +1490,11 @@ body {
   display: flex;
   flex-direction: column;
   transition: all 0.15s ease;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  box-sizing: border-box;
 }
 
 .bookings-kpi-cell.interactive:hover {
