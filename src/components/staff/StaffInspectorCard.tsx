@@ -9,6 +9,7 @@ import type {
   UpdateStaffProfileInput,
 } from '../../types/staff';
 import { updateStaffProfile } from '../../lib/staff-service';
+import { ModuleInspectorFrame, ModuleInspectorEmptyState } from '../workspace';
 
 export type StaffInspectorTab = 'overview' | 'services' | 'access';
 
@@ -239,37 +240,17 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
 
     if (!isAppSelected || !application) {
       return (
-        <div
-          className="booking-inspector-card empty staff-inspector-card staff-context-inspector"
-          role="region"
-          aria-label="Staff Application Inspector"
-          data-testid="staff-context-inspector"
+        <ModuleInspectorFrame
+          isEmpty
+          className="staff-inspector-card staff-context-inspector"
+          ariaLabel="Staff Application Inspector"
+          testId="staff-context-inspector"
         >
-          <div className="inspector-empty-container">
-            <div className="inspector-empty-icon-circle">
-              <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-            </div>
-            <h4 className="inspector-empty-heading">No Application Selected</h4>
-            <p className="inspector-empty-text">
-              Select an applicant from the list to review contact information
-              and configure branch onboarding.
-            </p>
-          </div>
-        </div>
+          <ModuleInspectorEmptyState
+            title="No Application Selected"
+            description="Select an applicant from the list to review contact information and configure branch onboarding."
+          />
+        </ModuleInspectorFrame>
       );
     }
 
@@ -518,18 +499,27 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   const isStaffSelected = Boolean(staff && selectedStaffId !== '');
 
   if (!isStaffSelected || !staff) {
+    const emptyDescription =
+      activeTab === 'schedule'
+        ? 'Select a staff member from the list to inspect their schedule, view working hours, and record overrides.'
+        : activeTab === 'capabilities'
+          ? 'Select a staff member from the list to view assigned capabilities and launch the full capability editor.'
+          : activeTab === 'roles'
+            ? 'Select a staff member from the list to review their system permissions and modify administrative access roles.'
+            : 'Select a staff member from the roster to view their complete operational profile, assigned services, and access permissions.';
+
     return (
-      <div
-        className="booking-inspector-card empty staff-inspector-card staff-context-inspector"
-        role="region"
-        aria-label="Staff Details Inspector"
-        data-testid="staff-context-inspector"
+      <ModuleInspectorFrame
+        isEmpty
+        className="staff-inspector-card staff-context-inspector"
+        ariaLabel="Staff Details Inspector"
+        testId="staff-context-inspector"
       >
-        <div
-          className="inspector-empty-container"
-          data-testid="staff-inspector-empty"
-        >
-          <div className="inspector-empty-icon-circle">
+        <ModuleInspectorEmptyState
+          title="No Staff Selected"
+          description={emptyDescription}
+          testId="staff-inspector-empty"
+          icon={
             <svg
               viewBox="0 0 24 24"
               width="28"
@@ -543,19 +533,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />
             </svg>
-          </div>
-          <h4 className="inspector-empty-heading">No Staff Selected</h4>
-          <p className="inspector-empty-text">
-            {activeTab === 'schedule'
-              ? 'Select a staff member from the list to inspect their schedule, view working hours, and record overrides.'
-              : activeTab === 'capabilities'
-                ? 'Select a staff member from the list to view assigned capabilities and launch the full capability editor.'
-                : activeTab === 'roles'
-                  ? 'Select a staff member from the list to review their system permissions and modify administrative access roles.'
-                  : 'Select a staff member from the roster to view their complete operational profile, assigned services, and access permissions.'}
-          </p>
-        </div>
-      </div>
+          }
+        />
+      </ModuleInspectorFrame>
     );
   }
 

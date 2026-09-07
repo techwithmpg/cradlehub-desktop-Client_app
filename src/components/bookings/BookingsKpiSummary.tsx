@@ -1,5 +1,10 @@
 import React from 'react';
 import type { BookingKpiSummary } from '../../types/bookings';
+import {
+  ModuleSummaryCard,
+  ModuleKpiGrid,
+  ModuleKpiCell,
+} from '../workspace/ModuleSummary';
 
 interface BookingsKpiSummaryProps {
   kpis: BookingKpiSummary;
@@ -140,29 +145,21 @@ export const BookingsKpiSummaryCard: React.FC<BookingsKpiSummaryProps> = ({
   ];
 
   return (
-    <div
-      className="bookings-kpi-summary-card"
-      role="region"
-      aria-label="Bookings KPI Summary"
-    >
-      <div className="bookings-kpi-grid">
+    <ModuleSummaryCard ariaLabel="Bookings KPI Summary">
+      <ModuleKpiGrid>
         {items.map((item) => (
-          <div
+          <ModuleKpiCell
             key={item.key}
-            className={`bookings-kpi-cell ${item.accentClass} ${onKpiClick ? 'interactive' : ''}`}
-            onClick={() => onKpiClick?.(item.key)}
-            role="article"
-            aria-label={`${item.data.label}: ${item.data.count}`}
-          >
-            <div className="bookings-kpi-cell-top">
-              <div className="bookings-kpi-icon-wrapper">{item.icon}</div>
-              <span className="bookings-kpi-label">{item.data.label}</span>
-            </div>
-            <div className="bookings-kpi-count">{item.data.count}</div>
-            <div className="bookings-kpi-subtext">{item.data.subtext}</div>
-          </div>
+            label={item.data.label}
+            count={item.data.count}
+            subtext={item.data.subtext}
+            icon={item.icon}
+            accentClass={item.accentClass}
+            onClick={onKpiClick ? () => onKpiClick(item.key) : undefined}
+            ariaLabel={`${item.data.label}: ${item.data.count}`}
+          />
         ))}
-      </div>
-    </div>
+      </ModuleKpiGrid>
+    </ModuleSummaryCard>
   );
 };

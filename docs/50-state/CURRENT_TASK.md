@@ -1,17 +1,15 @@
 # Current Task
 
-Stage 04 — Staff: **ACCEPTED / MERGED / CLOSED**.
+Stage 05 — Canonical Module Body / Workspace Extraction: **READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
 
-- **Accepted Pre-Merge Baseline (BASE_SHA)**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4` on `main`.
-- **Accepted Stage 04 Branch Tip**: `34096a5b7faef05e4faa9379c845aec812d7136c` on `stage/04-staff`.
-- **Implementation Geometry Commit (IMPLEMENTATION_HEAD_SHA)**: `a7dcd763f86ae284ecc4370405897c58f92c45bf`.
+- **Accepted Pre-Stage Baseline (BASE_SHA)**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` on `main`.
+- **Branch**: `stage/05-canonical-module-workspace`.
 - **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`.
-- **Merge Style**: Fast-forward merge into `main`.
 
-Stage 04 Staff Status Summary:
+Stage 05 Workspace Extraction Status Summary:
 
-1. **Owner Confirmation**: Stage 04 Staff visual review completed; owner explicitly confirmed the final Staff workspace geometry looks correct and authorized merging into `main`.
-2. **Fast-Forward Merge**: `stage/04-staff` merged cleanly into `main` via fast-forward.
-3. **Implementation Verification**: Full validation pipeline passed on merged `main` (272 tests across 13 test files, 0 lint warnings, clean build).
-4. **Known Limitations Preserved**: `OFFBOARDING CONTRACT REQUIRED` and Performance contract-unavailable state.
-5. **Next Authorized Architectural Work**: Canonical Module Body / Workspace extraction — NOT STARTED.
+1. **Extraction Complete**: Created neutral canonical workspace component family in `src/components/workspace/` (13 primitives + export barrel).
+2. **Bookings & Staff Migrated**: Both Bookings and Staff fully migrated to consume canonical primitives with zero visual or functional regression.
+3. **ModuleWorkspaceHost Integrated**: Shell now mounts active modules through a single neutral `ModuleWorkspaceHost`. No hidden inactive DOM or background module execution.
+4. **Verification Passed**: All checks passed (288 tests across 14 test files, 0 lint warnings, clean build).
+5. **Next Step**: Owner & ChatGPT independent review. Schedule has NOT started and is NOT part of Stage 05.

@@ -34,6 +34,15 @@ import { StaffRoleModal } from './modals/StaffRoleModal';
 import { StaffApplicationApprovalModal } from './modals/StaffApplicationApprovalModal';
 import { StaffAddGuidanceModal } from './modals/StaffAddGuidanceModal';
 import { StaffOffboardingNoticeModal } from './modals/StaffOffboardingNoticeModal';
+import {
+  ModuleWorkspace,
+  ModuleLoadingState,
+  ModuleMainGrid,
+  ModulePrimaryColumn,
+  ModulePrimaryCard,
+  ModuleTabs,
+  ModuleInspectorColumn,
+} from '../workspace';
 
 interface StaffViewProps {
   authContext: AuthContext;
@@ -293,11 +302,28 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     };
   }, [staffList]);
 
+  const staffTabItems = useMemo(() => {
+    const pendingCount = onboardingRequests.filter(
+      (r) => r.status === 'submitted',
+    ).length;
+
+    return STAFF_TABS.map((tab) => {
+      let countBadge: React.ReactNode = null;
+      if (tab.id === 'roster') {
+        countBadge = <span className="tab-pill-badge">{staffList.length}</span>;
+      } else if (tab.id === 'applications' && pendingCount > 0) {
+        countBadge = <span className="tab-pill-badge">{pendingCount}</span>;
+      }
+      return {
+        id: tab.id,
+        label: tab.label,
+        badge: countBadge,
+      };
+    });
+  }, [onboardingRequests, staffList.length]);
+
   return (
-    <div
-      className="bookings-view-container staff-view-container"
-      data-testid="staff-view"
-    >
+    <ModuleWorkspace className="staff-view-container" testId="staff-view">
       {/* 1. Module Header */}
       <StaffHeader
         onRefresh={handleRefresh}
@@ -358,18 +384,10 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
 
       {/* Loading Skeleton */}
       {isLoading ? (
-        <div
-          className="bookings-loading-state"
-          aria-busy="true"
-          aria-label="Loading staff roster"
-          data-testid="staff-skeleton"
-        >
-          <div className="bookings-skeleton-kpi" />
-          <div className="bookings-skeleton-body-grid">
-            <div className="bookings-skeleton-list" />
-            <div className="bookings-skeleton-inspector" />
-          </div>
-        </div>
+        <ModuleLoadingState
+          ariaLabel="Loading staff roster"
+          testId="staff-skeleton"
+        />
       ) : (
         <div className="space-y-4">
           {/* 2. Persistent KPI / Summary Card (Mounted for all 6 tabs) */}
@@ -388,57 +406,21 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
           />
 
           {/* 3. Persistent 2-Column Grid */}
-          <div className="bookings-main-grid staff-main-grid">
+          <ModuleMainGrid className="staff-main-grid">
             {/* Left Column: Staff Management Card */}
-            <div className="bookings-list-column">
-              <div
-                className="bookings-list-card staff-management-card"
-                data-testid="staff-workspace-card"
+            <ModulePrimaryColumn>
+              <ModulePrimaryCard
+                className="staff-management-card"
+                testId="staff-workspace-card"
               >
                 {/* In-Card Primary Function Tabs (Mirroring Bookings Scope Tabs) */}
-                <div
-                  className="bookings-scope-tabs-container"
-                  role="tablist"
-                  aria-label="Staff Management Views"
-                >
-                  {STAFF_TABS.map((tab) => {
-                    const isActive = activeTab === tab.id;
-                    let countBadge: React.ReactNode = null;
-                    if (tab.id === 'roster') {
-                      countBadge = (
-                        <span className="tab-pill-badge">
-                          {staffList.length}
-                        </span>
-                      );
-                    } else if (tab.id === 'applications') {
-                      const pendingCount = onboardingRequests.filter(
-                        (r) => r.status === 'submitted',
-                      ).length;
-                      if (pendingCount > 0) {
-                        countBadge = (
-                          <span className="tab-pill-badge">{pendingCount}</span>
-                        );
-                      }
-                    }
-
-                    return (
-                      <button
-                        key={tab.id}
-                        role="tab"
-                        type="button"
-                        aria-selected={isActive}
-                        className={`bookings-scope-tab-btn ${isActive ? 'active' : ''}`}
-                        onClick={() => {
-                          setActiveTab(tab.id);
-                        }}
-                        data-testid={`staff-primary-tab-${tab.id}`}
-                      >
-                        <span>{tab.label}</span>
-                        {countBadge}
-                      </button>
-                    );
-                  })}
-                </div>
+                <ModuleTabs<StaffPrimaryTab>
+                  tabs={staffTabItems}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  ariaLabel="Staff Management Views"
+                  getTabTestId={(id) => `staff-primary-tab-${id}`}
+                />
 
                 {/* TAB 1: Staff Roster Content */}
                 {activeTab === 'roster' && (
@@ -503,11 +485,11 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     onOpenRoleModal={(m) => setRoleModalStaff(m)}
                   />
                 )}
-              </div>
-            </div>
+              </ModulePrimaryCard>
+            </ModulePrimaryColumn>
 
             {/* Right Column: Persistent Context Inspector Shell */}
-            <div className="bookings-inspector-column">
+            <ModuleInspectorColumn>
               <StaffContextInspector
                 activeTab={activeTab}
                 staff={selectedStaff}
@@ -536,8 +518,8 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   setActiveTab('roster');
                 }}
               />
-            </div>
-          </div>
+            </ModuleInspectorColumn>
+          </ModuleMainGrid>
         </div>
       )}
 
@@ -605,6 +587,6 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         onClose={() => setOffboardingModalStaff(null)}
         staff={offboardingModalStaff}
       />
-    </div>
+    </ModuleWorkspace>
   );
 };

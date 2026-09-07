@@ -5,6 +5,14 @@ import type {
   BookingScopeTab,
   BookingStatus,
 } from '../../types/bookings';
+import {
+  ModulePrimaryCard,
+  ModuleTabs,
+  ModuleToolbar,
+  ModuleDataGridFrame,
+  ModuleTable,
+  ModulePagination,
+} from '../workspace';
 
 interface BookingsListCardProps {
   bookings: Booking[];
@@ -161,39 +169,20 @@ export const BookingsListCard: React.FC<BookingsListCardProps> = ({
   );
 
   return (
-    <div
-      className="bookings-list-card"
-      role="region"
-      aria-label="Bookings List"
-    >
+    <ModulePrimaryCard ariaLabel="Bookings List">
       {/* 1. Scope Tabs */}
-      <div
-        className="bookings-scope-tabs-container"
-        role="tablist"
-        aria-label="Booking Scopes"
-      >
-        {SCOPE_TABS.map((tab) => {
-          const isActive = activeScope === tab.id;
-          return (
-            <button
-              key={tab.id}
-              role="tab"
-              type="button"
-              aria-selected={isActive}
-              className={`bookings-scope-tab-btn ${isActive ? 'active' : ''}`}
-              onClick={() => {
-                onScopeChange(tab.id);
-                onPageChange(1);
-              }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <ModuleTabs<BookingScopeTab>
+        tabs={SCOPE_TABS}
+        activeTab={activeScope}
+        onTabChange={(tabId) => {
+          onScopeChange(tabId);
+          onPageChange(1);
+        }}
+        ariaLabel="Booking Scopes"
+      />
 
       {/* 2. Filter Toolbar */}
-      <div className="bookings-toolbar-container">
+      <ModuleToolbar>
         <div className="bookings-search-wrapper">
           <svg
             className="bookings-search-icon"
@@ -315,14 +304,10 @@ export const BookingsListCard: React.FC<BookingsListCardProps> = ({
             </button>
           )}
         </div>
-      </div>
+      </ModuleToolbar>
 
       {/* 3. DataGrid / Table */}
-      <div
-        className="bookings-datagrid-wrapper"
-        role="region"
-        aria-label="Bookings DataGrid"
-      >
+      <ModuleDataGridFrame>
         {paginatedBookings.length === 0 ? (
           <div className="bookings-table-empty-state">
             <div className="bookings-empty-icon-circle">
@@ -359,7 +344,7 @@ export const BookingsListCard: React.FC<BookingsListCardProps> = ({
             )}
           </div>
         ) : (
-          <table className="bookings-table" aria-label="Bookings Table">
+          <ModuleTable aria-label="Bookings Table">
             <thead>
               <tr>
                 <th scope="col" className="th-time">
@@ -544,65 +529,22 @@ export const BookingsListCard: React.FC<BookingsListCardProps> = ({
                 );
               })}
             </tbody>
-          </table>
+          </ModuleTable>
         )}
-      </div>
+      </ModuleDataGridFrame>
 
       {/* 4. Pagination Footer */}
-      <div className="bookings-table-footer">
-        <div className="footer-count-text">
-          Showing <span className="count-highlight">{startRecord}</span>–
-          <span className="count-highlight">{endRecord}</span> of{' '}
-          <span className="count-highlight">{totalItems}</span> bookings
-        </div>
-
-        <div className="footer-pagination-controls">
-          <div className="page-size-selector-wrapper">
-            <span className="page-size-label">Rows per page:</span>
-            <select
-              className="page-size-select"
-              value={pageSize}
-              onChange={(e) => {
-                onPageSizeChange(Number(e.target.value));
-                onPageChange(1);
-              }}
-              aria-label="Rows per page"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-
-          <div className="pagination-buttons">
-            <button
-              type="button"
-              className="pagination-btn"
-              onClick={() => onPageChange(Math.max(1, validCurrentPage - 1))}
-              disabled={validCurrentPage <= 1}
-              aria-label="Previous Page"
-            >
-              &larr; Prev
-            </button>
-
-            <span className="pagination-page-indicator">
-              Page {validCurrentPage} of {totalPages}
-            </span>
-
-            <button
-              type="button"
-              className="pagination-btn"
-              onClick={() =>
-                onPageChange(Math.min(totalPages, validCurrentPage + 1))
-              }
-              disabled={validCurrentPage >= totalPages}
-              aria-label="Next Page"
-            >
-              Next &rarr;
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <ModulePagination
+        startRecord={startRecord}
+        endRecord={endRecord}
+        totalItems={totalItems}
+        entityLabel="bookings"
+        pageSize={pageSize}
+        currentPage={validCurrentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </ModulePrimaryCard>
   );
 };

@@ -4,6 +4,12 @@ import type {
   StaffMember,
   StaffStatusFilter,
 } from '../../types/staff';
+import {
+  ModuleToolbar,
+  ModuleDataGridFrame,
+  ModuleTable,
+  ModulePagination,
+} from '../workspace';
 
 interface StaffListCardProps {
   staffList: StaffMember[];
@@ -138,7 +144,7 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
   return (
     <div className="staff-roster-content-wrapper" data-testid="staff-list-card">
       {/* Filter Toolbar matching BookingsToolbar */}
-      <div className="bookings-toolbar-container">
+      <ModuleToolbar>
         <div className="bookings-search-wrapper">
           <svg
             className="bookings-search-icon"
@@ -219,7 +225,7 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
             <option value="all">All Staff Types</option>
             {staffTypes.map((t) => (
               <option key={t} value={t}>
-                {t.replace(/_/g, ' ')}
+                {t}
               </option>
             ))}
           </select>
@@ -258,10 +264,10 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
             </button>
           )}
         </div>
-      </div>
+      </ModuleToolbar>
 
       {/* Dense Operational DataGrid matching Bookings */}
-      <div className="bookings-datagrid-wrapper">
+      <ModuleDataGridFrame>
         {totalItems === 0 ? (
           <div
             className="bookings-table-empty-state"
@@ -307,8 +313,8 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
             )}
           </div>
         ) : (
-          <table
-            className="bookings-table staff-roster-table"
+          <ModuleTable
+            className="staff-roster-table"
             aria-label="Staff Roster Table"
           >
             <colgroup>
@@ -478,65 +484,22 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
                 );
               })}
             </tbody>
-          </table>
+          </ModuleTable>
         )}
-      </div>
+      </ModuleDataGridFrame>
 
       {/* Pagination Footer matching Bookings */}
-      <div className="bookings-table-footer">
-        <div className="footer-count-text">
-          Showing <span className="count-highlight">{startRecord}</span>–
-          <span className="count-highlight">{endRecord}</span> of{' '}
-          <span className="count-highlight">{totalItems}</span> staff
-        </div>
-
-        <div className="footer-pagination-controls">
-          <div className="page-size-selector-wrapper">
-            <span className="page-size-label">Rows per page:</span>
-            <select
-              className="page-size-select"
-              value={pageSize}
-              onChange={(e) => {
-                onPageSizeChange(Number(e.target.value));
-                onPageChange(1);
-              }}
-              aria-label="Rows per page"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-
-          <div className="pagination-buttons">
-            <button
-              type="button"
-              className="pagination-btn"
-              onClick={() => onPageChange(Math.max(1, validCurrentPage - 1))}
-              disabled={validCurrentPage <= 1}
-              aria-label="Previous page"
-            >
-              &larr; Prev
-            </button>
-
-            <span className="pagination-page-indicator">
-              Page {validCurrentPage} of {totalPages}
-            </span>
-
-            <button
-              type="button"
-              className="pagination-btn"
-              onClick={() =>
-                onPageChange(Math.min(totalPages, validCurrentPage + 1))
-              }
-              disabled={validCurrentPage >= totalPages}
-              aria-label="Next page"
-            >
-              Next &rarr;
-            </button>
-          </div>
-        </div>
-      </div>
+      <ModulePagination
+        startRecord={startRecord}
+        endRecord={endRecord}
+        totalItems={totalItems}
+        entityLabel="staff"
+        pageSize={pageSize}
+        currentPage={validCurrentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </div>
   );
 };

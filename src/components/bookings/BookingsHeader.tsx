@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ModuleHeader } from '../workspace/ModuleHeader';
 
 interface BookingsHeaderProps {
   onRefresh?: () => void;
@@ -22,68 +23,20 @@ export const BookingsHeader: React.FC<BookingsHeaderProps> = ({
   };
 
   return (
-    <div className="bookings-header-container">
-      <div className="bookings-header-left">
-        <h1 className="bookings-header-title">Bookings</h1>
-        <p className="bookings-header-subtitle">
-          Create, manage, and review all bookings across channels.
-        </p>
-      </div>
-
-      <div className="bookings-header-right">
-        {onRefresh && (
-          <button
-            type="button"
-            className="bookings-header-refresh-btn"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            title="Refresh Bookings"
-            aria-label="Refresh Bookings"
-          >
-            <svg
-              className={`bookings-header-refresh-icon ${isRefreshing ? 'spin' : ''}`}
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-            <span className="bookings-header-refresh-text">Refresh</span>
-          </button>
-        )}
-
-        <button
-          type="button"
-          className="bookings-header-primary-btn"
-          onClick={handleNewBookingClick}
-          aria-label="Create New Booking"
-          data-testid="new-booking-button"
-        >
-          <svg
-            className="bookings-header-btn-icon"
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span>New Booking</span>
-        </button>
-      </div>
-
+    <ModuleHeader
+      title="Bookings"
+      subtitle="Create, manage, and review all bookings across channels."
+      onRefresh={onRefresh}
+      isRefreshing={isRefreshing}
+      refreshTitle="Refresh Bookings"
+      refreshAriaLabel="Refresh Bookings"
+      primaryAction={{
+        label: 'New Booking',
+        onClick: handleNewBookingClick,
+        ariaLabel: 'Create New Booking',
+        testId: 'new-booking-button',
+      }}
+    >
       {showNotice && (
         <div
           className="bookings-modal-backdrop"
@@ -131,6 +84,6 @@ export const BookingsHeader: React.FC<BookingsHeaderProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </ModuleHeader>
   );
 };

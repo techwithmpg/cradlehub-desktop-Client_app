@@ -15,6 +15,15 @@ import { BookingsKpiSummaryCard } from './BookingsKpiSummary';
 import { BookingsListCard } from './BookingsListCard';
 import { BookingInspectorCard } from './BookingInspectorCard';
 import { NewBookingModal } from './NewBookingModal';
+import {
+  ModuleWorkspace,
+  ModuleSuccessBanner,
+  ModuleErrorBanner,
+  ModuleLoadingState,
+  ModuleMainGrid,
+  ModulePrimaryColumn,
+  ModuleInspectorColumn,
+} from '../workspace';
 
 interface BookingsViewProps {
   authContext: AuthContext;
@@ -181,12 +190,7 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
   }, []);
 
   return (
-    <div
-      className="bookings-view-container"
-      role="main"
-      aria-label="Bookings Management"
-      data-testid="bookings-view"
-    >
+    <ModuleWorkspace ariaLabel="Bookings Management" testId="bookings-view">
       {/* Module Header */}
       <BookingsHeader
         onRefresh={handleRefresh}
@@ -196,86 +200,37 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
 
       {/* Creation Notice Banner */}
       {creationNotice && (
-        <div
-          className="bookings-success-banner"
-          role="status"
-          data-testid="bookings-creation-notice"
-        >
-          <div className="bookings-notice-content">
-            <span className="bookings-notice-title">
-              {creationNotice.message}
-            </span>
-            {creationNotice.warning && (
-              <span className="bookings-notice-warning">
-                {creationNotice.warning}
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setCreationNotice(null)}
-            className="bookings-notice-dismiss"
-            aria-label="Dismiss message"
-          >
-            ×
-          </button>
-        </div>
+        <ModuleSuccessBanner
+          message={creationNotice.message}
+          warning={creationNotice.warning}
+          onDismiss={() => setCreationNotice(null)}
+          testId="bookings-creation-notice"
+        />
       )}
 
       {/* Error Banner */}
       {error && (
-        <div
-          className="bookings-error-banner"
-          role="alert"
-          data-testid="bookings-error-banner"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="bookings-retry-btn"
-          >
-            Retry
-          </button>
-        </div>
+        <ModuleErrorBanner
+          message={error}
+          onRetry={handleRefresh}
+          testId="bookings-error-banner"
+        />
       )}
 
       {/* Loading Skeleton */}
       {isLoading ? (
-        <div
-          className="bookings-loading-state"
-          aria-busy="true"
-          aria-label="Loading bookings"
-          data-testid="bookings-skeleton"
-        >
-          <div className="bookings-skeleton-kpi" />
-          <div className="bookings-skeleton-body-grid">
-            <div className="bookings-skeleton-list" />
-            <div className="bookings-skeleton-inspector" />
-          </div>
-        </div>
+        <ModuleLoadingState
+          ariaLabel="Loading bookings"
+          testId="bookings-skeleton"
+        />
       ) : (
         <>
           {/* Card A: KPI Summary */}
           <BookingsKpiSummaryCard kpis={kpis} onKpiClick={handleKpiClick} />
 
           {/* Cards B & C Grid */}
-          <div className="bookings-main-grid">
-            <div className="bookings-list-column">
+          <ModuleMainGrid>
+            <ModulePrimaryColumn>
               <BookingsListCard
                 bookings={filteredBookings}
                 selectedBookingId={selectedBooking?.id || null}
@@ -292,15 +247,15 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
                 servicesList={servicesList}
                 staffList={staffList}
               />
-            </div>
+            </ModulePrimaryColumn>
 
-            <div className="bookings-inspector-column">
+            <ModuleInspectorColumn>
               <BookingInspectorCard
                 booking={selectedBooking}
                 onClose={() => setSelectedBooking(null)}
               />
-            </div>
-          </div>
+            </ModuleInspectorColumn>
+          </ModuleMainGrid>
         </>
       )}
 
@@ -312,6 +267,6 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
         branchName={authContext.branchName}
         onBookingCreated={handleBookingCreated}
       />
-    </div>
+    </ModuleWorkspace>
   );
 };

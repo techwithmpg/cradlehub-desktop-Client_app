@@ -20,6 +20,7 @@ import {
 import { BookingsView } from './bookings/BookingsView';
 import { CustomersView } from './customers/CustomersView';
 import { StaffView } from './staff/StaffView';
+import { ModuleWorkspaceHost } from './workspace/ModuleWorkspaceHost';
 import type { AuthContext, NavModuleId } from '../types/auth';
 import { formatRoleLabel } from '../lib/roles';
 import { AUTHORIZED_NAV_ITEMS, type NavItemConfig } from '../lib/navigation';
@@ -334,8 +335,12 @@ export function CanonicalShell({
 
         {/* Operational Workspace Canvas */}
         <main id="main-content" className="workspace-content" tabIndex={-1}>
-          <div
-            className={`workspace-canvas ${activeModule === 'bookings' || activeModule === 'customers' || activeModule === 'staff' ? 'workspace-canvas-wide' : ''}`}
+          <ModuleWorkspaceHost
+            wide={
+              activeModule === 'bookings' ||
+              activeModule === 'customers' ||
+              activeModule === 'staff'
+            }
           >
             {activeModule === 'bookings' ? (
               <div className="bookings-module-wrapper">
@@ -402,7 +407,7 @@ export function CanonicalShell({
                 </div>
               </>
             )}
-          </div>
+          </ModuleWorkspaceHost>
         </main>
       </div>
     </div>
