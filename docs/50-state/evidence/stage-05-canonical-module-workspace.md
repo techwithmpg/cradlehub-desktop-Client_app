@@ -6,18 +6,20 @@
 - **Stage**: Stage 05 — Canonical Module Body / Workspace Extraction
 - **Branch**: `stage/05-canonical-module-workspace`
 - **BASE_SHA**: `9bd83ab8f05ace193d026de896b70f3a4eff363d`
-- **HEAD_SHA (implementation under review)**: `stage/05-canonical-module-workspace` tip (correction commit)
+- **PRIOR_REVIEW_SHA**: `5d0990507ba00cab30d3d6f1cfa4d9ad7703a0c6`
+- **IMPLEMENTATION_HEAD_SHA**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`
+- **EVIDENCE_ACCOUNTING_SHA**: `16035f77605c83f475813a8f812bc14da130552a`
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
-- **Current Status**: **STAGE 05 CANONICAL MODULE WORKSPACE REVIEW CORRECTIONS READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
-- **Owner Evidence Status**: **AWAITING OWNER VISUAL CONFIRMATION**.
-- **Stage Authorization**: Owner-authorized Stage 05 architectural extraction to consolidate the proven module workspace architecture from Bookings and Staff into one canonical workspace component family (`src/components/workspace/`), migrating Bookings and Staff to consume it with zero visual or functional regression.
+- **Current Status**: **STAGE 05 — READY FOR INDEPENDENT REVIEW / OWNER VISUAL CONFIRMATION PENDING**.
+- **Owner Evidence Status**: **OWNER VISUAL CONFIRMATION: PENDING**.
+- **Stage Authorization**: Owner-authorized Stage 05 architectural extraction to consolidate the proven module workspace architecture from Bookings and Staff into one canonical workspace component family (`src/components/workspace/`), migrating Bookings and Staff to consume it with no intentional visual change.
 
 ---
 
 ## 1. Executive Summary & Architectural Migration
 
-Stage 05 successfully extracts the proven workspace architecture from accepted **Bookings** and **Staff** implementations into a single, canonical React component family in `src/components/workspace/`.
+Stage 05 extracts the proven workspace architecture from accepted **Bookings** and **Staff** implementations into a single, canonical React component family in `src/components/workspace/`.
 
 ### Architecture Evolution:
 
@@ -103,7 +105,7 @@ Located in `src/components/workspace/`:
 
 - **Legacy Selector Encapsulation**: Existing CSS classes (`bookings-main-grid`, `bookings-list-column`, `bookings-inspector-column`, `bookings-list-card`, `bookings-scope-tabs-container`, `bookings-toolbar-container`, `bookings-datagrid-wrapper`, `bookings-table`, `booking-inspector-card`, `bookings-kpi-cell`) are encapsulated as internal implementation details of the canonical workspace components.
 - **Zero CSS Renaming**: No global CSS rename was performed, eliminating regression risk.
-- **Native Button Reset**: Smallest canonical CSS reset added for `.bookings-kpi-cell` (`font: inherit; text-align: left; width: 100%; color: inherit; box-sizing: border-box;`) to ensure native button elements match previous appearance with 100% fidelity.
+- **Native Button Reset**: The CSS reset added for `.bookings-kpi-cell` (`font: inherit; text-align: left; width: 100%; color: inherit; box-sizing: border-box;`) is intended to preserve the accepted appearance.
 - **No Second Token File**: Preserved all existing theme color, spacing, and font tokens in `src/styles.css`.
 
 ---
@@ -125,7 +127,7 @@ Located in `src/components/workspace/`:
 - `StaffHeader`: Refactored to thin wrapper over `<ModuleHeader>`.
 - `StaffListCard`: Refactored to compose `<ModuleToolbar>`, `<ModuleDataGridFrame>`, `<ModuleTable>`, and `<ModulePagination>`.
 - `StaffInspectorCard`: Refactored to compose `<ModuleInspectorFrame>` and `<ModuleInspectorEmptyState>`.
-- **Behavior Preservation**: All 6 tabs (`Roster`, `Schedule`, `Applications`, `Performance`, `Capabilities`, `Roles`), persistent `selectedStaffId`, isolated `selectedApplicationId`, full-width tables, and modals remain completely intact with zero visual regression.
+- **Behavior Preservation**: All 6 tabs (`Roster`, `Schedule`, `Applications`, `Performance`, `Capabilities`, `Roles`), persistent `selectedStaffId`, isolated `selectedApplicationId`, full-width tables, and modals remain completely intact. **NO INTENTIONAL VISUAL CHANGE**.
 
 ---
 
@@ -133,6 +135,7 @@ Located in `src/components/workspace/`:
 
 - **Customers Module**: Unmodified in internal composition. Mounts cleanly through `ModuleWorkspaceHost` and `ModuleWorkspaceMount`. No shell-level per-module wrapper classes.
 - **Shell Neutrality**: `CanonicalShell` no longer maintains module-specific CSS branches. A single `ModuleWorkspaceHost` wraps `ModuleWorkspaceMount`.
+- **Single Title Hook**: Exactly one neutral hidden test hook `data-testid="active-module-title"` is rendered at the root of `ModuleWorkspaceMount`.
 - **Placeholder Modules**: Today, Attendance, Schedule, Home Service, and Settings remain truthful empty states: _"This module is not yet available in the desktop client."_ No fake data.
 - **Module Lifecycle**: Only the active domain controller runs; inactive modules unmount cleanly. No speculative caching or background DOM keeping.
 
@@ -140,7 +143,7 @@ Located in `src/components/workspace/`:
 
 ## 7. Exact Changed Files Inventory (33 Files)
 
-Changed relative to accepted `main` baseline (`9bd83ab8f05ace193d026de896b70f3a4eff363d`):
+Changed relative to accepted `main` baseline (`9bd83ab8f05ace193d026de896b70f3a4eff363d`) through `IMPLEMENTATION_HEAD_SHA` (`409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`):
 
 ```text
 docs/50-state/CURRENT_STATE.md
@@ -180,23 +183,25 @@ tests/workspace-components.test.tsx
 
 ---
 
-## 8. Verification & Automated Test Results
+## 8. Split Validation Evidence
 
-All 14 test suites and 290 tests pass cleanly:
+### A. IMPLEMENTATION VALIDATION
+
+Executed at `IMPLEMENTATION_HEAD_SHA` (`409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`):
 
 ```bash
 pnpm format:check  # PASS (All matched files use Prettier code style)
 pnpm lint          # PASS (0 errors, 0 warnings)
 pnpm typecheck     # PASS (tsc --noEmit exited 0)
 pnpm test          # PASS (14 test files, 290 tests passed)
-pnpm build         # PASS (vite production client bundle built cleanly)
+pnpm build         # PASS (vite production client bundle built cleanly in 5.36s)
 git diff --check   # PASS (clean diff)
 ```
 
-### Test Suite Summary:
+#### Test Suite Summary:
 
 - `tests/workspace-components.test.tsx`: 17 tests (Canonical primitives unit tests including Host, Mount, neutral Workspace container, and native button KPI cells).
-- `tests/components.test.tsx`: 20 tests (Stage 01/Shell UI tests including single `ModuleWorkspaceHost` mounting, unmounting of inactive controllers, and tab transitions).
+- `tests/components.test.tsx`: 20 tests (Stage 01/Shell UI tests including single `ModuleWorkspaceHost`, single `ModuleWorkspaceMount`, single `active-module-title` hook, unmounting of inactive controllers, and tab transitions).
 - `tests/bookings-components.test.tsx`: 15 Bookings UI tests.
 - `tests/bookings-service.test.ts`: 33 Bookings service tests.
 - `tests/staff-components.test.tsx`: 18 Staff UI tests.
@@ -210,11 +215,22 @@ git diff --check   # PASS (clean diff)
 - `tests/hosted-json-response.test.ts`: 12 Envelope tests.
 - `tests/roles.test.ts`: 5 Role helper tests.
 
+### B. EVIDENCE ACCOUNTING VALIDATION
+
+Executed following documentation updates:
+
+```bash
+pnpm format:check  # Verified
+git diff --check   # Verified
+```
+
 ---
 
 ## 9. Runtime / Viewport Evidence
 
 **AGENT VIEWPORT QA**: NOT PERFORMED — exact runtime inspection unavailable in this agent environment. Owner runtime visual inspection remains required.
+
+**Visual Equivalence Assessment**: Repository-level structural and automated regression checks passed; runtime visual equivalence remains pending owner inspection.
 
 ---
 
@@ -228,7 +244,7 @@ git diff --check   # PASS (clean diff)
 
 ## 11. Known Limitations Preserved
 
-1. Legacy `bookings-*` CSS selector class names remain internal implementation details inside the canonical React workspace primitives to preserve zero visual regression.
+1. Legacy `bookings-*` CSS selector class names remain internal implementation details inside the canonical React workspace primitives.
 2. Complex domain modals (e.g., `NewBookingModal`, `StaffCapabilityModal`, `StaffRoleModal`, `StaffScheduleModal`) retain their domain structures and were intentionally not over-abstracted into a new dialog API.
 3. Customers module internal workspace composition has not been migrated (only shell-level mounting was neutralized).
 4. Stage 05 owner runtime visual confirmation is pending.
