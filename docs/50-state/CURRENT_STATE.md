@@ -5,15 +5,17 @@ Stage 01 is **ACCEPTED / MERGED / CLOSED** at `c9720805975004dbe11367f1ad9999270
 Stage 02 is **ACCEPTED / MERGED / CLOSED** at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03 is **ACCEPTED / MERGED / CLOSED** at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
 
-Stage 04 (Staff): **STAGE 04 STAFF FULL-WIDTH DATAGRID CORRECTION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**. Stage 04 Staff Management Workspace DataGrids corrected to naturally consume full available left card width using canonical `bookings-table` styling and proportional colgroups across all Staff views.
+Stage 04 (Staff): **STAGE 04 STAFF EVIDENCE RESTORATION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**. Complete Stage 04 Staff Management Workspace with full-width DataGrid utilization and persistent frame architecture.
 
 - **Active Branch**: `stage/04-staff`.
-- **Accepted Main BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`.
-- **Initial Audit Commit (INITIAL_AUDIT_SHA)**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`.
-- **Audit Confirmed Commit (AUDIT_CONFIRMED_SHA)**: `1fcd2b892d39a8b611a49825511bd34740fd2f7a`.
-- **Previous Functional SHA (PREVIOUS_FUNCTIONAL_SHA)**: `25e017b4504171f6f90b1cfaf3a8a5aab65b9065`.
-- **Frame Correction SHA (FRAME_CORRECTION_SHA)**: `d15ff7964d62e185e1aba9600c6f3350b097de4f`.
-- **Canonical Hosted Main SHA (HOSTED_SHA)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4` on `main`.
+- **HEAD_SHA**: `a7dcd763f86ae284ecc4370405897c58f92c45bf`.
+- **INITIAL_AUDIT_SHA**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`.
+- **AUDIT_CONFIRMED_SHA**: `1fcd2b892d39a8b611a49825511bd34740fd2f7a`.
+- **PREVIOUS_FUNCTIONAL_SHA**: `25e017b4504171f6f90b1cfaf3a8a5aab65b9065`.
+- **FRAME_CORRECTION_SHA**: `d15ff7964d62e185e1aba9600c6f3350b097de4f`.
+- **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
+- **Universal Workspace Status**: NOT STARTED — waiting for owner confirmation of final Staff workspace geometry.
 - **Staff Management Workspace Deliverables**:
   - Full-Width DataGrids: Replaced orphaned `bookings-datagrid` with canonical `bookings-table` across Roster, Applications, Capabilities, Roles, and Schedule views.
   - Column Distribution: Applied proportional colgroups (Staff Member 44%, Role/Function 28%, Status 17%, Action 11% on Roster) to span full card width cleanly.
