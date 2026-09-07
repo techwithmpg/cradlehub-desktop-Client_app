@@ -6,16 +6,17 @@
 - **Stage**: Stage 05 — Canonical Module Body / Workspace Extraction
 - **PRE_STAGE_MAIN_SHA**: `9bd83ab8f05ace193d026de896b70f3a4eff363d`
 - **ACCEPTED_STAGE_BRANCH_TIP**: `65c7eb371652c3f272b75bda55c437481867abc1` (`stage/05-canonical-module-workspace`)
+- **MAIN_AFTER_FAST_FORWARD**: `65c7eb371652c3f272b75bda55c437481867abc1`
+- **STAGE_05_CLOSEOUT_MAIN_SHA**: `19284eeb83db32c2e02d72f38010c1ac91a08b6f`
 - **PRIOR_REVIEW_SHA**: `5d0990507ba00cab30d3d6f1cfa4d9ad7703a0c6`
 - **IMPLEMENTATION_HEAD_SHA**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`
 - **PRIOR_EVIDENCE_ACCOUNTING_HEAD**: `9ae995b9cfd65c93836a7e7e1bb4ad49eb2092f8`
 - **MERGE_STYLE**: `FAST-FORWARD` (`git merge --ff-only`)
-- **MAIN_AFTER_FAST_FORWARD**: `65c7eb371652c3f272b75bda55c437481867abc1`
 - **HOSTED_REFERENCE**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **Current Status**: **STAGE 05 — ACCEPTED / MERGED / CLOSED** on `main`.
 - **OWNER CONFIRMATION**: Owner explicitly accepted Stage 05 after independent review.
-- **Accounting Note**: The SHA of the final documentation closeout commit on `main` is intentionally not self-embedded in this file. The final pushed `main` tip is recorded in the agent closeout report and independently verified from GitHub.
+- **Accounting Note**: The SHA of the documentation-only fix commit on `fix/stage-05-closeout-evidence` is intentionally not self-embedded in this file. The final pushed tip is recorded in the agent closeout report and independently verified from GitHub.
 - **Stage Authorization**: Owner-authorized Stage 05 architectural extraction to consolidate the proven module workspace architecture from Bookings and Staff into one canonical workspace component family (`src/components/workspace/`), migrating Bookings and Staff to consume it with no intentional visual change.
 
 ---
@@ -233,7 +234,7 @@ git diff --check   # Verified
 
 - **AGENT VIEWPORT QA**: NOT PERFORMED — exact runtime inspection unavailable in the agent environment.
 - **OWNER CONFIRMATION**: Owner explicitly accepted Stage 05 after independent review.
-- **Visual Impact**: **NO INTENTIONAL VISUAL CHANGE**.
+- **Visual Impact Assessment**: **NO INTENTIONAL VISUAL CHANGE** (repository-level structural and automated regression checks passed; runtime visual equivalence was not independently agent-verified).
 
 ---
 

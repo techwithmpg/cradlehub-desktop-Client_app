@@ -9,11 +9,13 @@ Stage 05 (Canonical Module Workspace) is **ACCEPTED / MERGED / CLOSED** on `main
 
 - **Pre-Stage Main Baseline (PRE_STAGE_MAIN_SHA)**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` on `main`.
 - **Accepted Stage Branch Tip (ACCEPTED_STAGE_BRANCH_TIP)**: `65c7eb371652c3f272b75bda55c437481867abc1` (`stage/05-canonical-module-workspace`).
+- **Main Immediately After Fast-Forward (MAIN_AFTER_FAST_FORWARD)**: `65c7eb371652c3f272b75bda55c437481867abc1`.
+- **Stage 05 Closeout Main SHA (STAGE_05_CLOSEOUT_MAIN_SHA)**: `19284eeb83db32c2e02d72f38010c1ac91a08b6f`.
 - **Implementation Code SHA (IMPLEMENTATION_HEAD_SHA)**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`.
 - **Merge Style**: `FAST-FORWARD` (`git merge --ff-only`).
-- **Main Immediately After Fast-Forward**: `65c7eb371652c3f272b75bda55c437481867abc1`.
 - **Canonical Hosted Reference (HOSTED_REFERENCE)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e` (`https://github.com/techwithmpg/Cradlehub.git`).
 - **Owner Confirmation**: Owner explicitly accepted Stage 05 after independent review.
+- **Evidence & Runtime Assessment**: AGENT VIEWPORT QA: NOT PERFORMED — exact runtime inspection unavailable in the agent environment. Repository-level structural and automated regression checks passed; runtime visual equivalence was not independently agent-verified. Visual impact: NO INTENTIONAL VISUAL CHANGE.
 - **Canonical Workspace Family**:
   - `src/components/workspace/ModuleWorkspaceHost.tsx`: Permanent neutral structural host in `CanonicalShell`.
   - `src/components/workspace/ModuleWorkspaceMount.tsx`: Neutral structural mount container in `CanonicalShell`.
@@ -30,8 +32,8 @@ Stage 05 (Canonical Module Workspace) is **ACCEPTED / MERGED / CLOSED** on `main
   - `src/components/workspace/ModuleLoadingState.tsx`: Canonical skeleton loading geometry.
   - `src/components/workspace/ModuleStateMessage.tsx`: Error and success banners.
 - **Module Migration**:
-  - `Bookings`: Completely migrated to canonical primitives with zero visual or functional change.
-  - `Staff`: Completely migrated to canonical primitives preserving all 6 functional tabs, persistent summary, and sibling inspector with zero visual change.
+  - `Bookings`: Migrated to canonical workspace primitives with no intentional visual change.
+  - `Staff`: Migrated to canonical workspace primitives preserving all 6 functional tabs, persistent summary, and sibling inspector with no intentional visual change.
   - `Customers`: Compatibility preserved with `ModuleWorkspaceHost` & `ModuleWorkspaceMount`. No redesign.
   - `Placeholders`: Kept truthful unavailable state; no fake dashboards or speculative caches.
 - **Verification Baseline on Merged Main**:

@@ -5,7 +5,7 @@ Stage 01 = **ACCEPTED / MERGED — CLOSED** on `main` at `c9720805975004dbe11367
 Stage 02 = **ACCEPTED / MERGED — CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
 Stage 03 = **ACCEPTED / MERGED — CLOSED** on `main` at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
 Stage 04 = **ACCEPTED / MERGED — CLOSED** on `main` at `9bd83ab8f05ace193d026de896b70f3a4eff363d`.
-Stage 05 = **ACCEPTED / MERGED — CLOSED** on `main` at `65c7eb371652c3f272b75bda55c437481867abc1`.
+Stage 05 = **ACCEPTED / MERGED — CLOSED** on `main` at `65c7eb371652c3f272b75bda55c437481867abc1` (branch tip / fast-forward merge) with closeout baseline at `19284eeb83db32c2e02d72f38010c1ac91a08b6f`.
 
 Schedule (Stage 06) = **NOT STARTED / NOT INITIATED**.
 
@@ -13,9 +13,12 @@ Schedule (Stage 06) = **NOT STARTED / NOT INITIATED**.
 
 - **Pre-Stage Base (PRE_STAGE_MAIN_SHA)**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` on `main`.
 - **Accepted Stage Branch Tip (ACCEPTED_STAGE_BRANCH_TIP)**: `65c7eb371652c3f272b75bda55c437481867abc1` (`stage/05-canonical-module-workspace`).
+- **Main Immediately After Fast-Forward (MAIN_AFTER_FAST_FORWARD)**: `65c7eb371652c3f272b75bda55c437481867abc1`.
+- **Stage 05 Closeout Main SHA (STAGE_05_CLOSEOUT_MAIN_SHA)**: `19284eeb83db32c2e02d72f38010c1ac91a08b6f`.
 - **Implementation Code SHA (IMPLEMENTATION_HEAD_SHA)**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`.
 - **Canonical Hosted Reference (HOSTED_REFERENCE)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`.
 - **Owner Confirmation**: Owner explicitly accepted Stage 05 after independent review.
+- **Runtime Assessment**: AGENT VIEWPORT QA: NOT PERFORMED — exact runtime inspection unavailable in the agent environment. Visual impact: NO INTENTIONAL VISUAL CHANGE.
 - **Checks Record on Merged `main`**:
   - `pnpm format:check` — PASSED (Prettier clean across all files)
   - `pnpm lint` — PASSED (0 errors, 0 warnings across all files)
@@ -27,7 +30,7 @@ Schedule (Stage 06) = **NOT STARTED / NOT INITIATED**.
   - Zero schema or migration modifications.
   - No changes to hosted repo.
   - No new renderer privileges or service credentials.
-  - Zero visual regression on Bookings and Staff.
+  - Bookings and Staff migrated to canonical workspace with no intentional visual change (repository-level structural and automated regression checks passed; runtime visual equivalence was not independently agent-verified).
   - Customers compatibility preserved.
   - No speculative caching, hidden DOM persistence, or polling systems.
 - **Stage Status**: Stage 05 Canonical Module Workspace Extraction accepted, merged, and closed.
