@@ -328,28 +328,18 @@ describe('staff-service', () => {
   });
 
   describe('Capability Relation Validation (extractCapabilities)', () => {
-    it('returns null when rawServices is undefined (fails closed)', () => {
+    it('fails closed when rawServices is undefined, null, or not an array', () => {
       expect(extractCapabilities(undefined)).toBeNull();
+      expect(extractCapabilities(null)).toBeNull();
+      expect(extractCapabilities('not-an-array')).toBeNull();
+      expect(extractCapabilities({})).toBeNull();
     });
 
-    it('returns [] when rawServices is null or empty array', () => {
-      expect(extractCapabilities(null)).toEqual([]);
+    it('returns [] when rawServices is an empty array', () => {
       expect(extractCapabilities([])).toEqual([]);
     });
 
-    it('returns capabilities when relation is single-element array', () => {
-      const raw = [
-        {
-          service_id: 'srv-1',
-          services: [{ id: 'srv-1', name: 'Foot Reflexology' }],
-        },
-      ];
-      expect(extractCapabilities(raw)).toEqual([
-        { service_id: 'srv-1', service_name: 'Foot Reflexology' },
-      ]);
-    });
-
-    it('returns capabilities when relation is single object', () => {
+    it('accepts matching object relation with non-empty id and name', () => {
       const raw = [
         {
           service_id: 'srv-1',
@@ -361,13 +351,111 @@ describe('staff-service', () => {
       ]);
     });
 
+    it('accepts matching single-element array relation with non-empty id and name', () => {
+      const raw = [
+        {
+          service_id: 'srv-1',
+          services: [{ id: 'srv-1', name: 'Foot Reflexology' }],
+        },
+      ];
+      expect(extractCapabilities(raw)).toEqual([
+        { service_id: 'srv-1', service_name: 'Foot Reflexology' },
+      ]);
+    });
+
+    it('fails closed when nested services object is missing id or id is empty/whitespace', () => {
+      // Missing id in object form
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: { name: 'Swedish Massage' },
+          },
+        ]),
+      ).toBeNull();
+
+      // Empty id in object form
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: { id: '', name: 'Swedish Massage' },
+          },
+        ]),
+      ).toBeNull();
+
+      // Whitespace id in object form
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: { id: '   ', name: 'Swedish Massage' },
+          },
+        ]),
+      ).toBeNull();
+    });
+
+    it('fails closed when nested services array element is missing id or id is empty/whitespace', () => {
+      // Missing id in array form
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: [{ name: 'Swedish Massage' }],
+          },
+        ]),
+      ).toBeNull();
+
+      // Empty id in array form
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: [{ id: '', name: 'Swedish Massage' }],
+          },
+        ]),
+      ).toBeNull();
+
+      // Whitespace id in array form
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: [{ id: '   ', name: 'Swedish Massage' }],
+          },
+        ]),
+      ).toBeNull();
+    });
+
+    it('fails closed when nested services.id does not match staff_services.service_id', () => {
+      // Object form mismatch
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: { id: 'srv-2', name: 'Swedish Massage' },
+          },
+        ]),
+      ).toBeNull();
+
+      // Array form mismatch
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: [{ id: 'srv-2', name: 'Swedish Massage' }],
+          },
+        ]),
+      ).toBeNull();
+    });
+
     it('fails closed when services relation array contains multiple elements', () => {
       const raw = [
         {
           service_id: 'srv-1',
           services: [
             { id: 'srv-1', name: 'Foot Reflexology' },
-            { id: 'srv-2', name: 'Swedish Massage' },
+            { id: 'srv-1', name: 'Swedish Massage' },
           ],
         },
       ];
@@ -570,24 +658,23 @@ describe('staff-service', () => {
         ).toBeNull();
       });
 
-      it('fails closed when staff_services property is missing (undefined)', () => {
+      it('fails closed when staff_services is null or undefined', () => {
         const rowWithoutServices: Record<string, unknown> = { ...validBaseRow };
         delete rowWithoutServices.staff_services;
         expect(normalizeStaffMember(rowWithoutServices)).toBeNull();
+
+        expect(
+          normalizeStaffMember({ ...validBaseRow, staff_services: null }),
+        ).toBeNull();
       });
 
-      it('accepts staff_services: [] or null without fabricating capabilities', () => {
+      it('accepts staff_services: [] as valid zero capabilities', () => {
         const withEmpty = normalizeStaffMember({
           ...validBaseRow,
           staff_services: [],
         });
+        expect(withEmpty).not.toBeNull();
         expect(withEmpty?.services).toEqual([]);
-
-        const withNull = normalizeStaffMember({
-          ...validBaseRow,
-          staff_services: null,
-        });
-        expect(withNull?.services).toEqual([]);
       });
     });
 

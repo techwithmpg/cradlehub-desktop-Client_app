@@ -3,17 +3,17 @@
 ## Status & Governance
 
 - **Target**: CradleHub Desktop
-- **Stage**: Stage 04 — Staff (Final Functional Truth Correction)
+- **Stage**: Stage 04 — Staff (Final Nested Capability Contract Fix)
 - **Branch**: `stage/04-staff`
 - **Accepted Main BASE_SHA**: `fb17b71d17d02ca33041e0331ec09a6174aad9a4`
 - **INITIAL_AUDIT_SHA**: `2ad6b23357bcf49d1224a34e3cf4219c2122359f`
 - **AUDIT_CONFIRMED_SHA**: `1fcd2b892d39a8b611a49825511bd34740fd2f7a`
 - **PREVIOUS_FUNCTIONAL_SHA**: `25e017b4504171f6f90b1cfaf3a8a5aab65b9065`
-- **CORRECTION_START_SHA**: `4773eb2ce8b531e4461189e2f3ff8f4cb2db9a22`
+- **CORRECTION_START_SHA**: `5e79b212bbc0e948b75d47a84f4053f546378a4b`
 - **Canonical Hosted Repository**: `https://github.com/techwithmpg/Cradlehub.git`
 - **HOSTED_SHA**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`
-- **Current Status**: **STAGE 04 FINAL FUNCTIONAL TRUTH CORRECTION READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
-- **Stage Authorization**: Stage 04 read-only final functional truth correction completed. Other modules remain separate or dormant.
+- **Current Status**: **STAGE 04 NESTED CAPABILITY CONTRACT FIX READY FOR INDEPENDENT REVIEW — PUSHED AND STOPPED**.
+- **Stage Authorization**: Stage 04 read-only final nested capability contract fix completed. Other modules remain separate or dormant.
 
 ---
 
@@ -36,11 +36,13 @@ Stage 04 implements the real, production-oriented, read-only **Staff Workspace**
    - Nullable selected fields (`nickname`, `phone`, `avatar_url`, `auth_user_id`) require `string | null` and reject `undefined` (missing property fails closed).
    - `auth_user_id` rejects empty/whitespace strings.
    - `updated_at` requires a non-empty string and rejects `undefined` and `null`.
-   - Missing `staff_services` relation rejects `undefined` (fails closed, does NOT become an empty capability list). Accepts valid `[]` and `null`.
-8. **Strict Capability Relation Validation**:
-   - `extractCapabilities` validates nested `services` relations.
-   - If relation is returned as an array, strictly requires `services.length === 1` (multi-element relations fail closed rather than picking one arbitrarily).
-   - Requires non-empty `name` without fabricating `"Unnamed Service"`.
+   - `staff_services` 1-to-many relationship requires an array (rejects `undefined` and `null`; `[]` is the exact representation for zero assigned services).
+8. **Strict Capability Relation & ID Consistency Validation**:
+   - `extractCapabilities` validates outer `service_id` (non-empty string).
+   - Validates nested `services.id` and `services.name` (both required non-empty strings) across direct object form and single-element array form.
+   - For single-element array compatibility form, strictly requires `services.length === 1` (multi-element relations fail closed rather than picking one arbitrarily).
+   - Defensively verifies identity consistency: `services.id === staff_services.service_id` (trimmed). Mismatched IDs fail closed (`null`) resulting in `INVALID_PAYLOAD`.
+   - Prevents fabricated `"Unnamed Service"` labels.
 9. **Tier Applicability Display Semantics**:
    - Aligned with hosted `getStaffDisplayMeta()` via helper `shouldDisplayStaffTier()`.
    - Displays tier badge only for tier-eligible operational service providers (`therapist`, `nail_tech`, `aesthetician` under `staff`/`service_staff` system roles).
@@ -79,7 +81,7 @@ Stage 04 implements the real, production-oriented, read-only **Staff Workspace**
 - `calculateStaffKpis(roster)`: Derives summary counts.
 - `classifyStaffError(err)`: Accurately maps errors to user-friendly messages for session expiry (`401` / `PGRST301`), permission denied (`42501`), network failure, and database error.
 - `normalizeStaffMember(row, expectedBranchId?)`: Validates contract types, verifies branch invariant, and fails closed on malformed or missing selected fields without fabricating defaults.
-- `extractCapabilities(rawServices)`: Validates nested relationship shape; strictly validates single relation element arrays and fails closed on multi-element or malformed structures; returns `[]` for valid empty capability sets.
+- `extractCapabilities(rawServices)`: Validates nested relationship shape; strictly validates outer `service_id`, nested `services.id`, nested `services.name`, nested/outer ID consistency (`services.id === staff_services.service_id`), and exact zero-services collection shape (`[]` valid, `null`/`undefined` rejected); returns `[]` for valid empty capability sets.
 - `shouldDisplayStaffTier(member)`: Evaluates whether a member is an operational service provider eligible for skill tier presentation.
 
 ---
@@ -123,7 +125,7 @@ Stage 04 implements the real, production-oriented, read-only **Staff Workspace**
 - **REPOSITORY-RECORDED PRODUCTION EVIDENCE**:
   - `E:\cradlehub` hosted schema, migrations, and status utilities at `HOSTED_SHA` (`aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`).
   - Desktop `main` baseline at commit `fb17b71d17d02ca33041e0331ec09a6174aad9a4`.
-  - 256 passing unit and integration tests across 13 test files in `E:\Cradle-Destop-Client`.
+  - 259 passing unit and integration tests across 13 test files in `E:\Cradle-Destop-Client`.
 - **RUNTIME / VIEWPORT EVIDENCE**:
   - `1440×900 — NOT RUNTIME-OBSERVED IN THIS CORRECTION`
   - `1366×768 — NOT RUNTIME-OBSERVED IN THIS CORRECTION`
@@ -140,7 +142,7 @@ Stage 04 implements the real, production-oriented, read-only **Staff Workspace**
 - `pnpm format:check` — **PASSED** (all files match Prettier style)
 - `pnpm lint` — **PASSED** (0 errors, 0 warnings across all files)
 - `pnpm typecheck` — **PASSED** (`tsc --noEmit` clean)
-- `pnpm test` — **PASSED** (13 test files, 256/256 vitest tests passed)
+- `pnpm test` — **PASSED** (13 test files, 259/259 vitest tests passed)
 - `pnpm build` — **PASSED**
 - `git diff --check` — **PASSED** (0 whitespace / conflict errors)
 

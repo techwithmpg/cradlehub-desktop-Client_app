@@ -141,13 +141,16 @@ export function shouldDisplayStaffTier(member: {
 /**
  * Normalizes raw database capabilities into minimized service records.
  * Returns null if nested capability data is malformed (fails closed, does not fabricate names).
- * Distinguishes [] (valid empty) from undefined (invalid missing property).
+ * Strictly validates:
+ * - staff_services must be an Array (rejects undefined and null; [] is valid empty)
+ * - outer service_id must be a non-empty string
+ * - nested services.id and services.name must be non-empty strings
+ * - services.id must match outer service_id (defensive ID consistency)
+ * - single-element array compatibility form requires services.length === 1 with valid id/name
  */
 export function extractCapabilities(
   rawServices: unknown,
 ): StaffServiceCapability[] | null {
-  if (rawServices === undefined) return null;
-  if (rawServices === null) return [];
   if (!Array.isArray(rawServices)) return null;
 
   const capabilities: StaffServiceCapability[] = [];
@@ -160,7 +163,9 @@ export function extractCapabilities(
     }
     const serviceId = raw.service_id.trim();
 
+    let serviceIdFromRelation: string;
     let serviceName: string;
+
     if (raw.services && typeof raw.services === 'object') {
       if (Array.isArray(raw.services)) {
         if (raw.services.length !== 1) return null;
@@ -168,20 +173,34 @@ export function extractCapabilities(
         if (
           typeof first !== 'object' ||
           first === null ||
+          typeof first.id !== 'string' ||
+          !first.id.trim() ||
           typeof first.name !== 'string' ||
           !first.name.trim()
         ) {
           return null;
         }
+        serviceIdFromRelation = first.id.trim();
         serviceName = first.name.trim();
       } else {
-        const svcObj = raw.services as { name?: unknown };
-        if (typeof svcObj.name !== 'string' || !svcObj.name.trim()) {
+        const svcObj = raw.services as { id?: unknown; name?: unknown };
+        if (
+          typeof svcObj.id !== 'string' ||
+          !svcObj.id.trim() ||
+          typeof svcObj.name !== 'string' ||
+          !svcObj.name.trim()
+        ) {
           return null;
         }
+        serviceIdFromRelation = svcObj.id.trim();
         serviceName = svcObj.name.trim();
       }
     } else {
+      return null;
+    }
+
+    // Defensive ID consistency check
+    if (serviceIdFromRelation !== serviceId) {
       return null;
     }
 
