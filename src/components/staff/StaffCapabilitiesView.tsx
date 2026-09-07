@@ -205,9 +205,16 @@ export const StaffCapabilitiesContent: React.FC<
           </div>
         ) : (
           <table
-            className="bookings-datagrid"
+            className="bookings-table staff-capabilities-table"
             aria-label="Staff Capabilities Table"
           >
+            <colgroup>
+              <col style={{ width: '32%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '28%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '10%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col" className="th-staff">

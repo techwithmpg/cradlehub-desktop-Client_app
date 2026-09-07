@@ -172,7 +172,16 @@ export const StaffRolesContent: React.FC<StaffRolesContentProps> = ({
             </p>
           </div>
         ) : (
-          <table className="bookings-datagrid" aria-label="Staff Roles Table">
+          <table
+            className="bookings-table staff-roles-table"
+            aria-label="Staff Roles Table"
+          >
+            <colgroup>
+              <col style={{ width: '40%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '23%' }} />
+              <col style={{ width: '12%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col" className="th-staff">

@@ -201,9 +201,15 @@ export const StaffScheduleContent: React.FC<StaffScheduleContentProps> = ({
           </div>
         ) : (
           <table
-            className="bookings-datagrid"
+            className="bookings-table staff-schedule-table"
             aria-label="Staff Schedule Roster"
           >
+            <colgroup>
+              <col style={{ width: '35%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '28%' }} />
+              <col style={{ width: '12%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col" className="th-staff">

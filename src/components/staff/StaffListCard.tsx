@@ -307,7 +307,16 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
             )}
           </div>
         ) : (
-          <table className="bookings-datagrid" aria-label="Staff Roster Table">
+          <table
+            className="bookings-table staff-roster-table"
+            aria-label="Staff Roster Table"
+          >
+            <colgroup>
+              <col style={{ width: '44%' }} />
+              <col style={{ width: '28%' }} />
+              <col style={{ width: '17%' }} />
+              <col style={{ width: '11%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col" className="th-staff">

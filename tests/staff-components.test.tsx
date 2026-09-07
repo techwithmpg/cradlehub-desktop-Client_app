@@ -240,6 +240,31 @@ describe('Staff Workspace Component Suite', () => {
     );
   });
 
+  it('renders Staff Roster table with canonical bookings-table class, colgroup, and exactly 4 columns', async () => {
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+    });
+
+    const table = screen.getByRole('table', { name: 'Staff Roster Table' });
+    expect(table).toBeDefined();
+    expect(table.classList.contains('bookings-table')).toBe(true);
+    expect(table.classList.contains('staff-roster-table')).toBe(true);
+
+    // Verify 4 header columns
+    expect(screen.getByText('Staff Member')).toBeDefined();
+    expect(screen.getByText('Role / Function')).toBeDefined();
+    expect(screen.getByText('Status')).toBeDefined();
+    expect(screen.getByText('Action')).toBeDefined();
+
+    // Verify removed columns (Phone, Capabilities) are NOT present in table headers
+    const tableHeader = table.querySelector('thead');
+    expect(tableHeader).toBeDefined();
+    expect(within(tableHeader!).queryByText('Phone')).toBeNull();
+    expect(within(tableHeader!).queryByText('Capabilities')).toBeNull();
+  });
+
   it('renders persistent summary card and updates truthful metrics for all 6 tabs', async () => {
     render(<StaffView authContext={mockAuthContext} />);
 
