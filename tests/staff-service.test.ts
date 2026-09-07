@@ -5,6 +5,7 @@ import {
   deriveStaffStatus,
   extractCapabilities,
   fetchBranchStaff,
+  filterStaff,
   isStaffMember,
   normalizeStaffMember,
   shouldDisplayStaffTier,
@@ -990,6 +991,296 @@ describe('staff-service', () => {
           'You do not have permission to view staff for this branch.',
         );
       }
+    });
+  });
+
+  describe('filterStaff', () => {
+    const mockStaffMembers: StaffMember[] = [
+      {
+        id: 's-1',
+        branch_id: 'b-1',
+        auth_user_id: 'u-1',
+        full_name: 'Maria Santos',
+        nickname: 'Mars',
+        phone: '09171112222',
+        avatar_url: null,
+        tier: 'Senior',
+        system_role: 'staff',
+        staff_type: 'therapist',
+        is_head: true,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        status: 'active',
+        services: [{ service_id: 'srv-1', service_name: 'Swedish Massage' }],
+      },
+      {
+        id: 's-2',
+        branch_id: 'b-1',
+        auth_user_id: 'u-2',
+        full_name: 'Juan Dela Cruz',
+        nickname: null,
+        phone: '09183334444',
+        avatar_url: null,
+        tier: 'Standard',
+        system_role: 'crm',
+        staff_type: 'csr',
+        is_head: false,
+        is_active: true,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        status: 'active',
+        services: [],
+      },
+      {
+        id: 's-3',
+        branch_id: 'b-1',
+        auth_user_id: 'u-3',
+        full_name: 'Elena Rostova',
+        nickname: 'Eli',
+        phone: '09195556666',
+        avatar_url: null,
+        tier: 'Junior',
+        system_role: 'staff',
+        staff_type: 'nail_tech',
+        is_head: false,
+        is_active: false,
+        is_cross_branch: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        status: 'awaiting',
+        services: [{ service_id: 'srv-2', service_name: 'Gel Manicure' }],
+      },
+    ];
+
+    it('filters by search across name, nickname, phone, and service name', () => {
+      expect(
+        filterStaff(mockStaffMembers, {
+          search: 'Maria',
+          status: 'all',
+          staffType: 'all',
+          systemRole: 'all',
+          capabilityId: 'all',
+        }),
+      ).toHaveLength(1);
+
+      expect(
+        filterStaff(mockStaffMembers, {
+          search: 'Mars',
+          status: 'all',
+          staffType: 'all',
+          systemRole: 'all',
+          capabilityId: 'all',
+        }),
+      ).toHaveLength(1);
+
+      expect(
+        filterStaff(mockStaffMembers, {
+          search: '0918',
+          status: 'all',
+          staffType: 'all',
+          systemRole: 'all',
+          capabilityId: 'all',
+        }),
+      ).toHaveLength(1);
+
+      expect(
+        filterStaff(mockStaffMembers, {
+          search: 'Swedish',
+          status: 'all',
+          staffType: 'all',
+          systemRole: 'all',
+          capabilityId: 'all',
+        }),
+      ).toHaveLength(1);
+    });
+
+    it('filters by status, staff type, system role, and capability', () => {
+      expect(
+        filterStaff(mockStaffMembers, {
+          search: '',
+          status: 'awaiting',
+          staffType: 'all',
+          systemRole: 'all',
+          capabilityId: 'all',
+        }),
+      ).toHaveLength(1);
+
+      expect(
+        filterStaff(mockStaffMembers, {
+          search: '',
+          status: 'all',
+          staffType: 'csr',
+          systemRole: 'all',
+          capabilityId: 'all',
+        }),
+      ).toHaveLength(1);
+
+      expect(
+        filterStaff(mockStaffMembers, {
+          search: '',
+          status: 'all',
+          staffType: 'all',
+          systemRole: 'crm',
+          capabilityId: 'all',
+        }),
+      ).toHaveLength(1);
+
+      expect(
+        filterStaff(mockStaffMembers, {
+          search: '',
+          status: 'all',
+          staffType: 'all',
+          systemRole: 'all',
+          capabilityId: 'srv-1',
+        }),
+      ).toHaveLength(1);
+    });
+  });
+
+  describe('Service Mutations & RPCs', () => {
+    it('updateStaffProfile validates required fields and updates staff', async () => {
+      const mockQueryBuilder: Record<string, unknown> = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockResolvedValue({
+          data: [{ id: 's-1', full_name: 'Updated Name' }],
+          error: null,
+        }),
+      };
+
+      const mockClient = {
+        from: vi.fn().mockReturnValue(mockQueryBuilder),
+      } as unknown as SupabaseClient;
+
+      const res = await (
+        await import('../src/lib/staff-service')
+      ).updateStaffProfile(
+        {
+          staffId: 's-1',
+          fullName: 'Updated Name',
+          nickname: 'Nick',
+          phone: '09171112222',
+          staffType: 'therapist',
+          tier: 'Senior',
+          isHead: true,
+        },
+        mockClient,
+      );
+
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.staff.full_name).toBe('Updated Name');
+      }
+    });
+
+    it('updateStaffProfile rejects empty full name', async () => {
+      const res = await (
+        await import('../src/lib/staff-service')
+      ).updateStaffProfile({
+        staffId: 's-1',
+        fullName: '   ',
+        staffType: 'therapist',
+        tier: 'Senior',
+        isHead: false,
+      });
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.error).toBe('Full name is required.');
+      }
+    });
+
+    it('updateStaffCapabilities calls replace_staff_service_capabilities RPC', async () => {
+      const mockClient = {
+        rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+      } as unknown as SupabaseClient;
+
+      const res = await (
+        await import('../src/lib/staff-service')
+      ).updateStaffCapabilities('s-1', ['srv-1', 'srv-2'], mockClient);
+
+      expect(res.ok).toBe(true);
+      expect(mockClient.rpc).toHaveBeenCalledWith(
+        'replace_staff_service_capabilities',
+        {
+          p_target_staff_id: 's-1',
+          p_service_ids: ['srv-1', 'srv-2'],
+        },
+      );
+    });
+
+    it('adjustStaffSchedule performs upserts for working_hours and day_off', async () => {
+      const mockQueryBuilder: Record<string, unknown> = {
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+        insert: vi.fn().mockResolvedValue({ error: null }),
+        delete: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+      };
+
+      const mockClient = {
+        from: vi.fn().mockReturnValue(mockQueryBuilder),
+      } as unknown as SupabaseClient;
+
+      const resHours = await (
+        await import('../src/lib/staff-service')
+      ).adjustStaffSchedule(
+        {
+          staffId: 's-1',
+          branchId: 'b-1',
+          date: '2026-08-17',
+          adjustmentType: 'working_hours',
+          startTime: '09:00',
+          endTime: '18:00',
+        },
+        mockClient,
+      );
+      expect(resHours.ok).toBe(true);
+
+      const resDayOff = await (
+        await import('../src/lib/staff-service')
+      ).adjustStaffSchedule(
+        {
+          staffId: 's-1',
+          branchId: 'b-1',
+          date: '2026-08-17',
+          adjustmentType: 'day_off',
+        },
+        mockClient,
+      );
+      expect(resDayOff.ok).toBe(true);
+    });
+
+    it('reviewOnboardingRequest updates request status and activates staff', async () => {
+      const mockQueryBuilder: Record<string, unknown> = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      };
+
+      const mockClient = {
+        from: vi.fn().mockReturnValue(mockQueryBuilder),
+        rpc: vi.fn().mockResolvedValue({ error: null }),
+      } as unknown as SupabaseClient;
+
+      const res = await (
+        await import('../src/lib/staff-service')
+      ).reviewOnboardingRequest(
+        {
+          requestId: 'req-1',
+          staffId: 's-1',
+          action: 'approve',
+          branchId: 'b-1',
+          systemRole: 'staff',
+          staffType: 'therapist',
+          tier: 'Junior',
+          serviceIds: ['srv-1'],
+        },
+        mockClient,
+      );
+
+      expect(res.ok).toBe(true);
     });
   });
 });

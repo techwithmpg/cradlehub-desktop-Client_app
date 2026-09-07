@@ -3,19 +3,20 @@ import React from 'react';
 interface StaffHeaderProps {
   onRefresh: () => void;
   isRefreshing?: boolean;
+  onOpenAddStaff?: () => void;
 }
 
 export const StaffHeader: React.FC<StaffHeaderProps> = ({
   onRefresh,
   isRefreshing = false,
+  onOpenAddStaff,
 }) => {
   return (
     <div className="bookings-header-container staff-header-container">
       <div className="bookings-header-left">
         <h1 className="bookings-header-title">Staff</h1>
         <p className="bookings-header-subtitle">
-          Operational staff roster and capability profiles for the selected
-          branch.
+          Manage staff, capabilities and operational access.
         </p>
       </div>
 
@@ -45,6 +46,31 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
           </svg>
           <span className="bookings-header-refresh-text">Refresh</span>
         </button>
+
+        {onOpenAddStaff && (
+          <button
+            type="button"
+            className="bookings-header-new-btn"
+            data-testid="add-staff-btn"
+            onClick={onOpenAddStaff}
+            aria-label="Add new staff member"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>Add Staff</span>
+          </button>
+        )}
       </div>
     </div>
   );

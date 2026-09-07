@@ -1,11 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase';
 import type {
+  BranchServiceOption,
   FetchStaffResult,
+  ReviewOnboardingInput,
+  StaffBlockedTime,
+  StaffFilters,
   StaffKpiSummary,
   StaffMember,
+  StaffOnboardingRequest,
+  StaffScheduleAdjustmentInput,
+  StaffScheduleOverride,
   StaffServiceCapability,
   StaffStatus,
+  UpdateStaffProfileInput,
 } from '../types/staff';
 
 const STAFF_SELECT = `
@@ -318,6 +326,79 @@ export function normalizeStaffMember(
 }
 
 /**
+ * Filters the staff roster by search term, status, staff type, system role, and capability.
+ */
+export function filterStaff(
+  staffList: StaffMember[],
+  filters: StaffFilters,
+): StaffMember[] {
+  const query = filters.search.trim().toLowerCase();
+  const statusFilter = filters.status;
+  const staffTypeFilter = filters.staffType;
+  const systemRoleFilter = filters.systemRole;
+  const capabilityFilter = filters.capabilityId;
+
+  return staffList.filter((member) => {
+    // 1. Status scope filter
+    if (statusFilter !== 'all' && member.status !== statusFilter) {
+      return false;
+    }
+
+    // 2. Staff type filter
+    if (
+      staffTypeFilter &&
+      staffTypeFilter !== 'all' &&
+      member.staff_type.toLowerCase() !== staffTypeFilter.toLowerCase()
+    ) {
+      return false;
+    }
+
+    // 3. System role filter
+    if (
+      systemRoleFilter &&
+      systemRoleFilter !== 'all' &&
+      member.system_role.toLowerCase() !== systemRoleFilter.toLowerCase()
+    ) {
+      return false;
+    }
+
+    // 4. Capability filter
+    if (capabilityFilter && capabilityFilter !== 'all') {
+      const hasCap = member.services.some(
+        (s) => s.service_id === capabilityFilter,
+      );
+      if (!hasCap) return false;
+    }
+
+    // 5. Search query filter
+    if (query) {
+      const matchName = member.full_name.toLowerCase().includes(query);
+      const matchNickname =
+        member.nickname?.toLowerCase().includes(query) ?? false;
+      const matchPhone = member.phone?.toLowerCase().includes(query) ?? false;
+      const matchRole = member.system_role.toLowerCase().includes(query);
+      const matchType = member.staff_type.toLowerCase().includes(query);
+      const matchService = member.services.some((s) =>
+        s.service_name.toLowerCase().includes(query),
+      );
+
+      if (
+        !matchName &&
+        !matchNickname &&
+        !matchPhone &&
+        !matchRole &&
+        !matchType &&
+        !matchService
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+/**
  * Type guard for StaffMember.
  */
 export function isStaffMember(item: unknown): item is StaffMember {
@@ -470,4 +551,419 @@ export async function fetchBranchStaff(
       message: classified.message,
     };
   }
+}
+
+/**
+ * Fetches active services eligible for staff assignment in the branch.
+ */
+export async function fetchBranchAssignableServices(
+  branchId: string,
+  client?: SupabaseClient,
+): Promise<BranchServiceOption[]> {
+  const supabase = client ?? getSupabaseClient();
+  const { data, error } = await supabase
+    .from('services')
+    .select('id, name, category, duration_minutes')
+    .eq('branch_id', branchId.trim())
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+
+  if (error || !Array.isArray(data)) {
+    // If services by branch_id returns empty or table doesn't have branch_id, query general active services
+    const fallback = await supabase
+      .from('services')
+      .select('id, name, category, duration_minutes')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (!fallback.error && Array.isArray(fallback.data)) {
+      return fallback.data.map((s) => ({
+        id: String(s.id),
+        name: String(s.name),
+        category: s.category ? String(s.category) : null,
+        duration_minutes:
+          typeof s.duration_minutes === 'number' ? s.duration_minutes : null,
+      }));
+    }
+    return [];
+  }
+
+  return data.map((s) => ({
+    id: String(s.id),
+    name: String(s.name),
+    category: s.category ? String(s.category) : null,
+    duration_minutes:
+      typeof s.duration_minutes === 'number' ? s.duration_minutes : null,
+  }));
+}
+
+/**
+ * Fetches branch staff onboarding applications.
+ */
+export async function fetchBranchOnboardingRequests(
+  branchId: string,
+  client?: SupabaseClient,
+): Promise<StaffOnboardingRequest[]> {
+  const supabase = client ?? getSupabaseClient();
+  const { data, error } = await supabase
+    .from('staff_onboarding_requests')
+    .select('*')
+    .eq('requested_branch_id', branchId.trim())
+    .order('created_at', { ascending: false });
+
+  if (error || !Array.isArray(data)) {
+    return [];
+  }
+
+  return data.map((row) => ({
+    id: String(row.id),
+    full_name: String(row.full_name || ''),
+    email: String(row.email || ''),
+    phone: String(row.phone || ''),
+    preferred_role: String(row.preferred_role || ''),
+    experience_years:
+      typeof row.experience_years === 'number' ? row.experience_years : null,
+    requested_branch_id: String(row.requested_branch_id),
+    status: row.status as StaffOnboardingRequest['status'],
+    staff_id: row.staff_id ? String(row.staff_id) : null,
+    created_at: String(row.created_at || ''),
+    reviewed_at: row.reviewed_at ? String(row.reviewed_at) : null,
+    reviewed_by_staff_id: row.reviewed_by_staff_id
+      ? String(row.reviewed_by_staff_id)
+      : null,
+    rejection_reason: row.rejection_reason
+      ? String(row.rejection_reason)
+      : null,
+    metadata:
+      row.metadata && typeof row.metadata === 'object'
+        ? (row.metadata as Record<string, unknown>)
+        : null,
+  }));
+}
+
+/**
+ * Fetches schedule overrides and blocked times for a specific 7-day week window.
+ */
+export async function fetchBranchScheduleWeek(
+  _branchId: string,
+  startDate: string,
+  client?: SupabaseClient,
+): Promise<{
+  overrides: StaffScheduleOverride[];
+  blockedTimes: StaffBlockedTime[];
+}> {
+  const supabase = client ?? getSupabaseClient();
+
+  // Compute end date (6 days after start date)
+  const start = new Date(startDate);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const endDate = end.toISOString().slice(0, 10);
+
+  const [overridesRes, blocksRes] = await Promise.all([
+    supabase
+      .from('schedule_overrides')
+      .select('*')
+      .gte('override_date', startDate)
+      .lte('override_date', endDate),
+    supabase
+      .from('blocked_times')
+      .select('*')
+      .gte('block_date', startDate)
+      .lte('block_date', endDate),
+  ]);
+
+  const overrides: StaffScheduleOverride[] = Array.isArray(overridesRes.data)
+    ? overridesRes.data.map((r) => ({
+        id: r.id ? String(r.id) : undefined,
+        staff_id: String(r.staff_id),
+        override_date: String(r.override_date),
+        is_day_off: Boolean(r.is_day_off),
+        start_time: r.start_time ? String(r.start_time) : null,
+        end_time: r.end_time ? String(r.end_time) : null,
+        reason: r.reason ? String(r.reason) : null,
+      }))
+    : [];
+
+  const blockedTimes: StaffBlockedTime[] = Array.isArray(blocksRes.data)
+    ? blocksRes.data.map((r) => ({
+        id: String(r.id),
+        staff_id: String(r.staff_id),
+        block_date: String(r.block_date),
+        start_time: String(r.start_time || ''),
+        end_time: String(r.end_time || ''),
+        reason: String(r.reason || 'other'),
+      }))
+    : [];
+
+  return { overrides, blockedTimes };
+}
+
+/**
+ * Updates a staff member's profile attributes under RLS.
+ */
+export async function updateStaffProfile(
+  input: UpdateStaffProfileInput,
+  client?: SupabaseClient,
+): Promise<
+  { ok: true; staff: Partial<StaffMember> } | { ok: false; error: string }
+> {
+  if (!input.fullName.trim()) {
+    return { ok: false, error: 'Full name is required.' };
+  }
+
+  const supabase = client ?? getSupabaseClient();
+  const updatePayload = {
+    full_name: input.fullName.trim(),
+    nickname: input.nickname?.trim() || null,
+    phone: input.phone?.trim() || null,
+    staff_type: input.staffType.trim(),
+    tier: input.tier.trim(),
+    is_head: input.isHead,
+  };
+
+  const { data, error } = await supabase
+    .from('staff')
+    .update(updatePayload)
+    .eq('id', input.staffId)
+    .select(
+      'id, full_name, nickname, phone, staff_type, tier, is_head, updated_at',
+    );
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      error: 'Failed to update profile. The record may be inaccessible.',
+    };
+  }
+
+  return { ok: true, staff: data[0] as Partial<StaffMember> };
+}
+
+/**
+ * Replaces a staff member's service capabilities using the authoritative RPC.
+ */
+export async function updateStaffCapabilities(
+  staffId: string,
+  serviceIds: string[],
+  client?: SupabaseClient,
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const supabase = client ?? getSupabaseClient();
+  const uniqueIds = Array.from(new Set(serviceIds));
+
+  const { error } = await supabase.rpc('replace_staff_service_capabilities', {
+    p_target_staff_id: staffId,
+    p_service_ids: uniqueIds,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.message ||
+        'Failed to save capabilities. Please verify permissions.',
+    };
+  }
+
+  return {
+    ok: true,
+    message: `Capabilities updated (${uniqueIds.length} assigned).`,
+  };
+}
+
+/**
+ * Adjusts a staff schedule (working hours, day off, blocked time, clear override/block).
+ */
+export async function adjustStaffSchedule(
+  input: StaffScheduleAdjustmentInput,
+  client?: SupabaseClient,
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const supabase = client ?? getSupabaseClient();
+
+  if (input.adjustmentType === 'working_hours') {
+    if (!input.startTime || !input.endTime) {
+      return { ok: false, error: 'Start and end time are required.' };
+    }
+    if (input.startTime >= input.endTime) {
+      return { ok: false, error: 'Start time must be before end time.' };
+    }
+
+    const { error } = await supabase.from('schedule_overrides').upsert(
+      {
+        staff_id: input.staffId,
+        override_date: input.date,
+        is_day_off: false,
+        start_time: input.startTime,
+        end_time: input.endTime,
+        reason: input.reason?.trim() || null,
+      },
+      { onConflict: 'staff_id,override_date' },
+    );
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, message: 'Custom working hours saved.' };
+  }
+
+  if (input.adjustmentType === 'day_off') {
+    const { error } = await supabase.from('schedule_overrides').upsert(
+      {
+        staff_id: input.staffId,
+        override_date: input.date,
+        is_day_off: true,
+        start_time: null,
+        end_time: null,
+        reason: input.reason?.trim() || null,
+      },
+      { onConflict: 'staff_id,override_date' },
+    );
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, message: 'Day off recorded for staff member.' };
+  }
+
+  if (input.adjustmentType === 'blocked_time') {
+    if (!input.startTime || !input.endTime) {
+      return {
+        ok: false,
+        error: 'Start and end time are required for blocked time.',
+      };
+    }
+    if (input.startTime >= input.endTime) {
+      return { ok: false, error: 'Start time must be before end time.' };
+    }
+
+    const { error } = await supabase.from('blocked_times').insert({
+      staff_id: input.staffId,
+      block_date: input.date,
+      start_time: input.startTime,
+      end_time: input.endTime,
+      reason: input.reason?.trim() || 'Blocked time',
+    });
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, message: 'Blocked time added.' };
+  }
+
+  if (input.adjustmentType === 'remove_override') {
+    const { error } = await supabase
+      .from('schedule_overrides')
+      .delete()
+      .eq('staff_id', input.staffId)
+      .eq('override_date', input.date);
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, message: 'Schedule override removed.' };
+  }
+
+  if (input.adjustmentType === 'remove_block') {
+    if (!input.blockId) {
+      return { ok: false, error: 'Select a block to remove.' };
+    }
+    const { error } = await supabase
+      .from('blocked_times')
+      .delete()
+      .eq('id', input.blockId)
+      .eq('staff_id', input.staffId);
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, message: 'Blocked time removed.' };
+  }
+
+  return { ok: false, error: 'Invalid adjustment type.' };
+}
+
+/**
+ * Reviews a staff onboarding request (approve or reject).
+ */
+export async function reviewOnboardingRequest(
+  input: ReviewOnboardingInput,
+  client?: SupabaseClient,
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const supabase = client ?? getSupabaseClient();
+  const now = new Date().toISOString();
+
+  if (input.action === 'approve') {
+    // 1. Update onboarding request status
+    const { error: reqErr } = await supabase
+      .from('staff_onboarding_requests')
+      .update({
+        status: 'approved',
+        reviewed_at: now,
+      })
+      .eq('id', input.requestId);
+
+    if (reqErr) return { ok: false, error: reqErr.message };
+
+    // 2. If staffId is present, update staff record
+    if (input.staffId) {
+      const updatePayload: Record<string, unknown> = {
+        is_active: true,
+      };
+      if (input.branchId) updatePayload.branch_id = input.branchId;
+      if (input.systemRole) updatePayload.system_role = input.systemRole;
+      if (input.staffType) updatePayload.staff_type = input.staffType;
+      if (input.tier) updatePayload.tier = input.tier;
+
+      const { error: staffErr } = await supabase
+        .from('staff')
+        .update(updatePayload)
+        .eq('id', input.staffId);
+
+      if (staffErr) return { ok: false, error: staffErr.message };
+
+      if (input.serviceIds) {
+        await updateStaffCapabilities(
+          input.staffId,
+          input.serviceIds,
+          supabase,
+        );
+      }
+    }
+
+    return { ok: true, message: 'Application approved successfully.' };
+  }
+
+  if (input.action === 'reject') {
+    const { error: reqErr } = await supabase
+      .from('staff_onboarding_requests')
+      .update({
+        status: 'rejected',
+        reviewed_at: now,
+        rejection_reason: input.rejectionReason?.trim() || null,
+      })
+      .eq('id', input.requestId);
+
+    if (reqErr) return { ok: false, error: reqErr.message };
+    return { ok: true, message: 'Application rejected.' };
+  }
+
+  return { ok: false, error: 'Invalid review action.' };
+}
+
+/**
+ * Updates a staff member's system access role under RLS.
+ */
+export async function updateStaffSystemRole(
+  staffId: string,
+  newRole: string,
+  client?: SupabaseClient,
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  if (!newRole.trim()) {
+    return { ok: false, error: 'Role is required.' };
+  }
+  const supabase = client ?? getSupabaseClient();
+  const { error } = await supabase
+    .from('staff')
+    .update({ system_role: newRole.trim() })
+    .eq('id', staffId);
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, message: `System role updated to ${newRole}.` };
 }

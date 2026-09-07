@@ -1,132 +1,225 @@
 import React, { useState } from 'react';
-import type { StaffMember } from '../../types/staff';
-import { canonicalizeRole, formatRoleLabel } from '../../lib/roles';
-import { shouldDisplayStaffTier } from '../../lib/staff-service';
+import type { StaffMember, UpdateStaffProfileInput } from '../../types/staff';
+import {
+  shouldDisplayStaffTier,
+  updateStaffProfile,
+} from '../../lib/staff-service';
 
 interface StaffInspectorCardProps {
-  selectedStaff: StaffMember | null;
-  branchName?: string;
+  staff: StaffMember | null;
   onClose: () => void;
+  onOpenScheduleModal: (staff: StaffMember) => void;
+  onOpenCapabilityModal: (staff: StaffMember) => void;
+  onOpenRoleModal: (staff: StaffMember) => void;
+  onOpenOffboardingModal: (staff: StaffMember) => void;
+  onStaffUpdated: (updated: Partial<StaffMember> & { id: string }) => void;
 }
 
-type InspectorTab = 'profile' | 'services';
+type InspectorTab = 'profile' | 'services' | 'access';
 
-function formatStaffType(type: string): string {
-  if (!type) return 'Therapist';
-  return type
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}
+const STAFF_TYPE_OPTIONS = [
+  { value: 'therapist', label: 'Therapist' },
+  { value: 'nail_tech', label: 'Nail Technician' },
+  { value: 'aesthetician', label: 'Aesthetician' },
+  { value: 'csr', label: 'Front Desk / CSR' },
+  { value: 'driver', label: 'Driver' },
+  { value: 'utility', label: 'Utility' },
+  { value: 'managerial', label: 'Managerial' },
+];
 
-function formatTier(tier: string): string {
-  if (!tier) return 'Mid';
-  return tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
-}
-
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return '—';
-  try {
-    const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString();
-  } catch {
-    return dateStr;
-  }
-}
-
-function getInitials(name: string): string {
-  if (!name) return 'ST';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+const TIER_OPTIONS = ['Junior', 'Senior', 'Master', 'Standard'];
 
 export const StaffInspectorCard: React.FC<StaffInspectorCardProps> = ({
-  selectedStaff,
-  branchName,
+  staff,
   onClose,
+  onOpenScheduleModal,
+  onOpenCapabilityModal,
+  onOpenRoleModal,
+  onOpenOffboardingModal,
+  onStaffUpdated,
 }) => {
   const [activeTab, setActiveTab] = useState<InspectorTab>('profile');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
-  if (!selectedStaff) {
+  // Edit form state
+  const [editFullName, setEditFullName] = useState(staff?.full_name || '');
+  const [editNickname, setEditNickname] = useState(staff?.nickname || '');
+  const [editPhone, setEditPhone] = useState(staff?.phone || '');
+  const [editStaffType, setEditStaffType] = useState(
+    staff?.staff_type || 'therapist',
+  );
+  const [editTier, setEditTier] = useState(staff?.tier || 'Standard');
+  const [editIsHead, setEditIsHead] = useState(staff?.is_head || false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [prevStaffId, setPrevStaffId] = useState<string | null>(
+    staff?.id || null,
+  );
+  if (staff && staff.id !== prevStaffId) {
+    setPrevStaffId(staff.id);
+    setIsEditingProfile(false);
+    setEditError(null);
+  }
+
+  if (!staff) {
     return (
       <div
-        className="bookings-inspector-card staff-inspector-card"
+        className="booking-inspector-card staff-inspector-card empty-inspector"
         data-testid="staff-inspector-empty"
       >
-        <div className="inspector-placeholder-state">
-          <div className="inspector-placeholder-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              width="28"
-              height="28"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+        <div className="inspector-placeholder-content">
+          <svg
+            viewBox="0 0 24 24"
+            width="32"
+            height="32"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="placeholder-icon"
+          >
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <div className="placeholder-title">No Staff Selected</div>
+          <div className="placeholder-subtitle">
+            Select a staff member from the roster to view or manage their
+            operational profile.
           </div>
-          <h4 className="inspector-placeholder-title">No Staff Selected</h4>
-          <p className="inspector-placeholder-desc">
-            Select a staff member from the roster to inspect their profile and
-            assigned service capabilities.
-          </p>
         </div>
       </div>
     );
   }
 
-  const initials = getInitials(selectedStaff.full_name);
-  const serviceCount = selectedStaff.services.length;
+  const initials = staff.full_name
+    .split(' ')
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  const isTierEligible = shouldDisplayStaffTier(staff);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editFullName.trim()) {
+      setEditError('Full name is required.');
+      return;
+    }
+
+    setIsSaving(true);
+    setEditError(null);
+
+    const input: UpdateStaffProfileInput = {
+      staffId: staff.id,
+      fullName: editFullName.trim(),
+      nickname: editNickname.trim() || null,
+      phone: editPhone.trim() || null,
+      staffType: editStaffType.trim(),
+      tier: editTier.trim(),
+      isHead: editIsHead,
+    };
+
+    const result = await updateStaffProfile(input);
+    if (!result.ok) {
+      setEditError(result.error);
+      setIsSaving(false);
+      return;
+    }
+
+    setIsSaving(false);
+    setIsEditingProfile(false);
+    onStaffUpdated({
+      id: staff.id,
+      full_name: editFullName.trim(),
+      nickname: editNickname.trim() || null,
+      phone: editPhone.trim() || null,
+      staff_type: editStaffType.trim(),
+      tier: editTier.trim(),
+      is_head: editIsHead,
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditFullName(staff.full_name);
+    setEditNickname(staff.nickname || '');
+    setEditPhone(staff.phone || '');
+    setEditStaffType(staff.staff_type);
+    setEditTier(staff.tier);
+    setEditIsHead(staff.is_head);
+    setIsEditingProfile(false);
+    setEditError(null);
+  };
+
+  const formatDate = (isoStr: string) => {
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch {
+      return isoStr;
+    }
+  };
 
   return (
     <div
-      className="bookings-inspector-card staff-inspector-card"
+      className="booking-inspector-card staff-inspector-card"
       data-testid="staff-inspector-card"
     >
-      {/* 1. Inspector Header */}
+      {/* 1. Header with Close Button pinned top-right */}
       <div className="inspector-header">
-        <div className="inspector-header-left">
-          <div className="inspector-avatar-circle" aria-hidden="true">
-            {selectedStaff.avatar_url ? (
-              <img
-                src={selectedStaff.avatar_url}
-                alt=""
-                className="inspector-avatar-img"
-              />
-            ) : (
-              <span>{initials}</span>
-            )}
+        <div className="inspector-header-main flex items-start gap-3">
+          <div
+            className="staff-avatar-circle"
+            aria-hidden="true"
+            style={{ width: 42, height: 42, fontSize: 13 }}
+          >
+            {initials}
           </div>
-          <div className="inspector-meta">
-            <h3 className="inspector-title" data-testid="inspector-staff-name">
-              {selectedStaff.full_name}
-            </h3>
-            {selectedStaff.nickname && (
-              <p className="inspector-subtitle">
-                Nickname: &ldquo;{selectedStaff.nickname}&rdquo;
-              </p>
-            )}
-            <div className="inspector-status-container">
-              <span
-                className={`staff-status-badge staff-status-${selectedStaff.status}`}
-                data-testid="inspector-status-badge"
+          <div className="inspector-header-text min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h2
+                className="inspector-header-title text-base font-bold text-[var(--cs-text)] truncate"
+                data-testid="inspector-staff-name"
               >
-                {selectedStaff.status === 'active'
+                {staff.full_name}
+              </h2>
+              {staff.is_head && (
+                <span
+                  className="supervisor-badge text-[10px] px-1.5 py-0.5"
+                  title="Department Head"
+                >
+                  Head
+                </span>
+              )}
+            </div>
+            {staff.nickname && (
+              <div className="text-xs text-[var(--cs-text-muted)] italic truncate">
+                &ldquo;{staff.nickname}&rdquo;
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-[11px] font-semibold text-[var(--cs-text-secondary)] uppercase">
+                {staff.staff_type.replace(/_/g, ' ')}
+              </span>
+              <span className="text-[11px] text-[var(--cs-text-muted)]">
+                &bull;
+              </span>
+              <span
+                className={`bookings-status-badge ${staff.status === 'active' ? 'status-confirmed' : staff.status === 'awaiting' ? 'status-pending' : 'status-draft'}`}
+              >
+                {staff.status === 'active'
                   ? 'Active'
-                  : selectedStaff.status === 'awaiting'
+                  : staff.status === 'awaiting'
                     ? 'Awaiting Approval'
                     : 'Invite Sent'}
               </span>
-              {selectedStaff.is_head && (
-                <span className="staff-head-badge">Department Head</span>
-              )}
             </div>
           </div>
         </div>
@@ -136,193 +229,427 @@ export const StaffInspectorCard: React.FC<StaffInspectorCardProps> = ({
           className="inspector-close-btn"
           onClick={onClose}
           aria-label="Close staff inspector"
-          title="Close inspector"
         >
-          ✕
+          &times;
         </button>
       </div>
 
-      {/* 2. Inspector Navigation Tabs */}
+      {/* 2. Quick Action Row */}
+      <div className="inspector-actions-row flex items-center gap-1.5 p-2.5 border-b border-[var(--cs-border)] bg-[var(--cs-surface-warm)] overflow-x-auto">
+        <button
+          type="button"
+          className={`btn-secondary-compact text-xs flex items-center gap-1 ${isEditingProfile ? 'active' : ''}`}
+          data-testid="inspector-edit-profile-btn"
+          onClick={() => {
+            setActiveTab('profile');
+            if (!isEditingProfile && staff) {
+              setEditFullName(staff.full_name);
+              setEditNickname(staff.nickname || '');
+              setEditPhone(staff.phone || '');
+              setEditStaffType(staff.staff_type);
+              setEditTier(staff.tier);
+              setEditIsHead(staff.is_head);
+              setEditError(null);
+            }
+            setIsEditingProfile((prev) => !prev);
+          }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          <span>{isEditingProfile ? 'Done Editing' : 'Edit Profile'}</span>
+        </button>
+
+        <button
+          type="button"
+          className="btn-secondary-compact text-xs flex items-center gap-1"
+          data-testid="inspector-manage-schedule-btn"
+          onClick={() => onOpenScheduleModal(staff)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <span>Schedule</span>
+        </button>
+
+        <button
+          type="button"
+          className="btn-secondary-compact text-xs flex items-center gap-1"
+          data-testid="inspector-manage-capabilities-btn"
+          onClick={() => onOpenCapabilityModal(staff)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <span>Capabilities</span>
+        </button>
+
+        <button
+          type="button"
+          className="btn-secondary-compact text-xs text-red-600 hover:text-red-700 ml-auto"
+          data-testid="inspector-offboard-btn"
+          onClick={() => onOpenOffboardingModal(staff)}
+          title="End Employment / Offboarding"
+        >
+          End Employment
+        </button>
+      </div>
+
+      {/* 3. Internal Tabs */}
       <div
-        className="inspector-tabs-nav"
+        className="inspector-tabs-nav flex border-b border-[var(--cs-border)] px-4"
         role="tablist"
-        aria-label="Staff detail sections"
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'profile'}
-          className={`inspector-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
-          data-testid="inspector-tab-profile"
-        >
-          Profile
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'services'}
-          className={`inspector-tab-btn ${activeTab === 'services' ? 'active' : ''}`}
-          onClick={() => setActiveTab('services')}
-          data-testid="inspector-tab-services"
-        >
-          <span>Services</span>
-          <span className="inspector-tab-count-badge">{serviceCount}</span>
-        </button>
+        {(
+          [
+            { key: 'profile', label: 'Profile' },
+            { key: 'services', label: `Services (${staff.services.length})` },
+            { key: 'access', label: 'Access' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === t.key}
+            data-testid={`inspector-tab-${t.key}`}
+            className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors ${
+              activeTab === t.key
+                ? 'border-[var(--cs-sand)] text-[var(--cs-sand)]'
+                : 'border-transparent text-[var(--cs-text-muted)] hover:text-[var(--cs-text)]'
+            }`}
+            onClick={() => setActiveTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* 3. Tab Body */}
-      <div className="inspector-body">
-        {activeTab === 'profile' ? (
-          <div
-            className="inspector-section"
-            data-testid="inspector-profile-section"
-          >
-            <h4 className="inspector-section-heading">OPERATIONAL IDENTITY</h4>
-            <dl className="inspector-details-list">
-              <div className="inspector-detail-row">
-                <dt className="detail-term">Full Legal Name</dt>
-                <dd className="detail-val">{selectedStaff.full_name}</dd>
-              </div>
-
-              {selectedStaff.nickname && (
-                <div className="inspector-detail-row">
-                  <dt className="detail-term">Operational Nickname</dt>
-                  <dd className="detail-val">{selectedStaff.nickname}</dd>
+      {/* 4. Tab Content Body */}
+      <div className="inspector-body-content p-4 space-y-4 flex-1 overflow-y-auto">
+        {/* Profile Tab */}
+        {activeTab === 'profile' && (
+          <>
+            {isEditingProfile ? (
+              <form
+                onSubmit={handleSaveProfile}
+                className="space-y-3"
+                data-testid="staff-profile-edit-form"
+              >
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1">
+                    Full Legal Name *
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input-control text-xs w-full"
+                    data-testid="edit-staff-name"
+                    value={editFullName}
+                    onChange={(e) => setEditFullName(e.target.value)}
+                    required
+                  />
                 </div>
-              )}
 
-              <div className="inspector-detail-row">
-                <dt className="detail-term">Phone Number</dt>
-                <dd className="detail-val">{selectedStaff.phone || '—'}</dd>
-              </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1">
+                      Nickname
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input-control text-xs w-full"
+                      data-testid="edit-staff-nickname"
+                      value={editNickname}
+                      onChange={(e) => setEditNickname(e.target.value)}
+                    />
+                  </div>
 
-              <div className="inspector-detail-row">
-                <dt className="detail-term">System Access Role</dt>
-                <dd className="detail-val">
-                  <span className="staff-role-badge">
-                    {formatRoleLabel(
-                      canonicalizeRole(selectedStaff.system_role),
-                      selectedStaff.system_role,
-                    )}
-                  </span>
-                </dd>
-              </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1">
+                      Phone
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input-control text-xs w-full"
+                      data-testid="edit-staff-phone"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
 
-              <div className="inspector-detail-row">
-                <dt className="detail-term">Operational Job Function</dt>
-                <dd className="detail-val">
-                  {formatStaffType(selectedStaff.staff_type)}
-                </dd>
-              </div>
-
-              {shouldDisplayStaffTier(selectedStaff) && (
-                <div className="inspector-detail-row">
-                  <dt className="detail-term">Skill Tier</dt>
-                  <dd className="detail-val">
-                    <span
-                      className={`staff-tier-badge staff-tier-${selectedStaff.tier.toLowerCase()}`}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1">
+                      Staff Type
+                    </label>
+                    <select
+                      className="form-input-control text-xs w-full"
+                      data-testid="edit-staff-type"
+                      value={editStaffType}
+                      onChange={(e) => setEditStaffType(e.target.value)}
                     >
-                      {formatTier(selectedStaff.tier)}
-                    </span>
-                  </dd>
+                      {STAFF_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1">
+                      Skill Tier
+                    </label>
+                    <select
+                      className="form-input-control text-xs w-full"
+                      data-testid="edit-staff-tier"
+                      value={editTier}
+                      onChange={(e) => setEditTier(e.target.value)}
+                    >
+                      {TIER_OPTIONS.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              )}
 
-              <div className="inspector-detail-row">
-                <dt className="detail-term">Department Supervision</dt>
-                <dd className="detail-val">
-                  {selectedStaff.is_head ? (
-                    <span className="badge-positive">Department Head</span>
-                  ) : (
-                    <span className="text-muted">Not a department head</span>
-                  )}
-                </dd>
-              </div>
-
-              <div className="inspector-detail-row">
-                <dt className="detail-term">Cross-Branch Eligibility</dt>
-                <dd className="detail-val">
-                  {selectedStaff.is_cross_branch
-                    ? 'Eligible for cross-branch assignment'
-                    : 'Single branch only'}
-                </dd>
-              </div>
-
-              <div className="inspector-detail-row">
-                <dt className="detail-term">Account Login Link</dt>
-                <dd className="detail-val">
-                  {selectedStaff.auth_user_id ? (
-                    <span className="text-emerald-700">Account linked</span>
-                  ) : (
-                    <span className="text-amber-700">Not linked</span>
-                  )}
-                </dd>
-              </div>
-
-              {branchName && (
-                <div className="inspector-detail-row">
-                  <dt className="detail-term">Assigned Branch</dt>
-                  <dd className="detail-val">{branchName}</dd>
+                <div className="pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-[var(--cs-text)]">
+                    <input
+                      type="checkbox"
+                      checked={editIsHead}
+                      onChange={(e) => setEditIsHead(e.target.checked)}
+                      className="rounded border-[var(--cs-border)] text-[var(--cs-sand)]"
+                    />
+                    <span>Designate as Department Head / Supervisor</span>
+                  </label>
                 </div>
-              )}
 
-              <div className="inspector-detail-row">
-                <dt className="detail-term">Member Since</dt>
-                <dd className="detail-val">
-                  {formatDate(selectedStaff.created_at)}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        ) : (
-          <div
-            className="inspector-section"
-            data-testid="inspector-services-section"
-          >
-            <h4 className="inspector-section-heading">
-              ASSIGNED SERVICE CAPABILITIES ({serviceCount})
-            </h4>
-            {serviceCount === 0 ? (
+                {editError && (
+                  <div
+                    className="p-2 rounded bg-red-50 border border-red-200 text-red-700 text-xs"
+                    role="alert"
+                  >
+                    {editError}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--cs-border)]">
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs"
+                    data-testid="cancel-profile-btn"
+                    onClick={handleCancelEdit}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary text-xs"
+                    data-testid="save-profile-btn"
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving Changes...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            ) : (
               <div
-                className="inspector-empty-services-state"
+                className="space-y-4"
+                data-testid="inspector-profile-section"
+              >
+                {/* Contact Section */}
+                <div className="inspector-section">
+                  <h4 className="inspector-section-heading">
+                    Contact &amp; Identity
+                  </h4>
+                  <div className="inspector-grid-2">
+                    <div className="inspector-data-item">
+                      <span className="data-label">Phone</span>
+                      <span className="data-value">{staff.phone || '—'}</span>
+                    </div>
+                    <div className="inspector-data-item">
+                      <span className="data-label">Nickname</span>
+                      <span className="data-value">
+                        {staff.nickname ? `"${staff.nickname}"` : '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Work Section */}
+                <div className="inspector-section">
+                  <h4 className="inspector-section-heading">
+                    Work &amp; Operations
+                  </h4>
+                  <div className="inspector-grid-2">
+                    <div className="inspector-data-item">
+                      <span className="data-label">Job Function</span>
+                      <span className="data-value">
+                        {staff.staff_type.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    {isTierEligible && (
+                      <div className="inspector-data-item">
+                        <span className="data-label">Skill Tier</span>
+                        <span className="data-value">{staff.tier}</span>
+                      </div>
+                    )}
+                    <div className="inspector-data-item">
+                      <span className="data-label">Supervision</span>
+                      <span className="data-value">
+                        {staff.is_head
+                          ? 'Department Head'
+                          : 'Not a department head'}
+                      </span>
+                    </div>
+                    <div className="inspector-data-item">
+                      <span className="data-label">Cross-Branch</span>
+                      <span className="data-value">
+                        {staff.is_cross_branch
+                          ? 'Eligible'
+                          : 'Single branch only'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Employment Section */}
+                <div className="inspector-section">
+                  <h4 className="inspector-section-heading">
+                    Employment Record
+                  </h4>
+                  <div className="inspector-grid-2">
+                    <div className="inspector-data-item">
+                      <span className="data-label">Member Since</span>
+                      <span className="data-value">
+                        {formatDate(staff.created_at)}
+                      </span>
+                    </div>
+                    <div className="inspector-data-item">
+                      <span className="data-label">Last Updated</span>
+                      <span className="data-value">
+                        {formatDate(staff.updated_at)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Services Tab */}
+        {activeTab === 'services' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-[var(--cs-text)]">
+                Assigned Capabilities ({staff.services.length})
+              </span>
+              <button
+                type="button"
+                className="btn-secondary-compact text-xs"
+                onClick={() => onOpenCapabilityModal(staff)}
+              >
+                Manage Capabilities
+              </button>
+            </div>
+
+            {staff.services.length === 0 ? (
+              <div
+                className="p-4 rounded border border-dashed border-[var(--cs-border)] text-center text-xs text-[var(--cs-text-muted)]"
                 data-testid="inspector-services-empty"
               >
-                <div className="empty-services-icon" aria-hidden="true">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                  </svg>
-                </div>
-                <p className="empty-services-title">No Assigned Services</p>
-                <p className="empty-services-desc">
-                  This staff member does not have any assigned service
-                  capabilities.
-                </p>
+                No service capabilities assigned to this staff member.
               </div>
             ) : (
-              <ul className="staff-services-list" role="list">
-                {selectedStaff.services.map((svc) => (
-                  <li key={svc.service_id} className="staff-service-item">
-                    <div className="service-check-icon" aria-hidden="true">
-                      ✓
-                    </div>
-                    <span className="staff-service-name">
-                      {svc.service_name}
-                    </span>
-                  </li>
+              <div className="flex flex-wrap gap-1.5">
+                {staff.services.map((svc) => (
+                  <span
+                    key={svc.service_id}
+                    className="text-xs px-2.5 py-1 rounded bg-[var(--cs-surface)] border border-[var(--cs-border)] text-[var(--cs-text)] font-medium"
+                  >
+                    {svc.service_name}
+                  </span>
                 ))}
-              </ul>
+              </div>
             )}
+          </div>
+        )}
+
+        {/* Access Tab */}
+        {activeTab === 'access' && (
+          <div className="space-y-4">
+            <div className="inspector-section">
+              <h4 className="inspector-section-heading">
+                System Access Authority
+              </h4>
+              <div className="space-y-3">
+                <div className="inspector-data-item">
+                  <span className="data-label">System Role</span>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs font-bold text-[var(--cs-text)] uppercase px-2 py-0.5 rounded bg-[var(--cs-surface-hover)] border border-[var(--cs-border)]">
+                      {staff.system_role}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-secondary-compact text-xs"
+                      data-testid="inspector-manage-role-btn"
+                      onClick={() => onOpenRoleModal(staff)}
+                    >
+                      Manage Role
+                    </button>
+                  </div>
+                </div>
+
+                <div className="inspector-data-item">
+                  <span className="data-label">Authentication Account</span>
+                  <span className="data-value">
+                    {staff.auth_user_id
+                      ? 'Account linked'
+                      : 'Not linked (Pending invite)'}
+                  </span>
+                </div>
+
+                <div className="inspector-data-item">
+                  <span className="data-label">Active Status</span>
+                  <span className="data-value">
+                    {staff.is_active
+                      ? 'Operational (Active)'
+                      : 'Inactive / Onboarding'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
