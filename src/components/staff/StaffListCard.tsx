@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { StaffMember, StaffStatusFilter } from '../../types/staff';
 import { canonicalizeRole, formatRoleLabel } from '../../lib/roles';
+import { shouldDisplayStaffTier } from '../../lib/staff-service';
 
 interface StaffListCardProps {
   staff: StaffMember[];
@@ -485,7 +486,7 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
                             {member.is_head && (
                               <span
                                 className="staff-head-badge"
-                                title="Department Lead / Head Therapist"
+                                title="Department Head"
                               >
                                 Head
                               </span>
@@ -519,11 +520,15 @@ export const StaffListCard: React.FC<StaffListCardProps> = ({
 
                     {/* Skill Tier Column */}
                     <td>
-                      <span
-                        className={`staff-tier-badge staff-tier-${member.tier.toLowerCase()}`}
-                      >
-                        {formatTier(member.tier)}
-                      </span>
+                      {shouldDisplayStaffTier(member) ? (
+                        <span
+                          className={`staff-tier-badge staff-tier-${member.tier.toLowerCase()}`}
+                        >
+                          {formatTier(member.tier)}
+                        </span>
+                      ) : (
+                        <span className="staff-tier-text">—</span>
+                      )}
                     </td>
 
                     {/* Phone Column */}

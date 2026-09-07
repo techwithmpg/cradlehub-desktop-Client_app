@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { StaffMember } from '../../types/staff';
 import { canonicalizeRole, formatRoleLabel } from '../../lib/roles';
+import { shouldDisplayStaffTier } from '../../lib/staff-service';
 
 interface StaffInspectorCardProps {
   selectedStaff: StaffMember | null;
@@ -215,16 +216,18 @@ export const StaffInspectorCard: React.FC<StaffInspectorCardProps> = ({
                 </dd>
               </div>
 
-              <div className="inspector-detail-row">
-                <dt className="detail-term">Skill Tier</dt>
-                <dd className="detail-val">
-                  <span
-                    className={`staff-tier-badge staff-tier-${selectedStaff.tier.toLowerCase()}`}
-                  >
-                    {formatTier(selectedStaff.tier)}
-                  </span>
-                </dd>
-              </div>
+              {shouldDisplayStaffTier(selectedStaff) && (
+                <div className="inspector-detail-row">
+                  <dt className="detail-term">Skill Tier</dt>
+                  <dd className="detail-val">
+                    <span
+                      className={`staff-tier-badge staff-tier-${selectedStaff.tier.toLowerCase()}`}
+                    >
+                      {formatTier(selectedStaff.tier)}
+                    </span>
+                  </dd>
+                </div>
+              )}
 
               <div className="inspector-detail-row">
                 <dt className="detail-term">Department Supervision</dt>

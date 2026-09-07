@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { StaffView } from '../src/components/staff/StaffView';
 import { CanonicalShell } from '../src/components/CanonicalShell';
@@ -40,6 +41,7 @@ const mockStaffRoster: StaffMember[] = [
     is_active: true,
     is_cross_branch: false,
     created_at: '2025-05-10T08:00:00Z',
+    updated_at: '2025-05-10T08:00:00Z',
     status: 'active',
     services: [
       { service_id: 'srv-1', service_name: 'Swedish Massage' },
@@ -61,6 +63,7 @@ const mockStaffRoster: StaffMember[] = [
     is_active: false,
     is_cross_branch: false,
     created_at: '2026-01-15T09:00:00Z',
+    updated_at: '2026-01-15T09:00:00Z',
     status: 'awaiting',
     services: [],
   },
@@ -79,7 +82,27 @@ const mockStaffRoster: StaffMember[] = [
     is_active: false,
     is_cross_branch: true,
     created_at: '2026-03-01T10:00:00Z',
+    updated_at: '2026-03-01T10:00:00Z',
     status: 'invited',
+    services: [],
+  },
+  {
+    id: 's-4',
+    branch_id: 'branch-1',
+    auth_user_id: 'u-4',
+    full_name: 'Carlos Mendoza',
+    nickname: 'Charlie',
+    phone: '09191112233',
+    avatar_url: null,
+    tier: 'senior',
+    system_role: 'crm',
+    staff_type: 'csr',
+    is_head: false,
+    is_active: true,
+    is_cross_branch: false,
+    created_at: '2026-02-01T08:00:00Z',
+    updated_at: '2026-02-01T08:00:00Z',
+    status: 'active',
     services: [],
   },
 ];
@@ -109,8 +132,8 @@ describe('Staff Workspace Component Suite', () => {
       ok: true,
       data: mockStaffRoster,
       kpis: {
-        totalStaff: 3,
-        activeStaff: 1,
+        totalStaff: 4,
+        activeStaff: 2,
         awaitingStaff: 1,
         invitedStaff: 1,
       },
@@ -125,14 +148,26 @@ describe('Staff Workspace Component Suite', () => {
     // Check KPI testids and button semantics
     const totalKpi = screen.getByTestId('staff-kpi-totalStaff');
     const activeKpi = screen.getByTestId('staff-kpi-activeStaff');
+    const awaitingKpi = screen.getByTestId('staff-kpi-awaitingStaff');
+    const invitedKpi = screen.getByTestId('staff-kpi-invitedStaff');
+
     expect(totalKpi.tagName.toLowerCase()).toBe('button');
     expect(activeKpi.tagName.toLowerCase()).toBe('button');
+    expect(awaitingKpi.tagName.toLowerCase()).toBe('button');
+    expect(invitedKpi.tagName.toLowerCase()).toBe('button');
     expect(activeKpi.getAttribute('aria-pressed')).toBe('false');
+
+    // Verify KPI subtexts: total and active have contract-backed subtext, awaiting and invited have no unproven claims
+    expect(totalKpi.textContent).toContain('Branch roster headcount');
+    expect(activeKpi.textContent).toContain('Active branch staff');
+    expect(awaitingKpi.textContent).not.toContain('Account claimed');
+    expect(invitedKpi.textContent).not.toContain('Invitation link issued');
 
     // Check staff rows
     expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
     expect(screen.getByTestId('staff-row-s-2')).toBeDefined();
     expect(screen.getByTestId('staff-row-s-3')).toBeDefined();
+    expect(screen.getByTestId('staff-row-s-4')).toBeDefined();
 
     // Auto-selects first staff member
     expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
@@ -140,13 +175,70 @@ describe('Staff Workspace Component Suite', () => {
     );
   });
 
+  it('renders skill tier appropriately based on operational role in table and inspector', async () => {
+    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
+      ok: true,
+      data: mockStaffRoster,
+      kpis: {
+        totalStaff: 4,
+        activeStaff: 2,
+        awaitingStaff: 1,
+        invitedStaff: 1,
+      },
+    });
+
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+    });
+
+    // Table rows:
+    // s-1 is service_head -> non-tier supervisory role -> table renders '—'
+    const row1 = screen.getByTestId('staff-row-s-1');
+    expect(row1.textContent).toContain('—');
+
+    // s-2 is staff / nail_tech -> tier-eligible -> table renders 'Mid'
+    const row2 = screen.getByTestId('staff-row-s-2');
+    expect(row2.textContent).toContain('Mid');
+
+    // s-4 is crm / csr -> non-tier role -> table renders '—'
+    const row4 = screen.getByTestId('staff-row-s-4');
+    expect(row4.textContent).toContain('—');
+
+    // Inspector checks:
+    // Initial selection is Maria Santos (service_head) -> Skill Tier detail row is omitted
+    const inspectorSection1 = screen.getByTestId('inspector-profile-section');
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Maria Santos',
+    );
+    expect(within(inspectorSection1).queryByText('Skill Tier')).toBeNull();
+
+    // Select Juan Dela Cruz (nail_tech / staff) -> Skill Tier detail row is displayed with 'Mid'
+    fireEvent.click(row2);
+    const inspectorSection2 = screen.getByTestId('inspector-profile-section');
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Juan Dela Cruz',
+    );
+    expect(within(inspectorSection2).getByText('Skill Tier')).toBeDefined();
+    expect(within(inspectorSection2).getByText('Mid')).toBeDefined();
+
+    // Select Carlos Mendoza (crm) -> Skill Tier detail row is omitted
+    fireEvent.click(row4);
+    const inspectorSection3 = screen.getByTestId('inspector-profile-section');
+    expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+      'Carlos Mendoza',
+    );
+    expect(within(inspectorSection3).queryByText('Skill Tier')).toBeNull();
+  });
+
   it('filters staff roster by status tabs and KPI clicks and updates aria-pressed', async () => {
     vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
       ok: true,
       data: mockStaffRoster,
       kpis: {
-        totalStaff: 3,
-        activeStaff: 1,
+        totalStaff: 4,
+        activeStaff: 2,
         awaitingStaff: 1,
         invitedStaff: 1,
       },
@@ -163,6 +255,7 @@ describe('Staff Workspace Component Suite', () => {
     expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
     expect(screen.queryByTestId('staff-row-s-2')).toBeNull();
     expect(screen.queryByTestId('staff-row-s-3')).toBeNull();
+    expect(screen.getByTestId('staff-row-s-4')).toBeDefined();
     expect(
       screen.getByTestId('staff-kpi-activeStaff').getAttribute('aria-pressed'),
     ).toBe('true');
@@ -172,12 +265,14 @@ describe('Staff Workspace Component Suite', () => {
     expect(screen.queryByTestId('staff-row-s-1')).toBeNull();
     expect(screen.getByTestId('staff-row-s-2')).toBeDefined();
     expect(screen.queryByTestId('staff-row-s-3')).toBeNull();
+    expect(screen.queryByTestId('staff-row-s-4')).toBeNull();
 
     // Click Invites Sent KPI Button
     fireEvent.click(screen.getByTestId('staff-kpi-invitedStaff'));
     expect(screen.queryByTestId('staff-row-s-1')).toBeNull();
     expect(screen.queryByTestId('staff-row-s-2')).toBeNull();
     expect(screen.getByTestId('staff-row-s-3')).toBeDefined();
+    expect(screen.queryByTestId('staff-row-s-4')).toBeNull();
     expect(
       screen.getByTestId('staff-kpi-invitedStaff').getAttribute('aria-pressed'),
     ).toBe('true');
@@ -187,6 +282,7 @@ describe('Staff Workspace Component Suite', () => {
     expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
     expect(screen.getByTestId('staff-row-s-2')).toBeDefined();
     expect(screen.getByTestId('staff-row-s-3')).toBeDefined();
+    expect(screen.getByTestId('staff-row-s-4')).toBeDefined();
   });
 
   it('enforces selection coherence when selected staff member is filtered or searched out', async () => {
@@ -194,8 +290,8 @@ describe('Staff Workspace Component Suite', () => {
       ok: true,
       data: mockStaffRoster,
       kpis: {
-        totalStaff: 3,
-        activeStaff: 1,
+        totalStaff: 4,
+        activeStaff: 2,
         awaitingStaff: 1,
         invitedStaff: 1,
       },
@@ -251,8 +347,8 @@ describe('Staff Workspace Component Suite', () => {
       ok: true,
       data: mockStaffRoster,
       kpis: {
-        totalStaff: 3,
-        activeStaff: 1,
+        totalStaff: 4,
+        activeStaff: 2,
         awaitingStaff: 1,
         invitedStaff: 1,
       },
@@ -287,8 +383,8 @@ describe('Staff Workspace Component Suite', () => {
       ok: true,
       data: mockStaffRoster,
       kpis: {
-        totalStaff: 3,
-        activeStaff: 1,
+        totalStaff: 4,
+        activeStaff: 2,
         awaitingStaff: 1,
         invitedStaff: 1,
       },
@@ -303,10 +399,6 @@ describe('Staff Workspace Component Suite', () => {
     // Maria is Head -> inspector should say "Department Head" (not "Head Therapist")
     expect(screen.getAllByText('Department Head').length).toBeGreaterThan(0);
     expect(screen.queryByText('Head Therapist')).toBeNull();
-
-    // Skill tier label should be "Skill Tier" (not "Therapist Skill Tier")
-    expect(screen.getAllByText('Skill Tier').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Therapist Skill Tier')).toBeNull();
 
     // Cross-Branch label should be "Cross-Branch Eligibility" (not "Cross-Branch Dispatch")
     expect(screen.getByText('Cross-Branch Eligibility')).toBeDefined();
@@ -327,8 +419,8 @@ describe('Staff Workspace Component Suite', () => {
       ok: true,
       data: mockStaffRoster,
       kpis: {
-        totalStaff: 3,
-        activeStaff: 1,
+        totalStaff: 4,
+        activeStaff: 2,
         awaitingStaff: 1,
         invitedStaff: 1,
       },
@@ -368,8 +460,8 @@ describe('Staff Workspace Component Suite', () => {
       ok: true,
       data: mockStaffRoster,
       kpis: {
-        totalStaff: 3,
-        activeStaff: 1,
+        totalStaff: 4,
+        activeStaff: 2,
         awaitingStaff: 1,
         invitedStaff: 1,
       },
@@ -421,8 +513,8 @@ describe('Staff Workspace Component Suite', () => {
         ok: true,
         data: mockStaffRoster,
         kpis: {
-          totalStaff: 3,
-          activeStaff: 1,
+          totalStaff: 4,
+          activeStaff: 2,
           awaitingStaff: 1,
           invitedStaff: 1,
         },
@@ -478,8 +570,8 @@ describe('Staff Workspace Component Suite', () => {
       ok: true,
       data: mockStaffRoster,
       kpis: {
-        totalStaff: 3,
-        activeStaff: 1,
+        totalStaff: 4,
+        activeStaff: 2,
         awaitingStaff: 1,
         invitedStaff: 1,
       },

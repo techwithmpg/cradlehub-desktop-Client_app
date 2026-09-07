@@ -75,15 +75,79 @@ export function calculateStaffKpis(roster: StaffMember[]): StaffKpiSummary {
   };
 }
 
+const NON_TIER_ROLES = new Set([
+  'owner',
+  'manager',
+  'assistant_manager',
+  'store_manager',
+  'crm',
+  'service_head',
+  'driver',
+  'utility',
+  'managerial',
+  'salon_head',
+]);
+
+const TIER_ELIGIBLE_STAFF_TYPES = new Set([
+  'therapist',
+  'nail_tech',
+  'aesthetician',
+]);
+
+const TIER_ELIGIBLE_SYSTEM_ROLES = new Set(['staff', 'service_staff']);
+
+const NON_TIER_STAFF_TYPES = new Set([
+  'csr',
+  'driver',
+  'utility',
+  'managerial',
+  'salon_head',
+]);
+
+/**
+ * Determines whether a staff member is eligible to have a skill tier displayed.
+ * Mirrors hosted `getStaffDisplayMeta()` semantics:
+ * Only operational service providers (therapist, nail_tech, aesthetician) under
+ * staff/service_staff system roles display skill tier.
+ * Suppressed for managerial, CRM/CSR, driver, utility, and supervisor roles.
+ */
+export function shouldDisplayStaffTier(member: {
+  tier?: string | null;
+  system_role?: string | null;
+  staff_type?: string | null;
+}): boolean {
+  if (!member.tier || !member.tier.trim()) return false;
+
+  const rawRole = (member.system_role || '').trim().toLowerCase();
+  const staffType = (member.staff_type || '').trim().toLowerCase();
+
+  const canonicalRole =
+    rawRole === 'csr' || rawRole === 'csr_head' || rawRole === 'csr_staff'
+      ? 'crm'
+      : rawRole;
+
+  const isRoleEligible =
+    TIER_ELIGIBLE_SYSTEM_ROLES.has(canonicalRole) &&
+    !NON_TIER_ROLES.has(canonicalRole);
+
+  const isTypeEligible = staffType
+    ? TIER_ELIGIBLE_STAFF_TYPES.has(staffType) &&
+      !NON_TIER_STAFF_TYPES.has(staffType)
+    : true;
+
+  return isRoleEligible && isTypeEligible;
+}
+
 /**
  * Normalizes raw database capabilities into minimized service records.
- * Returns null if nested capability data is malformed (does not fabricate names).
- * Returns [] for valid empty / unassigned capabilities.
+ * Returns null if nested capability data is malformed (fails closed, does not fabricate names).
+ * Distinguishes [] (valid empty) from undefined (invalid missing property).
  */
 export function extractCapabilities(
   rawServices: unknown,
 ): StaffServiceCapability[] | null {
-  if (rawServices === null || rawServices === undefined) return [];
+  if (rawServices === undefined) return null;
+  if (rawServices === null) return [];
   if (!Array.isArray(rawServices)) return null;
 
   const capabilities: StaffServiceCapability[] = [];
@@ -99,7 +163,7 @@ export function extractCapabilities(
     let serviceName: string;
     if (raw.services && typeof raw.services === 'object') {
       if (Array.isArray(raw.services)) {
-        if (raw.services.length === 0) return null;
+        if (raw.services.length !== 1) return null;
         const first = raw.services[0];
         if (
           typeof first !== 'object' ||
@@ -133,7 +197,7 @@ export function extractCapabilities(
 /**
  * Validates and transforms a raw staff row into a typed StaffMember.
  * Fails closed by returning null if required modern schema fields are missing or malformed.
- * Does not fabricate defaults or modern business classifications.
+ * Strictly validates all selected fields: undefined is rejected on all selected columns.
  */
 export function normalizeStaffMember(
   row: unknown,
@@ -151,38 +215,28 @@ export function normalizeStaffMember(
     return null;
   }
 
-  // 3. auth_user_id: string or null
-  if (obj.auth_user_id !== null && typeof obj.auth_user_id !== 'string') {
-    return null;
+  // 3. auth_user_id: string | null (reject undefined; reject empty/whitespace string)
+  if (obj.auth_user_id !== null) {
+    if (typeof obj.auth_user_id !== 'string' || !obj.auth_user_id.trim()) {
+      return null;
+    }
   }
 
   // 4. full_name: non-empty string
   if (typeof obj.full_name !== 'string' || !obj.full_name.trim()) return null;
 
-  // 5. nickname: string or null
-  if (
-    obj.nickname !== null &&
-    obj.nickname !== undefined &&
-    typeof obj.nickname !== 'string'
-  ) {
+  // 5. nickname: string | null (reject undefined)
+  if (obj.nickname !== null && typeof obj.nickname !== 'string') {
     return null;
   }
 
-  // 6. phone: string or null
-  if (
-    obj.phone !== null &&
-    obj.phone !== undefined &&
-    typeof obj.phone !== 'string'
-  ) {
+  // 6. phone: string | null (reject undefined)
+  if (obj.phone !== null && typeof obj.phone !== 'string') {
     return null;
   }
 
-  // 7. avatar_url: string or null
-  if (
-    obj.avatar_url !== null &&
-    obj.avatar_url !== undefined &&
-    typeof obj.avatar_url !== 'string'
-  ) {
+  // 7. avatar_url: string | null (reject undefined)
+  if (obj.avatar_url !== null && typeof obj.avatar_url !== 'string') {
     return null;
   }
 
@@ -208,12 +262,8 @@ export function normalizeStaffMember(
   // 14. created_at: non-empty string
   if (typeof obj.created_at !== 'string' || !obj.created_at.trim()) return null;
 
-  // 15. updated_at: string or undefined or null
-  if (
-    obj.updated_at !== undefined &&
-    obj.updated_at !== null &&
-    typeof obj.updated_at !== 'string'
-  ) {
+  // 15. updated_at: non-empty string (reject null/undefined)
+  if (typeof obj.updated_at !== 'string' || !obj.updated_at.trim()) {
     return null;
   }
 
@@ -242,7 +292,7 @@ export function normalizeStaffMember(
     is_active: obj.is_active,
     is_cross_branch: obj.is_cross_branch,
     created_at: obj.created_at.trim(),
-    updated_at: obj.updated_at ? (obj.updated_at as string).trim() : undefined,
+    updated_at: (obj.updated_at as string).trim(),
     status,
     services,
   };

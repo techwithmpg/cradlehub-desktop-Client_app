@@ -22,7 +22,7 @@ export interface StaffMember {
   is_active: boolean;
   is_cross_branch: boolean;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
   status: StaffStatus;
   services: StaffServiceCapability[];
 }

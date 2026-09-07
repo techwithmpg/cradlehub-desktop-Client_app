@@ -68,7 +68,7 @@ export const StaffKpiSummary: React.FC<StaffKpiSummaryProps> = ({
       key: 'awaitingStaff',
       label: 'Awaiting Approval',
       count: kpis.awaitingStaff,
-      subtext: 'Account claimed, pending activation',
+      subtext: '',
       filterTarget: 'awaiting' as StaffStatusFilter,
       icon: (
         <svg
@@ -91,7 +91,7 @@ export const StaffKpiSummary: React.FC<StaffKpiSummaryProps> = ({
       key: 'invitedStaff',
       label: 'Invites Sent',
       count: kpis.invitedStaff,
-      subtext: 'Invitation link issued, unlinked',
+      subtext: '',
       filterTarget: 'invited' as StaffStatusFilter,
       icon: (
         <svg
@@ -128,7 +128,9 @@ export const StaffKpiSummary: React.FC<StaffKpiSummaryProps> = ({
                 <span className="bookings-kpi-label">{item.label}</span>
               </div>
               <div className="bookings-kpi-count">{item.count}</div>
-              <div className="bookings-kpi-subtext">{item.subtext}</div>
+              {item.subtext ? (
+                <div className="bookings-kpi-subtext">{item.subtext}</div>
+              ) : null}
             </>
           );
 
@@ -140,7 +142,11 @@ export const StaffKpiSummary: React.FC<StaffKpiSummaryProps> = ({
                 className={`bookings-kpi-cell ${item.accentClass} interactive ${isSelected ? 'selected-kpi-cell' : ''}`}
                 onClick={() => onKpiClick(item.filterTarget)}
                 aria-pressed={isSelected}
-                aria-label={`${item.label}: ${item.count}, ${item.subtext}`}
+                aria-label={
+                  item.subtext
+                    ? `${item.label}: ${item.count}, ${item.subtext}`
+                    : `${item.label}: ${item.count}`
+                }
                 data-testid={`staff-kpi-${item.key}`}
               >
                 {content}
@@ -152,7 +158,11 @@ export const StaffKpiSummary: React.FC<StaffKpiSummaryProps> = ({
             <div
               key={item.key}
               className={`bookings-kpi-cell ${item.accentClass} ${isSelected ? 'selected-kpi-cell' : ''}`}
-              aria-label={`${item.label}: ${item.count}`}
+              aria-label={
+                item.subtext
+                  ? `${item.label}: ${item.count}, ${item.subtext}`
+                  : `${item.label}: ${item.count}`
+              }
               data-testid={`staff-kpi-${item.key}`}
             >
               {content}

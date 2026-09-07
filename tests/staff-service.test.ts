@@ -3,12 +3,33 @@ import {
   calculateStaffKpis,
   classifyStaffError,
   deriveStaffStatus,
+  extractCapabilities,
   fetchBranchStaff,
   isStaffMember,
   normalizeStaffMember,
+  shouldDisplayStaffTier,
 } from '../src/lib/staff-service';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { StaffMember } from '../src/types/staff';
+
+const validBaseRow = {
+  id: 's-1',
+  branch_id: 'b-1',
+  auth_user_id: 'u-1',
+  full_name: 'Staff Member',
+  nickname: 'Staffy',
+  phone: '09171234567',
+  avatar_url: 'https://images.test/avatar.jpg',
+  tier: 'senior',
+  system_role: 'staff',
+  staff_type: 'therapist',
+  is_head: false,
+  is_active: true,
+  is_cross_branch: false,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+  staff_services: [],
+};
 
 describe('staff-service', () => {
   beforeEach(() => {
@@ -91,6 +112,140 @@ describe('staff-service', () => {
     });
   });
 
+  describe('Tier Applicability Semantics (shouldDisplayStaffTier)', () => {
+    it('returns true for operational service staff types (therapist, nail_tech, aesthetician) under staff / service_staff role', () => {
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'staff',
+          staff_type: 'therapist',
+        }),
+      ).toBe(true);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'mid',
+          system_role: 'service_staff',
+          staff_type: 'nail_tech',
+        }),
+      ).toBe(true);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'junior',
+          system_role: 'staff',
+          staff_type: 'aesthetician',
+        }),
+      ).toBe(true);
+    });
+
+    it('returns false for CRM and CSR roles', () => {
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'crm',
+          staff_type: 'csr',
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'mid',
+          system_role: 'csr',
+          staff_type: 'csr',
+        }),
+      ).toBe(false);
+    });
+
+    it('returns false for driver and utility staff', () => {
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'driver',
+          staff_type: 'driver',
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'utility',
+          staff_type: 'utility',
+        }),
+      ).toBe(false);
+    });
+
+    it('returns false for managerial roles and types (owner, manager, assistant_manager, store_manager, managerial)', () => {
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'owner',
+          staff_type: 'managerial',
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'manager',
+          staff_type: 'managerial',
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'assistant_manager',
+          staff_type: 'managerial',
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'store_manager',
+          staff_type: 'managerial',
+        }),
+      ).toBe(false);
+    });
+
+    it('returns false for supervisory / head roles (service_head, salon_head)', () => {
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'service_head',
+          staff_type: 'therapist',
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: 'senior',
+          system_role: 'staff',
+          staff_type: 'salon_head',
+        }),
+      ).toBe(false);
+    });
+
+    it('returns false if tier is missing or whitespace', () => {
+      expect(
+        shouldDisplayStaffTier({
+          tier: '',
+          system_role: 'staff',
+          staff_type: 'therapist',
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldDisplayStaffTier({
+          tier: '   ',
+          system_role: 'staff',
+          staff_type: 'therapist',
+        }),
+      ).toBe(false);
+    });
+  });
+
   describe('KPI Calculation', () => {
     it('calculates deterministic summary metrics 1:1 with roster statuses', () => {
       const mockRoster: StaffMember[] = [
@@ -109,6 +264,7 @@ describe('staff-service', () => {
           is_active: true,
           is_cross_branch: false,
           created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
           status: 'active',
           services: [{ service_id: 'srv-1', service_name: 'Swedish Massage' }],
         },
@@ -127,6 +283,7 @@ describe('staff-service', () => {
           is_active: false,
           is_cross_branch: false,
           created_at: '2026-02-01T00:00:00Z',
+          updated_at: '2026-02-01T00:00:00Z',
           status: 'awaiting',
           services: [],
         },
@@ -145,6 +302,7 @@ describe('staff-service', () => {
           is_active: false,
           is_cross_branch: false,
           created_at: '2026-03-01T00:00:00Z',
+          updated_at: '2026-03-01T00:00:00Z',
           status: 'invited',
           services: [],
         },
@@ -169,8 +327,86 @@ describe('staff-service', () => {
     });
   });
 
-  describe('Row Normalization & Validation', () => {
-    it('normalizes a valid raw staff row with minimized capabilities', () => {
+  describe('Capability Relation Validation (extractCapabilities)', () => {
+    it('returns null when rawServices is undefined (fails closed)', () => {
+      expect(extractCapabilities(undefined)).toBeNull();
+    });
+
+    it('returns [] when rawServices is null or empty array', () => {
+      expect(extractCapabilities(null)).toEqual([]);
+      expect(extractCapabilities([])).toEqual([]);
+    });
+
+    it('returns capabilities when relation is single-element array', () => {
+      const raw = [
+        {
+          service_id: 'srv-1',
+          services: [{ id: 'srv-1', name: 'Foot Reflexology' }],
+        },
+      ];
+      expect(extractCapabilities(raw)).toEqual([
+        { service_id: 'srv-1', service_name: 'Foot Reflexology' },
+      ]);
+    });
+
+    it('returns capabilities when relation is single object', () => {
+      const raw = [
+        {
+          service_id: 'srv-1',
+          services: { id: 'srv-1', name: 'Foot Reflexology' },
+        },
+      ];
+      expect(extractCapabilities(raw)).toEqual([
+        { service_id: 'srv-1', service_name: 'Foot Reflexology' },
+      ]);
+    });
+
+    it('fails closed when services relation array contains multiple elements', () => {
+      const raw = [
+        {
+          service_id: 'srv-1',
+          services: [
+            { id: 'srv-1', name: 'Foot Reflexology' },
+            { id: 'srv-2', name: 'Swedish Massage' },
+          ],
+        },
+      ];
+      expect(extractCapabilities(raw)).toBeNull();
+    });
+
+    it('fails closed when services relation array is empty', () => {
+      const raw = [
+        {
+          service_id: 'srv-1',
+          services: [],
+        },
+      ];
+      expect(extractCapabilities(raw)).toBeNull();
+    });
+
+    it('fails closed when service_name is empty string or whitespace', () => {
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: { id: 'srv-1', name: '' },
+          },
+        ]),
+      ).toBeNull();
+
+      expect(
+        extractCapabilities([
+          {
+            service_id: 'srv-1',
+            services: [{ id: 'srv-1', name: '   ' }],
+          },
+        ]),
+      ).toBeNull();
+    });
+  });
+
+  describe('Row Normalization & Strict Selected-Field Validation', () => {
+    it('normalizes a valid raw staff row with minimized capabilities and required updated_at', () => {
       const raw = {
         id: 's-100',
         branch_id: 'branch-1',
@@ -207,6 +443,7 @@ describe('staff-service', () => {
       expect(member?.status).toBe('active');
       expect(member?.is_head).toBe(true);
       expect(member?.is_cross_branch).toBe(true);
+      expect(member?.updated_at).toBe('2026-01-20T08:00:00Z');
       expect(member?.services).toEqual([
         { service_id: 'srv-1', service_name: 'Facial Treatment' },
         { service_id: 'srv-2', service_name: 'Aromatherapy' },
@@ -223,239 +460,218 @@ describe('staff-service', () => {
       expect(normalizeStaffMember({ id: 's-1', branch_id: 'b-1' })).toBeNull();
     });
 
+    describe('Strict validation of explicitly selected fields', () => {
+      it('fails closed when auth_user_id is missing (undefined)', () => {
+        const rowWithoutAuth: Record<string, unknown> = { ...validBaseRow };
+        delete rowWithoutAuth.auth_user_id;
+        expect(normalizeStaffMember(rowWithoutAuth)).toBeNull();
+      });
+
+      it('fails closed when auth_user_id is empty or whitespace string', () => {
+        expect(
+          normalizeStaffMember({ ...validBaseRow, auth_user_id: '' }),
+        ).toBeNull();
+        expect(
+          normalizeStaffMember({ ...validBaseRow, auth_user_id: '   ' }),
+        ).toBeNull();
+      });
+
+      it('accepts auth_user_id: null or valid string', () => {
+        const withNull = normalizeStaffMember({
+          ...validBaseRow,
+          auth_user_id: null,
+        });
+        expect(withNull).not.toBeNull();
+        expect(withNull?.auth_user_id).toBeNull();
+
+        const withString = normalizeStaffMember({
+          ...validBaseRow,
+          auth_user_id: 'valid-uuid-123',
+        });
+        expect(withString).not.toBeNull();
+        expect(withString?.auth_user_id).toBe('valid-uuid-123');
+      });
+
+      it('fails closed when nickname is missing (undefined)', () => {
+        const rowWithoutNickname: Record<string, unknown> = { ...validBaseRow };
+        delete rowWithoutNickname.nickname;
+        expect(normalizeStaffMember(rowWithoutNickname)).toBeNull();
+      });
+
+      it('accepts nickname: null or valid string', () => {
+        const withNull = normalizeStaffMember({
+          ...validBaseRow,
+          nickname: null,
+        });
+        expect(withNull).not.toBeNull();
+        expect(withNull?.nickname).toBeNull();
+
+        const withString = normalizeStaffMember({
+          ...validBaseRow,
+          nickname: 'Nick',
+        });
+        expect(withString).not.toBeNull();
+        expect(withString?.nickname).toBe('Nick');
+      });
+
+      it('fails closed when phone is missing (undefined)', () => {
+        const rowWithoutPhone: Record<string, unknown> = { ...validBaseRow };
+        delete rowWithoutPhone.phone;
+        expect(normalizeStaffMember(rowWithoutPhone)).toBeNull();
+      });
+
+      it('accepts phone: null or valid string', () => {
+        const withNull = normalizeStaffMember({ ...validBaseRow, phone: null });
+        expect(withNull).not.toBeNull();
+        expect(withNull?.phone).toBeNull();
+
+        const withString = normalizeStaffMember({
+          ...validBaseRow,
+          phone: '09171234567',
+        });
+        expect(withString).not.toBeNull();
+        expect(withString?.phone).toBe('09171234567');
+      });
+
+      it('fails closed when avatar_url is missing (undefined)', () => {
+        const rowWithoutAvatar: Record<string, unknown> = { ...validBaseRow };
+        delete rowWithoutAvatar.avatar_url;
+        expect(normalizeStaffMember(rowWithoutAvatar)).toBeNull();
+      });
+
+      it('accepts avatar_url: null or valid string', () => {
+        const withNull = normalizeStaffMember({
+          ...validBaseRow,
+          avatar_url: null,
+        });
+        expect(withNull).not.toBeNull();
+        expect(withNull?.avatar_url).toBeNull();
+
+        const withString = normalizeStaffMember({
+          ...validBaseRow,
+          avatar_url: 'https://test.jpg',
+        });
+        expect(withString).not.toBeNull();
+        expect(withString?.avatar_url).toBe('https://test.jpg');
+      });
+
+      it('fails closed when updated_at is missing, null, or empty', () => {
+        const rowWithoutUpdated: Record<string, unknown> = { ...validBaseRow };
+        delete rowWithoutUpdated.updated_at;
+        expect(normalizeStaffMember(rowWithoutUpdated)).toBeNull();
+        expect(
+          normalizeStaffMember({ ...validBaseRow, updated_at: null }),
+        ).toBeNull();
+        expect(
+          normalizeStaffMember({ ...validBaseRow, updated_at: '' }),
+        ).toBeNull();
+        expect(
+          normalizeStaffMember({ ...validBaseRow, updated_at: '   ' }),
+        ).toBeNull();
+      });
+
+      it('fails closed when staff_services property is missing (undefined)', () => {
+        const rowWithoutServices: Record<string, unknown> = { ...validBaseRow };
+        delete rowWithoutServices.staff_services;
+        expect(normalizeStaffMember(rowWithoutServices)).toBeNull();
+      });
+
+      it('accepts staff_services: [] or null without fabricating capabilities', () => {
+        const withEmpty = normalizeStaffMember({
+          ...validBaseRow,
+          staff_services: [],
+        });
+        expect(withEmpty?.services).toEqual([]);
+
+        const withNull = normalizeStaffMember({
+          ...validBaseRow,
+          staff_services: null,
+        });
+        expect(withNull?.services).toEqual([]);
+      });
+    });
+
     it('fails closed when staff_type is missing or empty', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'b-1',
-        auth_user_id: null,
-        full_name: 'Staff Member',
-        tier: 'senior',
-        system_role: 'staff',
-        is_head: false,
-        is_active: true,
-        is_cross_branch: false,
-        created_at: '2026-01-01T00:00:00Z',
-        staff_services: [],
-      };
       expect(
-        normalizeStaffMember({ ...base, staff_type: undefined }),
+        normalizeStaffMember({ ...validBaseRow, staff_type: undefined }),
       ).toBeNull();
-      expect(normalizeStaffMember({ ...base, staff_type: '' })).toBeNull();
-      expect(normalizeStaffMember({ ...base, staff_type: '   ' })).toBeNull();
+      expect(
+        normalizeStaffMember({ ...validBaseRow, staff_type: '' }),
+      ).toBeNull();
+      expect(
+        normalizeStaffMember({ ...validBaseRow, staff_type: '   ' }),
+      ).toBeNull();
     });
 
     it('fails closed when system_role is missing or empty', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'b-1',
-        auth_user_id: null,
-        full_name: 'Staff Member',
-        tier: 'senior',
-        staff_type: 'therapist',
-        is_head: false,
-        is_active: true,
-        is_cross_branch: false,
-        created_at: '2026-01-01T00:00:00Z',
-        staff_services: [],
-      };
       expect(
-        normalizeStaffMember({ ...base, system_role: undefined }),
+        normalizeStaffMember({ ...validBaseRow, system_role: undefined }),
       ).toBeNull();
-      expect(normalizeStaffMember({ ...base, system_role: '' })).toBeNull();
+      expect(
+        normalizeStaffMember({ ...validBaseRow, system_role: '' }),
+      ).toBeNull();
     });
 
     it('fails closed when tier is missing or empty', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'b-1',
-        auth_user_id: null,
-        full_name: 'Staff Member',
-        system_role: 'staff',
-        staff_type: 'therapist',
-        is_head: false,
-        is_active: true,
-        is_cross_branch: false,
-        created_at: '2026-01-01T00:00:00Z',
-        staff_services: [],
-      };
-      expect(normalizeStaffMember({ ...base, tier: undefined })).toBeNull();
-      expect(normalizeStaffMember({ ...base, tier: '' })).toBeNull();
+      expect(
+        normalizeStaffMember({ ...validBaseRow, tier: undefined }),
+      ).toBeNull();
+      expect(normalizeStaffMember({ ...validBaseRow, tier: '' })).toBeNull();
     });
 
     it('fails closed when is_active is missing or non-boolean', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'b-1',
-        auth_user_id: null,
-        full_name: 'Staff Member',
-        tier: 'senior',
-        system_role: 'staff',
-        staff_type: 'therapist',
-        is_head: false,
-        is_cross_branch: false,
-        created_at: '2026-01-01T00:00:00Z',
-        staff_services: [],
-      };
       expect(
-        normalizeStaffMember({ ...base, is_active: undefined }),
+        normalizeStaffMember({ ...validBaseRow, is_active: undefined }),
       ).toBeNull();
-      expect(normalizeStaffMember({ ...base, is_active: 'true' })).toBeNull();
-      expect(normalizeStaffMember({ ...base, is_active: 1 })).toBeNull();
+      expect(
+        normalizeStaffMember({ ...validBaseRow, is_active: 'true' }),
+      ).toBeNull();
+      expect(
+        normalizeStaffMember({ ...validBaseRow, is_active: 1 }),
+      ).toBeNull();
     });
 
     it('fails closed when is_head or is_cross_branch are non-boolean', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'b-1',
-        auth_user_id: null,
-        full_name: 'Staff Member',
-        tier: 'senior',
-        system_role: 'staff',
-        staff_type: 'therapist',
-        is_active: true,
-        created_at: '2026-01-01T00:00:00Z',
-        staff_services: [],
-      };
       expect(
         normalizeStaffMember({
-          ...base,
+          ...validBaseRow,
           is_head: 'yes',
-          is_cross_branch: false,
         }),
       ).toBeNull();
       expect(
         normalizeStaffMember({
-          ...base,
-          is_head: true,
+          ...validBaseRow,
           is_cross_branch: 'no',
         }),
       ).toBeNull();
     });
 
     it('fails closed when nullable fields have non-string invalid types', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'b-1',
-        auth_user_id: 12345, // invalid type
-        full_name: 'Staff Member',
-        tier: 'senior',
-        system_role: 'staff',
-        staff_type: 'therapist',
-        is_head: false,
-        is_active: true,
-        is_cross_branch: false,
-        created_at: '2026-01-01T00:00:00Z',
-        staff_services: [],
-      };
-      expect(normalizeStaffMember(base)).toBeNull();
       expect(
-        normalizeStaffMember({ ...base, auth_user_id: null, nickname: 123 }),
+        normalizeStaffMember({ ...validBaseRow, auth_user_id: 12345 }),
       ).toBeNull();
       expect(
-        normalizeStaffMember({ ...base, auth_user_id: null, phone: true }),
+        normalizeStaffMember({ ...validBaseRow, nickname: 123 }),
       ).toBeNull();
+      expect(normalizeStaffMember({ ...validBaseRow, phone: true })).toBeNull();
       expect(
-        normalizeStaffMember({ ...base, auth_user_id: null, avatar_url: {} }),
+        normalizeStaffMember({ ...validBaseRow, avatar_url: {} }),
       ).toBeNull();
-    });
-
-    it('fails closed when nested service capability is malformed and does not fabricate Unnamed Service', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'b-1',
-        auth_user_id: null,
-        full_name: 'Staff Member',
-        tier: 'senior',
-        system_role: 'staff',
-        staff_type: 'therapist',
-        is_head: false,
-        is_active: true,
-        is_cross_branch: false,
-        created_at: '2026-01-01T00:00:00Z',
-      };
-
-      // Service relation with missing name
-      expect(
-        normalizeStaffMember({
-          ...base,
-          staff_services: [
-            {
-              service_id: 'srv-1',
-              services: { id: 'srv-1', name: '' },
-            },
-          ],
-        }),
-      ).toBeNull();
-
-      // Service relation with null service object
-      expect(
-        normalizeStaffMember({
-          ...base,
-          staff_services: [
-            {
-              service_id: 'srv-1',
-              services: null,
-            },
-          ],
-        }),
-      ).toBeNull();
-
-      // Service relation with empty array
-      expect(
-        normalizeStaffMember({
-          ...base,
-          staff_services: [
-            {
-              service_id: 'srv-1',
-              services: [],
-            },
-          ],
-        }),
-      ).toBeNull();
-    });
-
-    it('accepts valid empty capability array or null without inventing services', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'b-1',
-        auth_user_id: null,
-        full_name: 'Staff Member',
-        tier: 'senior',
-        system_role: 'staff',
-        staff_type: 'therapist',
-        is_head: false,
-        is_active: true,
-        is_cross_branch: false,
-        created_at: '2026-01-01T00:00:00Z',
-      };
-
-      const memberEmpty = normalizeStaffMember({ ...base, staff_services: [] });
-      expect(memberEmpty?.services).toEqual([]);
-
-      const memberNull = normalizeStaffMember({
-        ...base,
-        staff_services: null,
-      });
-      expect(memberNull?.services).toEqual([]);
     });
 
     it('fails closed when returned branch_id does not match expected branch invariant', () => {
-      const base = {
-        id: 's-1',
-        branch_id: 'other-branch',
-        auth_user_id: null,
-        full_name: 'Staff Member',
-        tier: 'senior',
-        system_role: 'staff',
-        staff_type: 'therapist',
-        is_head: false,
-        is_active: true,
-        is_cross_branch: false,
-        created_at: '2026-01-01T00:00:00Z',
-        staff_services: [],
-      };
-      expect(normalizeStaffMember(base, 'expected-branch')).toBeNull();
-      expect(normalizeStaffMember(base, 'other-branch')).not.toBeNull();
+      expect(
+        normalizeStaffMember(
+          { ...validBaseRow, branch_id: 'other-branch' },
+          'expected-branch',
+        ),
+      ).toBeNull();
+      expect(
+        normalizeStaffMember(
+          { ...validBaseRow, branch_id: 'expected-branch' },
+          'expected-branch',
+        ),
+      ).not.toBeNull();
     });
 
     it('typeguard isStaffMember checks status and services array', () => {
@@ -557,6 +773,7 @@ describe('staff-service', () => {
           is_active: true,
           is_cross_branch: false,
           created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
           staff_services: [
             {
               service_id: 'srv-10',
@@ -583,6 +800,7 @@ describe('staff-service', () => {
         expect(res.data.length).toBe(1);
         expect(res.data[0].full_name).toBe('Ana Cruz');
         expect(res.data[0].status).toBe('active');
+        expect(res.data[0].updated_at).toBe('2026-01-01T00:00:00Z');
         expect(res.data[0].services).toEqual([
           { service_id: 'srv-10', service_name: 'Foot Reflexology' },
         ]);
