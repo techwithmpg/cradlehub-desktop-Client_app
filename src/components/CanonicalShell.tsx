@@ -20,6 +20,7 @@ import {
 import { BookingsView } from './bookings/BookingsView';
 import { CustomersView } from './customers/CustomersView';
 import { StaffView } from './staff/StaffView';
+import { ScheduleView } from './schedule/ScheduleView';
 import { ModuleWorkspaceHost, ModuleWorkspaceMount } from './workspace';
 import type { AuthContext, NavModuleId } from '../types/auth';
 import { formatRoleLabel } from '../lib/roles';
@@ -339,6 +340,7 @@ export function CanonicalShell({
             wide={
               activeModule === 'bookings' ||
               activeModule === 'customers' ||
+              activeModule === 'schedule' ||
               activeModule === 'staff'
             }
           >
@@ -355,6 +357,8 @@ export function CanonicalShell({
                 <BookingsView authContext={authContext} />
               ) : activeModule === 'customers' ? (
                 <CustomersView authContext={authContext} />
+              ) : activeModule === 'schedule' ? (
+                <ScheduleView authContext={authContext} />
               ) : activeModule === 'staff' ? (
                 <StaffView authContext={authContext} />
               ) : (
