@@ -456,15 +456,62 @@ export const ScheduleTimeline: React.FC<ScheduleTimelineProps> = ({
 
 interface ScheduleWeekOverviewProps {
   days: ScheduleWeekDay[];
+  availabilityByStaffId: Map<string, ScheduleAvailabilityItem>;
   selectedStaffId: string | null;
   onSelectStaff: (staffId: string) => void;
+  roleGroup: ScheduleRoleGroup;
+  staffState: ScheduleStaffState;
+  roomFilter: string;
   searchQuery: string;
+}
+
+function matchesWeekOverviewRow(
+  row: ScheduleStaffRow,
+  availabilityByStaffId: Map<string, ScheduleAvailabilityItem>,
+  roleGroup: ScheduleRoleGroup,
+  staffState: ScheduleStaffState,
+  roomFilter: string,
+  normalizedQuery: string,
+): boolean {
+  if (!matchesScheduleRole(row, availabilityByStaffId, roleGroup)) {
+    return false;
+  }
+
+  if (!matchesScheduleState(row, staffState)) {
+    return false;
+  }
+
+  if (
+    roomFilter !== 'all' &&
+    !row.bookings.some((booking) => booking.resource_id === roomFilter)
+  ) {
+    return false;
+  }
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const staffMatches = row.staff_name.toLowerCase().includes(normalizedQuery);
+
+  const appointmentMatches = row.bookings.some(
+    (booking) =>
+      booking.customer.toLowerCase().includes(normalizedQuery) ||
+      booking.service.toLowerCase().includes(normalizedQuery) ||
+      (booking.resource_name ?? '').toLowerCase().includes(normalizedQuery),
+  );
+
+  return staffMatches || appointmentMatches;
 }
 
 export const ScheduleWeekOverview: React.FC<ScheduleWeekOverviewProps> = ({
   days,
+  availabilityByStaffId,
   selectedStaffId,
   onSelectStaff,
+  roleGroup,
+  staffState,
+  roomFilter,
   searchQuery,
 }) => {
   const staff = useMemo(() => {
@@ -473,23 +520,17 @@ export const ScheduleWeekOverview: React.FC<ScheduleWeekOverviewProps> = ({
 
     for (const day of days) {
       for (const row of day.data.staffRows) {
-        if (normalizedQuery) {
-          const staffMatches = row.staff_name
-            .toLowerCase()
-            .includes(normalizedQuery);
-
-          const appointmentMatches = row.bookings.some(
-            (booking) =>
-              booking.customer.toLowerCase().includes(normalizedQuery) ||
-              booking.service.toLowerCase().includes(normalizedQuery) ||
-              (booking.resource_name ?? '')
-                .toLowerCase()
-                .includes(normalizedQuery),
-          );
-
-          if (!staffMatches && !appointmentMatches) {
-            continue;
-          }
+        if (
+          !matchesWeekOverviewRow(
+            row,
+            availabilityByStaffId,
+            roleGroup,
+            staffState,
+            roomFilter,
+            normalizedQuery,
+          )
+        ) {
+          continue;
         }
 
         map.set(row.staff_id, row.staff_name);
@@ -497,7 +538,14 @@ export const ScheduleWeekOverview: React.FC<ScheduleWeekOverviewProps> = ({
     }
 
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [days, searchQuery]);
+  }, [
+    availabilityByStaffId,
+    days,
+    roleGroup,
+    roomFilter,
+    searchQuery,
+    staffState,
+  ]);
 
   if (staff.length === 0) {
     return (
@@ -563,7 +611,16 @@ export const ScheduleWeekOverview: React.FC<ScheduleWeekOverviewProps> = ({
 
               {days.map((day) => {
                 const row = day.data.staffRows.find(
-                  (candidate) => candidate.staff_id === member.id,
+                  (candidate) =>
+                    candidate.staff_id === member.id &&
+                    matchesWeekOverviewRow(
+                      candidate,
+                      availabilityByStaffId,
+                      roleGroup,
+                      staffState,
+                      roomFilter,
+                      searchQuery.trim().toLowerCase(),
+                    ),
                 );
 
                 if (!row) {

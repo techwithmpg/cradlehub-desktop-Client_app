@@ -647,6 +647,88 @@ describe('Stage 06B Schedule component/action boundary', () => {
     });
   });
 
+  it('applies role, state, and resource filters to Week mode', async () => {
+    render(<ScheduleView authContext={mockAuthContext} />);
+
+    await screen.findByTestId('schedule-day-board');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Week' }));
+
+    await screen.findByTestId('schedule-week-board');
+
+    fireEvent.click(screen.getByRole('tab', { name: /Drivers/i }));
+
+    await waitFor(() => {
+      const weekBoard = within(screen.getByTestId('schedule-week-board'));
+
+      expect(
+        weekBoard.getByRole('button', { name: 'Ben Driver' }),
+      ).toBeDefined();
+
+      expect(
+        weekBoard.queryByRole('button', { name: 'Alice Therapist' }),
+      ).toBeNull();
+
+      expect(
+        weekBoard.queryByRole('button', { name: 'Cara Front Desk' }),
+      ).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /^All Staff/i }));
+
+    const stateControls = screen.getByLabelText('Staff schedule state');
+
+    fireEvent.click(
+      within(stateControls).getByRole('button', { name: /^Day Off/i }),
+    );
+
+    await waitFor(() => {
+      const weekBoard = within(screen.getByTestId('schedule-week-board'));
+
+      expect(
+        weekBoard.getByRole('button', { name: 'Cara Front Desk' }),
+      ).toBeDefined();
+
+      expect(
+        weekBoard.queryByRole('button', { name: 'Alice Therapist' }),
+      ).toBeNull();
+
+      expect(
+        weekBoard.queryByRole('button', { name: 'Ben Driver' }),
+      ).toBeNull();
+    });
+
+    fireEvent.click(
+      within(stateControls).getByRole('button', { name: /^All/i }),
+    );
+
+    fireEvent.change(screen.getByLabelText('Filter by room or resource'), {
+      target: {
+        value: 'room-1',
+      },
+    });
+
+    await waitFor(() => {
+      const weekBoard = within(screen.getByTestId('schedule-week-board'));
+
+      expect(
+        weekBoard.getByRole('button', { name: 'Alice Therapist' }),
+      ).toBeDefined();
+
+      expect(
+        weekBoard.queryByRole('button', { name: 'Ben Driver' }),
+      ).toBeNull();
+
+      expect(
+        weekBoard.queryByRole('button', { name: 'Cara Front Desk' }),
+      ).toBeNull();
+
+      expect(
+        weekBoard.queryByRole('button', { name: 'Dana Therapist' }),
+      ).toBeNull();
+    });
+  });
+
   it('opens selected-staff Availability from the inspector using loaded authoritative availability', async () => {
     render(<ScheduleView authContext={mockAuthContext} />);
 

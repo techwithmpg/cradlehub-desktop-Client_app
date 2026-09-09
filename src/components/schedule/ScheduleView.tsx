@@ -727,8 +727,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ authContext }) => {
                     ) : (
                       <ScheduleWeekOverview
                         days={week}
+                        availabilityByStaffId={availabilityByStaffId}
                         selectedStaffId={selectedStaffId}
                         onSelectStaff={setSelectedStaffId}
+                        roleGroup={roleGroup}
+                        staffState={staffState}
+                        roomFilter={roomFilter}
                         searchQuery={searchQuery}
                       />
                     )
