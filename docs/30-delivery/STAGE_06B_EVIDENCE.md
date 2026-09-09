@@ -10,7 +10,7 @@
 
 **BASE_SHA:** `be398b67011661f99a67c272f210e36a1bdff252`
 
-**HEAD_SHA:** `4702c93001e814b8b313547b8e64851e185981bb`
+**HEAD_SHA:** `ad5cd15be3f1e1405b6cff5d61dba9a5c151d264`
 
 **Hosted web reference SHA:** `8ccf238085e69fb450965d79279aecdb0a809e14`
 
@@ -87,8 +87,8 @@ Repository verification established:
   booking payloads.
 - Component tests cover loading, empty, error, role/state filters, search,
   staff selection, inspector data, keyboard activation, Week lazy loading,
-  Availability, Adjust Schedule, Block Time, Full Schedule and post-mutation
-  authoritative refresh.
+  Week-mode role/state/resource filter application, Availability, Adjust
+  Schedule, Block Time, Full Schedule and post-mutation authoritative refresh.
 
 Repository source proves repository implementation only. It does not by
 itself prove deployed production behavior.
@@ -115,14 +115,36 @@ or mutation-specific observations beyond the owner's acceptance.
 - Deployed hosted behavior remains authoritative and separate from repository
   implementation evidence.
 
+## Independent review correction — Week filters
+
+Independent GitHub review found that the Week board kept the shared role,
+operational-state and resource controls visible while the Week overview only
+consumed search input. This made those controls ineffective in Week mode.
+
+The correction:
+
+- passes the authoritative availability map plus role, state and resource
+  selections from `ScheduleView` into `ScheduleWeekOverview`
+- reuses the same canonical role/state matching helpers used by the Day
+  timeline
+- applies resource matching only against real booking `resource_id` values
+- applies the filters both when building the weekly staff list and when
+  resolving individual day cells
+- adds a component regression test covering Week-mode role, Day Off and real
+  resource filtering through the actual `ScheduleView` controls
+- does not alter the hosted contract, authentication, mutation boundary,
+  schema, migrations or dormant modules
+
+Tested correction implementation SHA: `ad5cd15be3f1e1405b6cff5d61dba9a5c151d264`.
+
 ## Exact checks
 
 | Command / Check                                                                                                             | Result | Notes                                                        |
 | --------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------ |
 | `pnpm typecheck`                                                                                                            | PASS   | TypeScript no-emit check                                     |
-| `pnpm exec vitest run tests/schedule-service.test.ts tests/schedule-role-groups.test.ts tests/schedule-components.test.tsx` | PASS   | 3 files, 46/46 Stage 06B focused tests                       |
+| `pnpm exec vitest run tests/schedule-service.test.ts tests/schedule-role-groups.test.ts tests/schedule-components.test.tsx` | PASS   | 3 files, 47/47 Stage 06B focused tests; Week filters covered |
 | `pnpm lint`                                                                                                                 | PASS   | ESLint with zero allowed warnings                            |
-| `pnpm test`                                                                                                                 | PASS   | 17 files, 336/336 tests                                      |
+| `pnpm test`                                                                                                                 | PASS   | 17 files, 337/337 tests                                      |
 | `pnpm format:check`                                                                                                         | PASS   | All files matched Prettier                                   |
 | `pnpm build`                                                                                                                | PASS   | Vite production build, 1941 modules                          |
 | `git diff --check`                                                                                                          | PASS   | No whitespace errors                                         |
