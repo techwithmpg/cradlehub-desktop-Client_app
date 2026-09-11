@@ -220,7 +220,7 @@ describe('today-service', () => {
     );
   });
 
-  it('sends authorized operational mutation payload to /api/desktop/v1/today/mutations', async () => {
+  it('sends authorized operational mutation payload and accepts real hosted { ok: true, data: {} }', async () => {
     let capturedUrl = '';
     let capturedMethod = '';
     let capturedBody = '';
@@ -233,7 +233,7 @@ describe('today-service', () => {
       return new Response(
         JSON.stringify({
           ok: true,
-          data: { success: true, bookingId: 'booking-01', status: 'confirmed' },
+          data: {},
         }),
         {
           status: 200,
@@ -252,7 +252,7 @@ describe('today-service', () => {
     const result = await mutateToday(payload, client, mockFetch);
 
     expect(result.ok).toBe(true);
-    expect(result.data.success).toBe(true);
+    expect(result.data).toEqual({});
     expect(capturedUrl).toContain('/api/desktop/v1/today/mutations');
     expect(capturedMethod).toBe('POST');
     expect(JSON.parse(capturedBody)).toEqual(payload);
@@ -281,5 +281,133 @@ describe('today-service', () => {
         mockFetch,
       ),
     ).rejects.toThrow('Operation not permitted.');
+  });
+
+  describe('nested response validator regression tests', () => {
+    it('rejects payload when queue contains malformed item', async () => {
+      const invalid = validTodayData();
+      // @ts-expect-error test malformed queue item
+      invalid.queue = [{ id: 'bad-item' }];
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: invalid }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createMockSupabaseClient();
+      await expect(fetchToday(client, mockFetch)).rejects.toThrow(
+        /unexpected response format/i,
+      );
+    });
+
+    it('rejects payload when stage value is invalid', async () => {
+      const invalid = validTodayData();
+      // @ts-expect-error test invalid stage enum
+      invalid.queue[0].stage = 'invalid_stage';
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: invalid }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createMockSupabaseClient();
+      await expect(fetchToday(client, mockFetch)).rejects.toThrow(
+        /unexpected response format/i,
+      );
+    });
+
+    it('rejects payload when dispatchContextAvailable has wrong type', async () => {
+      const invalid = validTodayData();
+      // @ts-expect-error test wrong type for dispatchContextAvailable
+      invalid.queue[0].dispatchContextAvailable = 'yes';
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: invalid }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createMockSupabaseClient();
+      await expect(fetchToday(client, mockFetch)).rejects.toThrow(
+        /unexpected response format/i,
+      );
+    });
+
+    it('rejects payload when readiness has invalid status', async () => {
+      const invalid = validTodayData();
+      // @ts-expect-error test invalid readiness status
+      invalid.readiness.status = 'super_critical';
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: invalid }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createMockSupabaseClient();
+      await expect(fetchToday(client, mockFetch)).rejects.toThrow(
+        /unexpected response format/i,
+      );
+    });
+
+    it('rejects payload when readiness issue is malformed', async () => {
+      const invalid = validTodayData();
+      // @ts-expect-error test malformed issue
+      invalid.readiness.issues = [{ title: 'Incomplete issue' }];
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: invalid }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createMockSupabaseClient();
+      await expect(fetchToday(client, mockFetch)).rejects.toThrow(
+        /unexpected response format/i,
+      );
+    });
+
+    it('rejects payload when attendance item is malformed', async () => {
+      const invalid = validTodayData();
+      // @ts-expect-error test malformed attendance item
+      invalid.attendance.items = [{ eventId: 'missing-fields' }];
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: invalid }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createMockSupabaseClient();
+      await expect(fetchToday(client, mockFetch)).rejects.toThrow(
+        /unexpected response format/i,
+      );
+    });
+
+    it('rejects payload when notification item is malformed', async () => {
+      const invalid = validTodayData();
+      // @ts-expect-error test malformed notification item
+      invalid.notifications.items = [{ id: 'notif-bad' }];
+
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: invalid }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const client = createMockSupabaseClient();
+      await expect(fetchToday(client, mockFetch)).rejects.toThrow(
+        /unexpected response format/i,
+      );
+    });
   });
 });

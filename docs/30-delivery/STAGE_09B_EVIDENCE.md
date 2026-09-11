@@ -27,7 +27,7 @@ Implement the smallest real Desktop Today vertical slice against the accepted ho
    - `src/types/today.ts`: Exact types matching hosted Stage 09A DTOs (`DesktopTodayContext`, `DesktopTodaySummary`, `DesktopTodayQueueItem`, `DesktopTodayReadiness`, `DesktopTodayAttendance`, `DesktopTodayNotifications`, `DesktopTodayData`, `DesktopTodayMutationPayload`, `DesktopTodayMutationResult`).
    - `src/lib/today-service.ts`: `fetchToday` (GET `/api/desktop/v1/today`) and `mutateToday` (POST `/api/desktop/v1/today/mutations`).
    - Strict server-resolved branch authority: no client-selected branch parameter.
-   - Authentication via Supabase Bearer token; response validation via `readHostedJsonResponse` and `isTodayResponse`.
+   - Authentication via Supabase Bearer token; response validation via `readHostedJsonResponse` and strengthened `isTodayResponse` with contract-complete nested item validation.
 
 3. **Information Hierarchy & Operational Workflow**:
    - **Header**: Business date and branch name from authoritative context, manual Refresh action. No fake "Live" indicators.
@@ -42,8 +42,9 @@ Implement the smallest real Desktop Today vertical slice against the accepted ho
 4. **Mutation Boundaries**:
    - Only safe supported operational mutations: `confirm_booking`, `mark_arrived`, `start_service`, `complete_service`.
    - In-flight mutation state disables action button and displays `Updating...`.
-   - Truthful success and error banners; snapshot re-fetched from hosted server after successful mutation.
-   - No optimistic fake transitions.
+   - Mutation response wire contract: Hosted Stage 09A returns `{ ok: true, data: {} }` (with optional `releasedNow` / `releaseAt` for dispatch release). Desktop `DesktopTodayMutationResult` reflects this exact envelope; invented fields (`success`, `bookingId`, `status`, `code`, `error`, `message`) are removed.
+   - `TodayView` resolves mutations without expecting `result.data.success`, generates a concise post-response confirmation message (`"Booking confirmed."`, `"Arrival recorded."`, `"Service started."`, `"Service completed."`), and re-fetches the authoritative Today snapshot.
+   - On failure, server error is surfaced through an error alert banner; no local optimistic transitions.
 
 5. **Payment Scope Exclusion**:
    - Payments remain strictly dormant desktop scope.
@@ -54,7 +55,7 @@ Implement the smallest real Desktop Today vertical slice against the accepted ho
 6. **Home Service Boundary in Today**:
    - Displays truthful queue context (`isHomeService`, `driverName`, `homeServiceAddress`).
    - When `dispatchContextAvailable === false`, displays `"Dispatch context unavailable on desktop"` without fabricating `"No driver assigned"`.
-   - Home Service bookings are excluded from `mark_arrived` and `start_service` mutations.
+   - Home Service bookings are strictly excluded from ALL four Today mutations (`confirm_booking`, `mark_arrived`, `start_service`, `complete_service`). Home Service operational mutations remain exclusively within the Home Service module.
 
 7. **Freshness Model**:
    - Strict snapshot + manual refresh. No polling, timers, background sync, SQLite, or Realtime subscriptions.
@@ -83,7 +84,8 @@ Verification confirms:
 
 - **Mount & Shell Integration**: `activeModule === 'today'` in `CanonicalShell` mounts `<TodayView authContext={authContext} />` within `ModuleWorkspaceHost` configured for `wide` desktop layout.
 - **Strict Server Authority**: `fetchToday()` requests `/api/desktop/v1/today` with no client branch parameter; branch resolution is enforced on the hosted server from the Bearer token.
-- **Contract Type Conformity**: `src/types/today.ts` preserves nullability, optional counts, and exact stage enumerations matching hosted Stage 09A.
+- **Contract Type Conformity**: `src/types/today.ts` preserves nullability, optional counts, exact stage enumerations matching hosted Stage 09A, and exact mutation success envelope `{ ok: true, data: DesktopTodayMutationData }`.
+- **Nested Validation**: `isTodayResponse()` in `src/lib/today-service.ts` verifies every queue item, readiness issue, attendance item, and notification item against contract schemas, preventing malformed nested payloads from entering the UI.
 - **Truthful Degradation**:
   - `readiness.available === false` displays degraded readiness notice; never claims "All clear".
   - `attendance.available === false` displays degraded attendance notice; never claims empty success.
@@ -100,15 +102,16 @@ Verification confirms:
 **AGENT-OBSERVED DEVELOPMENT/RUNTIME EVIDENCE**
 
 1. **Automated Test Suites**:
-   - `tests/today-service.test.ts`: 6/6 tests passing. Verifies contract validation, rejection of malformed responses, Bearer auth, network error handling, mutation payload formatting, and absence of client branch query parameter.
-   - `tests/today-components.test.tsx`: 12/12 tests passing. Verifies loading skeleton, authoritative data rendering, KPI derivation, error/retry lifecycle, empty state, degraded section isolation (readiness, attendance, notifications), payment boundary enforcement, Home Service dispatch degradation, in-flight mutation state, post-mutation refresh, and mutation failure handling.
+   - `tests/today-service.test.ts`: 13/13 tests passing. Verifies contract validation, rejection of malformed responses (including nested queue items, invalid stage enums, invalid readiness statuses, malformed readiness issues, malformed attendance items, malformed notification items, and invalid dispatchContextAvailable types), Bearer auth, network error handling, mutation payload formatting with real hosted `{ ok: true, data: {} }` response, and absence of client branch query parameter.
+   - `tests/today-components.test.tsx`: 13/13 tests passing. Verifies loading skeleton, authoritative data rendering, KPI derivation, error/retry lifecycle, empty state, degraded section isolation (readiness, attendance, notifications), payment boundary enforcement, Home Service dispatch degradation, real hosted-shaped mutation success handling (`{ ok: true, data: {} }`), post-mutation refresh, mutation failure handling, and strict exclusion of Home Service bookings from ALL Today mutations.
    - `tests/components.test.tsx`: 20/20 tests passing. Verifies navigation integration and shell switching.
 
-2. **Viewport Adaptability & Responsive Rules**:
-   - Inspected source CSS layout rules in `src/styles.css`:
+2. **Repository-Inspected Responsive Layout Rules**:
+   - The source contains responsive CSS layout rules in `src/styles.css`:
      - **1440×900**: 2-column workspace (`1fr + 380px` inspector); 6 KPI summary cards across single row (`repeat(6, 1fr)`).
      - **1366×768**: 2-column workspace (`1fr + 340px` inspector); 8px gap on KPI summary cells.
-     - **1024×768**: Responsive breakpoint reflows `.bookings-kpi-grid` into 2 rows of 3 (`repeat(3, 1fr)`), `.bookings-main-grid` stacks into single column (`1fr`), and inspector switches to `position: static` beneath the primary card without overlapping, horizontal scrollbars, or text clipping.
+     - **1024×768**: Responsive breakpoint reflows `.bookings-kpi-grid` into 2 rows of 3 (`repeat(3, 1fr)`), `.bookings-main-grid` stacks into single column (`1fr`), and inspector switches to `position: static` beneath the primary card.
+   - _Note_: Native/runtime viewport verification was not performed in this pass; source inspection confirms the declared rules, while native visual and layout verification at these viewports is deferred to owner manual runtime review.
 
 3. **Runtime Backend Note**:
    - In accordance with repository rules, normal runtime populated data was verified via automated test fixtures against the exact accepted hosted Stage 09A contract schema. Native live-backend execution remains subject to independent owner review.
@@ -120,9 +123,9 @@ Verification confirms:
 All repository checks pass cleanly:
 
 - **Vitest Unit & Component Suite**: `pnpm test`
-  - Result: **23 test files passed (23)**, **408 tests passed (408)**, 0 failed
-  - Today Service Tests: 6 passed (`tests/today-service.test.ts`)
-  - Today Component Tests: 12 passed (`tests/today-components.test.tsx`)
+  - Result: **23 test files passed (23)**, **416 tests passed (416)**, 0 failed
+  - Today Service Tests: 13 passed (`tests/today-service.test.ts`)
+  - Today Component Tests: 13 passed (`tests/today-components.test.tsx`)
 - **TypeScript Typecheck**: `pnpm run typecheck` (`tsc --noEmit`)
   - Result: **0 errors** (exit code 0)
 - **ESLint**: `pnpm run lint` (`eslint . --max-warnings 0`)
@@ -130,7 +133,7 @@ All repository checks pass cleanly:
 - **Prettier Code Style**: `pnpm run format:check` (`prettier --check .`)
   - Result: **All matched files use Prettier code style** (exit code 0)
 - **Production Build**: `pnpm run build` (`tsc --noEmit && vite build`)
-  - Result: **Production bundle built successfully in 6.84s** (exit code 0)
+  - Result: **Production bundle built successfully** (exit code 0)
 - **Git Diff Whitespace & Syntax Check**: `git diff --check`
   - Result: **0 defects** (exit code 0)
 
@@ -142,12 +145,13 @@ All repository checks pass cleanly:
 - Hosted online repository (`E:\cradlehub`) was inspected read-only and remains untouched at SHA `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc`.
 - Desktop renderer adheres strictly to boundary: Supabase Bearer token used via Tauri HTTP; zero privileged secrets or service-role keys in bundle; zero client-selected branch authority or query override.
 - Strict dormant payment boundary: No payment CTAs, collect payment buttons, amounts, or mutation handlers. Stage `ready_to_pay` displays read-only label `"Payment Pending — manage on web"`.
-- Home Service boundary: Excluded from `mark_arrived` and `start_service` mutations; truthful `"Dispatch context unavailable on desktop"` displayed when `dispatchContextAvailable === false` without faking `"No driver assigned"`.
+- Home Service boundary: Excluded from all Today mutations; truthful `"Dispatch context unavailable on desktop"` displayed when `dispatchContextAvailable === false` without faking `"No driver assigned"`.
 
 ---
 
 ## Known Limitations
 
+- OWNER-PROVIDED MANUAL RUNTIME EVIDENCE: Not yet provided. Owner visual/runtime inspection remains required before Stage 09B acceptance.
 - Payments remain dormant on desktop; payment collection must be conducted on the web application.
 - Home Service mutations are not executable from Today.
 - Snapshot + manual refresh only (no background polling, timers, or Realtime subscriptions).

@@ -49,12 +49,6 @@ type StageScopeFilter =
 
 type InspectorTabId = 'detail' | 'readiness' | 'attendance' | 'notifications';
 
-const CONFIRMABLE_STATUSES = new Set([
-  'pending_payment',
-  'pending_crm_confirmation',
-  'pending',
-]);
-
 function formatClock(value: string | null | undefined): string {
   if (!value) return '—';
   const [hours, minutes] = value.split(':').map(Number);
@@ -95,7 +89,17 @@ function getApplicableAction(booking: DesktopTodayQueueItem): {
   label: string;
   tone: 'primary' | 'success';
 } | null {
-  if (CONFIRMABLE_STATUSES.has(booking.status)) {
+  // Home Service mutations are strictly excluded from the Today module
+  if (booking.isHomeService) {
+    return null;
+  }
+
+  // Pending bookings -> Confirm
+  if (
+    booking.status === 'pending' ||
+    booking.status === 'pending_crm_confirmation' ||
+    booking.status === 'pending_payment'
+  ) {
     return {
       action: 'confirm_booking',
       label: 'Confirm',
@@ -103,10 +107,10 @@ function getApplicableAction(booking: DesktopTodayQueueItem): {
     };
   }
 
+  // Confirmed and not started -> Mark Arrived
   if (
     booking.status === 'confirmed' &&
-    booking.bookingProgressStatus === 'not_started' &&
-    !booking.isHomeService
+    booking.bookingProgressStatus === 'not_started'
   ) {
     return {
       action: 'mark_arrived',
@@ -115,10 +119,8 @@ function getApplicableAction(booking: DesktopTodayQueueItem): {
     };
   }
 
-  if (
-    booking.bookingProgressStatus === 'checked_in' &&
-    !booking.isHomeService
-  ) {
+  // Checked in -> Start Service
+  if (booking.bookingProgressStatus === 'checked_in') {
     return {
       action: 'start_service',
       label: 'Start Service',
@@ -126,10 +128,10 @@ function getApplicableAction(booking: DesktopTodayQueueItem): {
     };
   }
 
+  // In service -> Complete Service
   if (
-    (booking.bookingProgressStatus === 'session_started' ||
-      booking.status === 'in_progress') &&
-    !['completed', 'cancelled', 'no_show'].includes(booking.status)
+    booking.bookingProgressStatus === 'in_progress' ||
+    booking.status === 'in_progress'
   ) {
     return {
       action: 'complete_service',
@@ -259,27 +261,23 @@ export const TodayView: React.FC<TodayViewProps> = ({ authContext }) => {
     setMutationNotice(null);
 
     try {
-      const result = await mutateToday({
+      await mutateToday({
         action,
         bookingId: booking.id,
       });
 
-      if (result.ok && result.data.success) {
-        setMutationNotice({
-          type: 'success',
-          message:
-            result.data.message ||
-            `Booking successfully updated (${action.replace(/_/g, ' ')}).`,
-        });
-        await loadToday(false);
-      } else {
-        setMutationNotice({
-          type: 'error',
-          message:
-            result.data.error ||
-            'The requested mutation could not be completed.',
-        });
-      }
+      const actionSuccessMessages: Record<TodayMutationAction, string> = {
+        confirm_booking: 'Booking confirmed.',
+        mark_arrived: 'Arrival recorded.',
+        start_service: 'Service started.',
+        complete_service: 'Service completed.',
+      };
+
+      setMutationNotice({
+        type: 'success',
+        message: actionSuccessMessages[action] ?? 'Operation completed.',
+      });
+      await loadToday(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Mutation failed.';
       setMutationNotice({

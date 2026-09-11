@@ -11,6 +11,8 @@
 export type CradleFlowStage =
   'waiting' | 'in_service' | 'ready_to_pay' | 'completed' | null;
 
+export type DesktopTodayStage = CradleFlowStage;
+
 export type ReadinessStatus = 'ok' | 'warning' | 'critical';
 
 export interface DesktopTodayContext {
@@ -153,14 +155,12 @@ export type DesktopTodayMutationPayload =
   | { action: 'start_service'; bookingId: string }
   | { action: 'complete_service'; bookingId: string };
 
+export interface DesktopTodayMutationData {
+  releasedNow?: boolean;
+  releaseAt?: string | null;
+}
+
 export interface DesktopTodayMutationResult {
   ok: true;
-  data: {
-    success: boolean;
-    bookingId?: string;
-    status?: string;
-    code?: string;
-    error?: string;
-    message?: string;
-  };
+  data: DesktopTodayMutationData;
 }

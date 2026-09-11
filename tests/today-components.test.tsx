@@ -439,15 +439,17 @@ describe('TodayView Component Suite', () => {
     expect(markArrivedBtn.textContent).toContain('Updating...');
     expect(markArrivedBtn.disabled).toBe(true);
 
-    // Resolve mutation
+    // Resolve mutation with real hosted Stage 09A success envelope
     resolveMutation!({
       ok: true,
-      data: { success: true, bookingId: 'booking-01', status: 'confirmed' },
+      data: {},
     });
 
     await waitFor(() => {
       expect(screen.getByTestId('today-mutation-success')).toBeDefined();
     });
+    expect(screen.getByText('Arrival recorded.')).toBeDefined();
+    expect(screen.queryByTestId('today-mutation-error')).toBeNull();
 
     // Snapshot was re-fetched
     expect(mockedFetchToday).toHaveBeenCalledTimes(2);
@@ -483,5 +485,66 @@ describe('TodayView Component Suite', () => {
       screen.getByText('Booking is closed and cannot be updated.'),
     ).toBeDefined();
     expect(screen.queryByTestId('today-mutation-success')).toBeNull();
+  });
+
+  it('strictly excludes Home Service bookings from ALL Today mutations', async () => {
+    const hsPending = createQueueItem({
+      id: 'booking-hs-pending',
+      status: 'pending',
+      isHomeService: true,
+    });
+    const hsConfirmed = createQueueItem({
+      id: 'booking-hs-confirmed',
+      status: 'confirmed',
+      bookingProgressStatus: 'not_started',
+      isHomeService: true,
+    });
+    const hsCheckedIn = createQueueItem({
+      id: 'booking-hs-checkedin',
+      status: 'confirmed',
+      bookingProgressStatus: 'checked_in',
+      isHomeService: true,
+    });
+    const hsInProgress = createQueueItem({
+      id: 'booking-hs-inprogress',
+      status: 'in_progress',
+      bookingProgressStatus: 'in_progress',
+      isHomeService: true,
+    });
+
+    const mockData = createTodayData({
+      queue: [hsPending, hsConfirmed, hsCheckedIn, hsInProgress],
+    });
+    mockedFetchToday.mockResolvedValue(mockData);
+
+    render(<TodayView authContext={authContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('today-row-booking-hs-pending')).toBeDefined();
+    });
+
+    // Zero mutation buttons rendered for any Home Service row
+    expect(
+      screen.queryByTestId('action-confirm_booking-booking-hs-pending'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('action-mark_arrived-booking-hs-confirmed'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('action-start_service-booking-hs-checkedin'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('action-complete_service-booking-hs-inprogress'),
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: /^confirm$/i })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /^mark arrived$/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /^start service$/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /^complete service$/i }),
+    ).toBeNull();
   });
 });
