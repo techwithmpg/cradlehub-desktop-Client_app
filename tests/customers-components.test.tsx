@@ -278,13 +278,16 @@ describe('Customers Workspace Component Suite', () => {
     );
     expect(datagridWrapper).not.toBeNull();
 
-    // 4. Footer uses canonical Bookings footer & pagination classes
-    const footer = container.querySelector('.bookings-table-footer');
-    expect(footer).not.toBeNull();
-    expect(footer?.querySelector('.footer-count-text')).not.toBeNull();
-    expect(footer?.querySelector('.footer-pagination-controls')).not.toBeNull();
-    expect(footer?.querySelector('.page-size-selector-wrapper')).not.toBeNull();
-    expect(footer?.querySelector('.pagination-buttons')).not.toBeNull();
+    // 4. Footer uses canonical ModulePagination
+    const pagination = screen.getByTestId('customers-pagination');
+    expect(pagination).toBeDefined();
+    expect(pagination.querySelector('.footer-count-text')).not.toBeNull();
+    expect(
+      pagination.querySelector('.footer-pagination-controls'),
+    ).not.toBeNull();
+    expect(pagination.querySelector('.pagination-buttons')).not.toBeNull();
+    // Legacy handwritten select is removed in favor of adaptive pagination
+    expect(container.querySelector('#customer-page-size')).toBeNull();
   });
 
   it('renders truthful KPI semantic descriptions and search placeholders', async () => {
@@ -415,5 +418,156 @@ describe('Customers Workspace Component Suite', () => {
     // Verify Customers view is rendered rather than unavailable placeholder
     expect(await screen.findByTestId('customers-view')).toBeDefined();
     expect(screen.queryByTestId('module-unavailable-panel')).toBeNull();
+  });
+
+  it('renders Customer inspector with canonical tabs, scrollable body, and detail grid classes', async () => {
+    const { container } = render(
+      <CustomersView authContext={mockAuthContext} />,
+    );
+
+    await screen.findAllByText('Maria Santos');
+
+    // Canonical tabs nav
+    const tabsNav = container.querySelector('.inspector-tabs-nav');
+    expect(tabsNav).not.toBeNull();
+
+    // Canonical scrollable body
+    const bodyScrollable = container.querySelector(
+      '.inspector-body-scrollable',
+    );
+    expect(bodyScrollable).not.toBeNull();
+
+    // Canonical details grid
+    const detailsGrid = container.querySelector('.inspector-details-grid');
+    expect(detailsGrid).not.toBeNull();
+
+    // Detail items with distinct label and value elements
+    await waitFor(() => {
+      const detailItems = container.querySelectorAll('.detail-item');
+      expect(detailItems.length).toBeGreaterThanOrEqual(4);
+
+      const firstItem = detailItems[0];
+      const label = firstItem.querySelector('.detail-label');
+      const value = firstItem.querySelector('.detail-value');
+      expect(label).not.toBeNull();
+      expect(value).not.toBeNull();
+      expect(label?.textContent).toBe('Preferred Visit Type');
+      expect(value?.textContent).toBe('In-Spa Evening');
+      // Ensure label and value are distinct and not concatenated in one text node
+      expect(label?.textContent).not.toEqual(firstItem.textContent);
+    });
+  });
+
+  it('resets page to 1 when search or tab changes', async () => {
+    render(<CustomersView authContext={mockAuthContext} />);
+
+    await screen.findAllByText('Maria Santos');
+
+    // Simulate search change
+    const searchInput = screen.getByLabelText('Search customers');
+    fireEvent.change(searchInput, { target: { value: 'Santos' } });
+
+    await waitFor(() => {
+      expect(customersService.fetchBranchCustomers).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 1,
+        }),
+      );
+    });
+
+    // Simulate tab change
+    const repeatTab = screen.getByRole('tab', { name: 'Repeat' });
+    fireEvent.click(repeatTab);
+
+    await waitFor(() => {
+      expect(customersService.fetchBranchCustomers).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tab: 'repeat',
+          page: 1,
+        }),
+      );
+    });
+  });
+
+  it('cleans up ResizeObserver and window resize listener on unmount', async () => {
+    const disconnectSpy = vi.fn();
+    const observeSpy = vi.fn();
+    class MockResizeObserver {
+      observe = observeSpy;
+      disconnect = disconnectSpy;
+      unobserve = vi.fn();
+    }
+    const originalRO = window.ResizeObserver;
+    window.ResizeObserver =
+      MockResizeObserver as unknown as typeof ResizeObserver;
+    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+
+    const { unmount } = render(<CustomersView authContext={mockAuthContext} />);
+
+    await screen.findAllByText('Maria Santos');
+
+    unmount();
+
+    expect(disconnectSpy).toHaveBeenCalled();
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      'resize',
+      expect.any(Function),
+    );
+
+    window.ResizeObserver = originalRO;
+  });
+
+  it('adapts page size based on available space and does not loop', async () => {
+    let observerCallback: ((entries: unknown[]) => void) | null = null;
+    class MockResizeObserver {
+      constructor(callback: (entries: unknown[]) => void) {
+        observerCallback = callback;
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+      unobserve = vi.fn();
+    }
+    const originalRO = window.ResizeObserver;
+    window.ResizeObserver =
+      MockResizeObserver as unknown as typeof ResizeObserver;
+
+    render(<CustomersView authContext={mockAuthContext} />);
+
+    await screen.findAllByText('Maria Santos');
+
+    // Initial fetch was with small safe initial pageSize (6)
+    expect(customersService.fetchBranchCustomers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pageSize: 6,
+      }),
+    );
+
+    // Simulate resize observer callback triggering with a container rect
+    const originalInnerHeight = window.innerHeight;
+    window.innerHeight = 900;
+
+    // Trigger observer callback
+    observerCallback!([{}]);
+
+    // Should recalculate and query with new pageSize
+    await waitFor(() => {
+      expect(customersService.fetchBranchCustomers).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pageSize: expect.any(Number),
+        }),
+      );
+    });
+
+    // Calling observerCallback again with the same height does not loop or re-query
+    const callCount = vi.mocked(customersService.fetchBranchCustomers).mock
+      .calls.length;
+    observerCallback!([{}]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(
+      vi.mocked(customersService.fetchBranchCustomers).mock.calls.length,
+    ).toBe(callCount);
+
+    window.innerHeight = originalInnerHeight;
+    window.ResizeObserver = originalRO;
   });
 });

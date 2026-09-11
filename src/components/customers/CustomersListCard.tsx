@@ -5,6 +5,7 @@ import type {
   CustomerTabType,
   WaitlistFollowupItem,
 } from '../../types/customers';
+import { ModulePagination } from '../workspace/ModulePagination';
 
 interface CustomersListCardProps {
   activeTab: CustomerTabType;
@@ -19,8 +20,9 @@ interface CustomersListCardProps {
   onSelectWaitlistItem: (item: WaitlistFollowupItem) => void;
   pagination: CustomerPagination;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   isLoading: boolean;
+  tableContainerRef?: (node: HTMLDivElement | null) => void;
 }
 
 const CUSTOMER_TABS: Array<{ id: CustomerTabType; label: string }> = [
@@ -100,8 +102,8 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
   onSelectWaitlistItem,
   pagination,
   onPageChange,
-  onPageSizeChange,
   isLoading,
+  tableContainerRef,
 }) => {
   const isFollowupTab = activeTab === 'followup';
   const totalItems = pagination.totalCount;
@@ -200,7 +202,7 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
       </div>
 
       {/* 3. Data Table */}
-      <div className="bookings-datagrid-wrapper">
+      <div className="bookings-datagrid-wrapper" ref={tableContainerRef}>
         {isLoading ? (
           <div className="bookings-loading-state" aria-live="polite">
             <div className="bookings-loading-spinner" />
@@ -460,61 +462,21 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
         )}
       </div>
 
-      {/* 4. Pagination Footer */}
-      <div className="bookings-table-footer">
-        <div className="footer-count-text">
-          Showing <span className="count-highlight">{startRecord}</span>–
-          <span className="count-highlight">{endRecord}</span> of{' '}
-          <span className="count-highlight">{totalItems}</span>{' '}
-          {isFollowupTab ? 'requests' : 'customers'}
-        </div>
-
-        <div className="footer-pagination-controls">
-          <div className="page-size-selector-wrapper">
-            <span className="page-size-label">Rows per page:</span>
-            <select
-              id="customer-page-size"
-              className="page-size-select"
-              value={pageSize}
-              onChange={(e) => {
-                onPageSizeChange(Number(e.target.value));
-                onPageChange(1);
-              }}
-              aria-label="Rows per page"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-
-          <div className="pagination-buttons">
-            <button
-              type="button"
-              className="pagination-btn"
-              disabled={currentPage <= 1 || isLoading}
-              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-              aria-label="Previous Page"
-            >
-              &larr; Prev
-            </button>
-            <span className="pagination-page-indicator">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              type="button"
-              className="pagination-btn"
-              disabled={currentPage >= totalPages || isLoading}
-              onClick={() =>
-                onPageChange(Math.min(totalPages, currentPage + 1))
-              }
-              aria-label="Next Page"
-            >
-              Next &rarr;
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* 4. Canonical Pagination Footer */}
+      <ModulePagination
+        startRecord={startRecord}
+        endRecord={endRecord}
+        totalItems={totalItems}
+        entityLabel={isFollowupTab ? 'requests' : 'customers'}
+        pageSize={pageSize}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        showPageSizeSelector={false}
+        testId="customers-pagination"
+        prevPageAriaLabel="Previous page"
+        nextPageAriaLabel="Next page"
+      />
     </div>
   );
 };

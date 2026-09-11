@@ -171,37 +171,37 @@ export const CustomerInspectorCard: React.FC<CustomerInspectorCardProps> = ({
           </div>
         </div>
 
-        <div className="inspector-body">
+        <div className="inspector-body-scrollable">
           <div className="inspector-section">
             <h4 className="inspector-section-heading">REQUEST DETAILS</h4>
-            <div className="inspector-info-grid">
-              <div className="info-item">
-                <span className="info-label">Service</span>
-                <span className="info-value">
+            <div className="inspector-details-grid">
+              <div className="detail-item">
+                <span className="detail-label">Service</span>
+                <span className="detail-value">
                   {selectedWaitlistItem.serviceName || '—'}
                 </span>
               </div>
-              <div className="info-item">
-                <span className="info-label">Visit Type</span>
-                <span className="info-value">
+              <div className="detail-item">
+                <span className="detail-label">Visit Type</span>
+                <span className="detail-value">
                   {selectedWaitlistItem.visitType || 'Standard'}
                 </span>
               </div>
-              <div className="info-item">
-                <span className="info-label">Preferred Date</span>
-                <span className="info-value">
+              <div className="detail-item">
+                <span className="detail-label">Preferred Date</span>
+                <span className="detail-value">
                   {formatDateDisplay(selectedWaitlistItem.preferredDate)}
                 </span>
               </div>
-              <div className="info-item">
-                <span className="info-label">Preferred Time</span>
-                <span className="info-value">
+              <div className="detail-item">
+                <span className="detail-label">Preferred Time</span>
+                <span className="detail-value">
                   {formatTime(selectedWaitlistItem.preferredTime)}
                 </span>
               </div>
               {selectedWaitlistItem.notes && (
-                <div className="info-item full-width">
-                  <span className="info-label">Customer Request Notes</span>
+                <div className="detail-item full-width">
+                  <span className="detail-label">Customer Request Notes</span>
                   <p className="inspector-note-text">
                     {selectedWaitlistItem.notes}
                   </p>
@@ -277,7 +277,7 @@ export const CustomerInspectorCard: React.FC<CustomerInspectorCardProps> = ({
 
       {/* 2. Internal Tabs */}
       <div
-        className="inspector-tabs-bar"
+        className="inspector-tabs-nav"
         role="tablist"
         aria-label="Customer Detail Sections"
       >
@@ -299,7 +299,7 @@ export const CustomerInspectorCard: React.FC<CustomerInspectorCardProps> = ({
         >
           History
           {customerDetail?.bookingHistory && (
-            <span className="inspector-tab-count">
+            <span className="tab-pill-badge">
               {customerDetail.bookingHistory.length}
             </span>
           )}
@@ -307,7 +307,7 @@ export const CustomerInspectorCard: React.FC<CustomerInspectorCardProps> = ({
       </div>
 
       {/* 3. Tab Contents */}
-      <div className="inspector-body">
+      <div className="inspector-body-scrollable">
         {isLoadingDetail ? (
           <div className="inspector-loading-state" aria-live="polite">
             <div className="bookings-loading-spinner" />
@@ -323,34 +323,34 @@ export const CustomerInspectorCard: React.FC<CustomerInspectorCardProps> = ({
             {/* Preferences & Profile */}
             <div className="inspector-section">
               <h4 className="inspector-section-heading">OPERATIONAL PROFILE</h4>
-              <div className="inspector-info-grid">
-                <div className="info-item">
-                  <span className="info-label">Preferred Visit Type</span>
-                  <span className="info-value">
+              <div className="inspector-details-grid">
+                <div className="detail-item">
+                  <span className="detail-label">Preferred Visit Type</span>
+                  <span className="detail-value font-medium">
                     {customerDetail?.preferredVisitType || 'None specified'}
                   </span>
                 </div>
-                <div className="info-item">
-                  <span className="info-label">Pressure Preference</span>
-                  <span className="info-value">
+                <div className="detail-item">
+                  <span className="detail-label">Pressure Preference</span>
+                  <span className="detail-value font-medium">
                     {customerDetail?.pressurePreference || 'None specified'}
                   </span>
                 </div>
-                <div className="info-item">
-                  <span className="info-label">First Visit</span>
-                  <span className="info-value">
+                <div className="detail-item">
+                  <span className="detail-label">First Visit</span>
+                  <span className="detail-value">
                     {formatDateDisplay(customer.firstBookingDate)}
                   </span>
                 </div>
-                <div className="info-item">
-                  <span className="info-label">Last Visit</span>
-                  <span className="info-value">
+                <div className="detail-item">
+                  <span className="detail-label">Last Visit</span>
+                  <span className="detail-value">
                     {formatDateDisplay(customer.lastBookingDate)}
                   </span>
                 </div>
-                <div className="info-item full-width">
-                  <span className="info-label">Birthday</span>
-                  <span className="info-value">
+                <div className="detail-item full-width">
+                  <span className="detail-label">Birthday</span>
+                  <span className="detail-value">
                     {formatDateDisplay(customerDetail?.birthday)}
                   </span>
                 </div>

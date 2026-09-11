@@ -12,6 +12,7 @@ import {
   fetchBranchCustomers,
   fetchCustomerDetail,
 } from '../../lib/customers-service';
+import { calculateAdaptivePageSize } from '../workspace/adaptive-page-size';
 import { CustomersHeader } from './CustomersHeader';
 import { CustomersKpiSummary } from './CustomersKpiSummary';
 import { CustomersListCard } from './CustomersListCard';
@@ -31,7 +32,7 @@ const INITIAL_KPIS: CustomerKpis = {
 
 const INITIAL_PAGINATION: CustomerPagination = {
   page: 1,
-  pageSize: 25,
+  pageSize: 6,
   totalCount: 0,
   totalPages: 1,
 };
@@ -44,7 +45,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(6);
 
   // Selection State
   const [selectedCustomer, setSelectedCustomer] =
@@ -75,6 +76,88 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
   const listVersionRef = useRef(0);
   const detailVersionRef = useRef(0);
   const searchDebounceRef = useRef<number | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const tableNodeRef = useRef<HTMLDivElement | null>(null);
+
+  const updateAdaptivePageSize = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
+      if (typeof window === 'undefined') return;
+
+      const rect = node.getBoundingClientRect();
+      const topOffset = rect.top;
+      const windowHeight = window.innerHeight;
+      // Account for:
+      // canonical pagination footer: ~52px
+      // workspace bottom padding: ~32px
+      const bottomAllowance = 52 + 32;
+      const usableHeight = windowHeight - topOffset - bottomAllowance;
+
+      // Derive how many rows fit without forcing excessive page-level vertical scroll
+      // clamp to sensible minimum/maximum row counts (minRows: 4, maxRows: 12)
+      const next = calculateAdaptivePageSize(usableHeight, 48, 36, 4, 12);
+      setPageSize((prev) => {
+        if (prev !== next) {
+          setCurrentPage((prevPage) => {
+            if (pagination.totalCount > 0) {
+              const maxPage = Math.max(
+                1,
+                Math.ceil(pagination.totalCount / next),
+              );
+              return Math.min(prevPage, maxPage);
+            }
+            return prevPage;
+          });
+          return next;
+        }
+        return prev;
+      });
+    },
+    [pagination.totalCount],
+  );
+
+  const tableContainerCallbackRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      tableNodeRef.current = node;
+
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+
+      if (node && typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(() => {
+          updateAdaptivePageSize(tableNodeRef.current);
+        });
+
+        observer.observe(node);
+        if (node.parentElement) {
+          observer.observe(node.parentElement);
+        }
+        observerRef.current = observer;
+
+        // Perform initial calculation
+        updateAdaptivePageSize(node);
+      }
+    },
+    [updateAdaptivePageSize],
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (tableNodeRef.current) {
+        updateAdaptivePageSize(tableNodeRef.current);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+    };
+  }, [updateAdaptivePageSize]);
 
   // Debounce search input
   const handleSearchChange = (query: string) => {
@@ -484,6 +567,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                   setCurrentPage(1);
                 }}
                 isLoading={isLoadingList}
+                tableContainerRef={tableContainerCallbackRef}
               />
             </div>
 
