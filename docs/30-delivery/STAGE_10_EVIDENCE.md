@@ -4,7 +4,7 @@
 
 **Stage / Task:** Stage 10 — Desktop Full Sweep & Finishing Touches
 
-**Status:** `READY FOR OWNER FINAL VISUAL INSPECTION — NOT ACCEPTED / NOT MERGED`
+**Status:** `READY FOR OWNER CUSTOMER RE-INSPECTION — NOT ACCEPTED / NOT MERGED`
 
 **Branch:** `stage/10-desktop-full-sweep`
 
@@ -19,7 +19,7 @@
 ## 1. Executive Summary & Purpose
 
 Stage 10 completes the cross-module finishing pass for the accepted first-release CradleHub Windows Desktop CRM.
-The objective was not to redesign the product or alter business architecture, but to correct specific accessibility, focus, and layout consistency defects across the accepted modules.
+The objective was not to redesign the product or alter business architecture, but to correct specific accessibility, focus, and layout consistency defects across the accepted modules, and to resolve owner-reported visual/pagination defects in the Customers workspace.
 
 ### Active First-Release Modules (8 Authorized Modules)
 
@@ -54,10 +54,10 @@ The objective was not to redesign the product or alter business architecture, bu
   - `src/components/today/adaptive-page-size.ts`
   - `src/types/today.ts`
   - `src/styles.css` (lines 8546-9831)
-- **Issues Found**: Today was accepted on `main` at `5305502f7a31082913fe0a73261aba7b050758bb`. Cross-module sweep verified consistency with the shared design system. Global focus ring additions in `src/styles.css` apply to interactive elements within Today.
-- **Severity**: P2 (interactive control focus visibility).
-- **Correction Made**: Inherits canonical focus ring styles added to `src/styles.css`.
-- **Files Changed**: `src/styles.css`.
+- **Issues Found**: Today was accepted on `main` at `5305502f7a31082913fe0a73261aba7b050758bb`. Cross-module sweep verified consistency with the shared design system. Global focus ring additions in `src/styles.css` apply to interactive elements within Today. Helper `calculateAdaptivePageSize` promoted to canonical shared ownership at `src/components/workspace/adaptive-page-size.ts` with Today path preserved as a compatibility re-export.
+- **Severity**: P2 (interactive control focus visibility / shared helper architecture).
+- **Correction Made**: Inherits canonical focus ring styles added to `src/styles.css`. Re-exports shared `calculateAdaptivePageSize`.
+- **Files Changed**: `src/styles.css`, `src/components/today/adaptive-page-size.ts`.
 - **Tests & Checks**: `tests/today-components.test.tsx` (42 tests passed in local JSDOM), `tests/today-service.test.ts` (14 tests passed in local Vitest).
 - **Repository / Local Verification**: Repository CSS contains responsive rules targeting the required desktop breakpoints. Local Vitest component test runs pass cleanly in JSDOM. Final native Windows behavior at those viewport sizes remains pending owner visual inspection.
 - **Remaining Limitations**: Native Windows runtime visual verification not performed by agent; owner runtime inspection required.
@@ -115,16 +115,31 @@ The objective was not to redesign the product or alter business architecture, bu
   - `src/components/customers/CustomersKpiSummary.tsx`
   - `src/components/customers/CustomersListCard.tsx`
   - `src/components/customers/CustomerInspectorCard.tsx`
-  - `src/styles.css` (lines 3392-3515)
+  - `src/components/workspace/ModulePagination.tsx`
+  - `src/components/workspace/adaptive-page-size.ts`
+  - `src/styles.css` (lines 3392-3555)
 - **Issues Found**:
-  - Raw table elements in `CustomersListCard.tsx` (Waitlist table at line 253 and Customer directory table at line 377) lacked `aria-label` attributes.
-- **Severity**: P1 (accessibility defect).
+  1. _Owner-reported runtime defect A (Excessive row height / pagination):_ Customers table rendered hardcoded 25 rows on initial load, causing the entire workspace to extend vertically and scroll rather than behaving as a compact desktop workspace. Handwritten pagination footer in `CustomersListCard` duplicated pagination markup rather than using canonical `ModulePagination`.
+  2. _Owner-reported runtime defect B (Customer Details inspector visual breakdown):_ Right-side Customer Details card did not conform to canonical inspector styles; body labels and values collapsed together (e.g. `Preferred Visit TypeNone specified`) due to non-canonical classes lacking CSS styling, and inspector height was unconstrained.
+  3. _Accessibility:_ Missing `aria-label` on tables.
+- **Severity**: P1 (visual hierarchy breakdown & excessive vertical overflow).
 - **Correction Made**:
-  - Added `aria-label="Waitlist customers table"` and `aria-label="Customer directory table"` to the respective `<table>` elements in `src/components/customers/CustomersListCard.tsx`.
-- **Files Changed**: `src/components/customers/CustomersListCard.tsx`.
-- **Tests & Checks**: `tests/customers-components.test.tsx` (10 tests passed in local JSDOM), `tests/customers-service.test.ts` (19 tests passed in local Vitest).
-- **Repository / Local Verification**: Automated accessibility AST check confirms `aria-label` is present on both tables in source. Local test suite passes cleanly. Native Windows runtime rendering was not executed by the agent.
-- **Remaining Limitations**: Operational customer history excludes dormant financial ledger details.
+  - Replaced handwritten pagination footer with canonical `<ModulePagination showPageSizeSelector={false} ... />` from `src/components/workspace/ModulePagination.tsx`.
+  - Implemented viewport-aware measurement in `CustomersView.tsx` using `tableContainerCallbackRef` and ResizeObserver lifecycle, deriving usable height accounting for header, KPI row, tabs, toolbar, table header, pagination footer, and workspace padding, clamping rows between 4 and 12.
+  - Set safe initial page size of 6 to prevent layout blowout before measurement.
+  - Mapped CustomerInspectorCard to canonical inspector classes: `inspector-tabs-nav`, `tab-pill-badge`, `inspector-body-scrollable`, `inspector-details-grid`, `detail-item`, `detail-label`, `detail-value`.
+  - Added `.detail-item.full-width` and `.inspector-note-text` styling in `src/styles.css`.
+  - Maintained accessible labels (`aria-label="Waitlist customers table"` and `aria-label="Customer directory table"`).
+- **Files Changed**:
+  - `src/components/customers/CustomersView.tsx`
+  - `src/components/customers/CustomersListCard.tsx`
+  - `src/components/customers/CustomerInspectorCard.tsx`
+  - `src/components/workspace/adaptive-page-size.ts`
+  - `src/styles.css`
+  - `tests/customers-components.test.tsx`
+- **Tests & Checks**: `tests/customers-components.test.tsx` (14 tests passed in local JSDOM), `tests/customers-service.test.ts` (19 tests passed in local Vitest).
+- **Repository / Local Verification**: Canonical `ModulePagination` and inspector classes verified in repository source. Local test suite passes cleanly with 14/14 tests including adaptive page sizing, no observer loops, and distinct label/value DOM nodes. Final native Windows behavior remains pending owner visual re-inspection.
+- **Remaining Limitations**: Operational customer history excludes dormant financial ledger details. Native Windows runtime verification requires owner re-inspection.
 
 ---
 
@@ -223,16 +238,7 @@ The objective was not to redesign the product or alter business architecture, bu
   - User Menu: Exclusive sign-out point with role tag and branch context.
   - Responsive Shell Breakpoints: Sidebar width reduces at 1024px (216px) and header padding adjusts to 16px in repository CSS.
 - **Focus Visibility (`src/styles.css`)**:
-  - Added canonical `:focus-visible` styling (`outline: 2px solid var(--color-accent)`) for:
-    - `.bookings-header-refresh-btn`
-    - `.bookings-scope-tab-btn`
-    - `.bookings-reset-filters-btn`
-    - `.action-inspect-btn`
-    - `.bookings-empty-reset-btn`
-    - `.pagination-btn` and `.page-size-select`
-    - `.inspector-close-btn` and `.inspector-tab-btn`
-    - `.bookings-modal-close-btn`
-    - `.bookings-table tbody tr.booking-row`
+  - Added canonical `:focus-visible` styling (`outline: 2px solid var(--color-accent)`) for buttons, tabs, rows, and pagination elements across modules.
 
 ---
 
@@ -240,16 +246,21 @@ The objective was not to redesign the product or alter business architecture, bu
 
 ```
 src/components/attendance/AttendanceView.tsx
+src/components/customers/CustomerInspectorCard.tsx
 src/components/customers/CustomersListCard.tsx
+src/components/customers/CustomersView.tsx
 src/components/home-service/HomeServiceView.tsx
 src/components/schedule/ScheduleActionModal.tsx
 src/components/staff/StaffInspectorCard.tsx
 src/components/staff/modals/StaffFullScheduleModal.tsx
+src/components/today/adaptive-page-size.ts
+src/components/workspace/adaptive-page-size.ts
 src/styles.css
+tests/customers-components.test.tsx
 docs/30-delivery/STAGE_10_EVIDENCE.md
 ```
 
-Total changed code/style files: **7 files** (+101 lines, -27 lines).
+Total changed code/style/test files: **12 files**.
 Plus **1 evidence documentation file** (`docs/30-delivery/STAGE_10_EVIDENCE.md`).
 
 ---
@@ -258,20 +269,20 @@ Plus **1 evidence documentation file** (`docs/30-delivery/STAGE_10_EVIDENCE.md`)
 
 ### Baseline (Pre-Sweep)
 
-- `pnpm test`: 23/23 files passed, 446/446 tests passed (Duration: 22.78s).
+- `pnpm test`: 23/23 files passed, 446/446 tests passed.
 - `pnpm run typecheck`: clean (exit code 0).
 - `pnpm run lint`: clean (0 warnings, 0 errors).
 - `pnpm run format:check`: clean.
-- `pnpm run build`: clean (built in 1.20s).
+- `pnpm run build`: clean.
 - `git diff --check`: clean.
 
-### Post-Sweep Verification
+### Post-Correction Verification
 
-- `pnpm test`: 23/23 files passed, 446/446 tests passed (Duration: 17.95s).
+- `pnpm test`: 23/23 files passed, 450/450 tests passed (including 14 Customers component tests and 19 customer service tests).
 - `pnpm run typecheck`: clean (exit code 0).
 - `pnpm run lint`: clean (0 warnings, 0 errors).
 - `pnpm run format:check`: clean (All matched files use Prettier code style!).
-- `pnpm run build`: clean (built in 1.28s).
+- `pnpm run build`: clean (built in 883ms).
 - `git diff --check`: clean.
 
 ---
@@ -283,9 +294,10 @@ Plus **1 evidence documentation file** (`docs/30-delivery/STAGE_10_EVIDENCE.md`)
 Repository source configures:
 
 - 224px fixed-width sidebar (`.shell-sidebar`) and 28px 32px workspace padding (`.workspace-content`).
-- Two-column layouts with fixed-width right inspector columns (380px in Bookings, 360px in Customers/Staff) and 16px gap.
+- Two-column layouts with fixed-width right inspector columns (380px in Bookings/Customers, 360px in Staff) and 16px gap.
 - KPI summaries configured as 4, 5, or 6 column CSS grids.
-- Today module configured with Active Service Workflow column and three-card right rail.
+- Customers module configured with adaptive table area deriving rows from usable viewport height.
+- Customers right inspector configured with canonical `inspector-body-scrollable` for internal containment.
 
 **FINAL NATIVE WINDOWS RUNTIME VERIFICATION: PENDING OWNER INSPECTION**
 
@@ -294,6 +306,7 @@ Repository source configures:
 Repository source configures:
 
 - Main operational grids adapt via `@media (max-width: 1366px)` to reduce inspector column width to 340px (`grid-template-columns: 1fr 340px`).
+- Customers adaptive table row calculation derives safe rows (~6 rows) fitting available height without vertical page scroll.
 - Schedule KPI grid gap reduced to 8px.
 - Home Service main grid adapts via `@media (max-width: 1366px)`.
 
@@ -321,18 +334,22 @@ Repository media queries (`@media (max-width: 1024px)`) configure:
 - **Branch and Base Relationship**:
   - `stage/10-desktop-full-sweep` cleanly branched from accepted base `5305502f7a31082913fe0a73261aba7b050758bb`.
   - Remote `origin/main` remains unchanged at `5305502f7a31082913fe0a73261aba7b050758bb`.
-- **Source-Level Accessibility Changes**:
-  - Added `scope="col"` to table headers in `src/components/attendance/AttendanceView.tsx` and `src/components/home-service/HomeServiceView.tsx`.
-  - Added explicit `aria-label` attributes to tables in `src/components/customers/CustomersListCard.tsx`.
-  - Added explicit `aria-label` to select in `src/components/schedule/ScheduleActionModal.tsx`.
-  - Added accessible names and close button labels to modals in `src/components/staff/StaffInspectorCard.tsx` and `src/components/staff/modals/StaffFullScheduleModal.tsx`.
+- **Source-Level Accessibility & Layout Changes**:
+  - Added `scope="col"` to table headers in Attendance and Home Service.
+  - Added explicit `aria-label` attributes to tables in Customers.
+  - Added explicit `aria-label` to select in Schedule.
+  - Added accessible names and close button labels to modals in Staff.
+  - Replaced handwritten duplicate pagination footer in Customers with canonical `<ModulePagination showPageSizeSelector={false} ... />`.
+  - Added viewport-aware adaptive row count measurement in Customers via canonical shared `calculateAdaptivePageSize`.
+  - Replaced ad-hoc inspector classes in Customers with canonical inspector system classes (`inspector-tabs-nav`, `tab-pill-badge`, `inspector-body-scrollable`, `inspector-details-grid`, `detail-item`, `detail-label`, `detail-value`).
 - **CSS Declarations**:
   - Added `:focus-visible` selectors for canonical buttons, tabs, rows, and selects in `src/styles.css`.
   - Added `margin-bottom: 20px;` to `.workspace-page-header` in `src/styles.css`.
+  - Added `.detail-item.full-width { grid-column: 1 / -1; }` and `.inspector-note-text` styles in `src/styles.css`.
 - **Absence of Unauthorized Architecture**:
   - Cumulative diff contains zero SQLite files, zero persistent local stores, zero polling loops, zero background sync, zero Realtime subscriptions, zero schema migrations, and zero database changes.
 - **Production Build Artifacts**:
-  - Vite client production build completed cleanly with zero compilation errors: `dist/assets/index-rpiA6xJH.js` (863.51 kB) and `dist/assets/index-CmsjIiT0.css` (165.90 kB).
+  - Vite client production build completed cleanly with zero compilation errors: `dist/assets/index-CZgdr6ED.js` (863.31 kB) and `dist/assets/index-JXdtu4mm.css` (166.67 kB).
 
 ---
 
@@ -342,8 +359,9 @@ Repository media queries (`@media (max-width: 1024px)`) configure:
 > This label records local CLI and JSDOM test execution only, NOT native Windows runtime validation.
 
 - **Automated Unit & Component Tests**:
-  - `pnpm test`: 23 test files passed, 446 tests passed (17.95s execution time in Vitest / JSDOM).
+  - `pnpm test`: 23 test files passed, 450 tests passed (19.92s execution time in Vitest / JSDOM).
   - Tests verify component mounting, tab switching, search input handling, modal lifecycles, and mutation error states in JSDOM.
+  - Customers test suite expanded to 14 component tests covering canonical `ModulePagination` rendering, removal of legacy handwritten select, adaptive page size response, lack of measurement loops, and unmount observer cleanup.
 - **Static Analysis & Type Checking**:
   - `pnpm run typecheck`: `tsc --noEmit` passed with exit code 0 (zero type errors).
   - `pnpm run lint`: `eslint . --max-warnings 0` passed with exit code 0 (zero lint warnings/errors).
@@ -351,19 +369,30 @@ Repository media queries (`@media (max-width: 1024px)`) configure:
   - `pnpm run format:check`: Prettier validated all files; 100% compliant.
 - **Git Formatting Discipline**:
   - `git diff --check`: Passed with zero whitespace, trailing space, or merge marker errors.
-- **AST / Source Audit**:
-  - Node.js AST audit scripts confirmed:
-    - 100% of dialog elements across active modules have valid `role="dialog"`, `aria-modal="true"`, and `aria-label` or `aria-labelledby`.
-    - 100% of operational DataGrid table header cells contain `scope="col"`.
-    - Tables in Customers contain explicit `aria-label` attributes.
 
 ---
 
 ## 9. OWNER-PROVIDED MANUAL RUNTIME EVIDENCE
 
-- **No new owner runtime evidence has yet been recorded for the final Stage 10 branch.**
-- Owner final visual inspection is pending.
-- Agent did not execute native Windows Tauri runtime; no native runtime observations or screenshots are claimed.
+### Owner-Observed Defect History (Before Correction)
+
+The owner provided manual Windows runtime evidence showing two Customers workspace defects:
+
+1. **Excessive Customer List Height & Pagination Breakdown**: The customer table rendered 25 rows by default, extending vertically far down the window and causing the whole workspace to scroll instead of behaving as a compact operational desktop workspace. Customers pagination was not behaving as viewport-adaptive desktop pagination.
+2. **Customer Detail Inspector Visual Disconnect**: The right-side Customer Details card did not conform to the canonical inspector styling. Body labels and values ran together (e.g. `Preferred Visit TypeNone specified`, `Pressure PreferenceNone specified`, `First Visit—`, `Last Visit—`, `Birthday—`), and inspector body height was unconstrained.
+
+### Status After Correction
+
+**OWNER RE-INSPECTION REQUIRED**
+
+Agent has implemented:
+
+- Canonical `<ModulePagination showPageSizeSelector={false} ... />` replacing handwritten duplicate footer.
+- Viewport-aware adaptive table row sizing deriving row count from measured usable height.
+- Safe initial page size of 6 preventing layout blowout before measurement.
+- Canonical inspector classes (`inspector-tabs-nav`, `tab-pill-badge`, `inspector-body-scrollable`, `inspector-details-grid`, `detail-item`, `detail-label`, `detail-value`) with distinct label/value DOM nodes and internal scroll containment.
+
+Native Windows visual confirmation remains pending owner visual inspection in the live Tauri environment.
 
 ---
 
@@ -372,7 +401,7 @@ Repository media queries (`@media (max-width: 1024px)`) configure:
 - **Security & Secrets**: No service-role key or privileged secret was introduced in the Stage 10 diff. No sensitive credentials added.
 - **Hosted Repository Impact**: The hosted CradleHub repository was inspected locally read-only and was not modified in Stage 10. This is not an assertion of deployed production behavior.
 - **Database / Schema / Migration Impact**: Zero database queries, schema changes, migrations, or RPC modifications exist in the Stage 10 diff.
-- **Performance Impact**: Stage 10 introduced no caching layer, polling loop, background sync, persistent store, or performance architecture change. No performance benchmark was performed in this stage.
+- **Performance Impact**: Stage 10 introduces no caching, polling, background synchronization or persistent local-data architecture. No performance benchmark was performed.
 - **Rollback**: Clean revert possible by resetting branch to `5305502f7a31082913fe0a73261aba7b050758bb`.
 
 ---
@@ -380,7 +409,7 @@ Repository media queries (`@media (max-width: 1024px)`) configure:
 ## 11. Final Gate
 
 ```
-READY FOR OWNER FINAL VISUAL INSPECTION
+READY FOR OWNER CUSTOMER RE-INSPECTION
 NOT ACCEPTED
 NOT MERGED
 STAGE 11 NOT AUTHORIZED
