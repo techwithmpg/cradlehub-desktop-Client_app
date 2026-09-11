@@ -6765,8 +6765,8 @@ button.bookings-kpi-cell:focus-visible {
   color: var(--color-muted);
   background: transparent;
   border: 0;
-  font-size: 10px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -6846,9 +6846,9 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .home-service-date-controls input {
-  width: 128px;
+  width: 130px;
   padding: 0 8px;
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .home-service-summary.bookings-kpi-summary-card {
@@ -6914,7 +6914,7 @@ button.bookings-kpi-cell:focus-visible {
   border-radius: 6px;
   outline: 0;
   font: inherit;
-  font-size: 9.5px;
+  font-size: 12px;
 }
 
 .home-service-search input {
@@ -6929,6 +6929,7 @@ button.bookings-kpi-cell:focus-visible {
   width: auto;
   min-width: 108px;
   padding: 0 26px 0 8px;
+  font-size: 11px;
 }
 
 .home-service-search input:focus-visible,
@@ -6939,8 +6940,8 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-queue-count {
   margin-left: auto;
   color: var(--color-muted);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -6968,8 +6969,8 @@ button.bookings-kpi-cell:focus-visible {
   color: var(--color-muted);
   background: transparent;
   border: 0;
-  font-size: 8.75px;
-  font-weight: 650;
+  font-size: 11.5px;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -6993,8 +6994,8 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .home-service-queue-tab .tab-count-badge {
-  min-width: 17px;
-  height: 17px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 5px;
   display: inline-flex;
   align-items: center;
@@ -7002,7 +7003,8 @@ button.bookings-kpi-cell:focus-visible {
   color: var(--color-muted);
   background: var(--color-surface-hover);
   border-radius: 999px;
-  font-size: 8px;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 /* Alerts ------------------------------------------------------ */
@@ -7026,7 +7028,8 @@ button.bookings-kpi-cell:focus-visible {
   align-items: center;
   gap: 5px;
   color: var(--color-warning-text);
-  font-size: 9px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .home-service-alert-strip button {
@@ -7045,13 +7048,13 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .home-service-alert-strip button span {
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .home-service-alert-strip button small {
   color: var(--color-muted);
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1.3;
 }
 
@@ -7102,15 +7105,15 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-card-heading span {
   color: var(--color-ink);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .home-service-card-heading strong,
 .home-service-card-heading small {
   color: var(--color-muted);
-  font-size: 8.5px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 /* Dispatch table --------------------------------------------- */
@@ -7120,9 +7123,12 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .home-service-table.bookings-table thead th {
-  padding-top: 7px;
-  padding-bottom: 7px;
-  font-size: 8px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .home-service-table.bookings-table td {
@@ -7138,7 +7144,7 @@ button.bookings-kpi-cell:focus-visible {
   align-items: center;
   gap: 3px;
   color: var(--color-muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .home-service-row-location svg {
@@ -7152,16 +7158,16 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .home-service-status {
-  min-height: 18px;
-  padding: 2px 6px;
+  min-height: 20px;
+  padding: 2px 7px;
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--color-line);
   border-radius: 999px;
   color: var(--color-ink-secondary);
   background: var(--color-surface-hover);
-  font-size: 7.75px;
-  font-weight: 750;
+  font-size: 10px;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
 }
@@ -7193,12 +7199,12 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-substatus {
   margin-top: 3px;
   color: var(--color-muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .home-service-location-inline {
   margin-top: 3px;
-  font-size: 7.75px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -7225,7 +7231,7 @@ button.bookings-kpi-cell:focus-visible {
   align-items: center;
   gap: 4px;
   color: var(--color-ink-secondary);
-  font-size: 8.25px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -7236,8 +7242,8 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-people > small {
   color: #047857;
-  font-size: 7.75px;
-  font-weight: 650;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 /* Location context panel ------------------------------------- */
@@ -7260,12 +7266,13 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-location-panel-empty strong {
   color: var(--color-ink-secondary);
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .home-service-location-panel-empty span {
   max-width: 220px;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .home-service-panel-header {
@@ -7287,8 +7294,8 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-panel-header > div > span {
   color: var(--color-muted);
-  font-size: 8px;
-  font-weight: 650;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -7296,7 +7303,8 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-panel-header > div > strong {
   overflow: hidden;
   color: var(--color-ink);
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -7335,14 +7343,15 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-location-stage strong {
   max-width: 250px;
   color: var(--color-ink);
-  font-size: 10.5px;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.35;
 }
 
 .home-service-location-stage > span {
   max-width: 245px;
   color: var(--color-muted);
-  font-size: 8.5px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -7366,18 +7375,19 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-location-facts span {
   color: var(--color-muted);
-  font-size: 7.5px;
+  font-size: 10px;
 }
 
 .home-service-location-facts strong {
   color: var(--color-ink-secondary);
-  font-size: 8.5px;
+  font-size: 11px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .home-service-location-facts small {
   color: var(--color-muted);
-  font-size: 7px;
+  font-size: 10px;
   overflow-wrap: anywhere;
 }
 
@@ -7391,7 +7401,7 @@ button.bookings-kpi-cell:focus-visible {
   background: #fafafa;
   border: 1px solid var(--color-line-subtle);
   border-radius: 6px;
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -7420,8 +7430,8 @@ button.bookings-kpi-cell:focus-visible {
   display: block;
   margin-bottom: 2px;
   color: var(--color-accent);
-  font-size: 7.5px;
-  font-weight: 750;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -7430,7 +7440,7 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-driver-inspector-header h2 {
   margin: 0;
   color: var(--color-ink);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -7438,7 +7448,7 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-driver-inspector-header p {
   margin: 2px 0 0;
   color: var(--color-muted);
-  font-size: 8.5px;
+  font-size: 12px;
 }
 
 .home-service-inspector-tabs.bookings-scope-tabs-container {
@@ -7457,8 +7467,8 @@ button.bookings-kpi-cell:focus-visible {
   color: var(--color-muted);
   background: transparent;
   border: 0;
-  font-size: 8px;
-  font-weight: 650;
+  font-size: 11.5px;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -7492,8 +7502,8 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-inspector-section h3 {
   margin: 0 0 8px;
   color: var(--color-ink);
-  font-size: 8.5px;
-  font-weight: 750;
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -7512,14 +7522,14 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-definition-list dt {
   color: var(--color-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .home-service-definition-list dd {
   min-width: 0;
   margin: 0;
   color: var(--color-ink-secondary);
-  font-size: 8.5px;
+  font-size: 11px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -7544,8 +7554,8 @@ button.bookings-kpi-cell:focus-visible {
   flex-direction: column;
   gap: 4px;
   color: var(--color-muted);
-  font-size: 7.5px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .home-service-assignment-row select,
@@ -7559,7 +7569,7 @@ button.bookings-kpi-cell:focus-visible {
   border-radius: 6px;
   outline: 0;
   font: inherit;
-  font-size: 8.5px;
+  font-size: 11px;
 }
 
 .home-service-actions {
@@ -7578,11 +7588,11 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-action-danger,
 .home-service-reschedule button {
   min-height: 29px;
-  padding: 5px 7px;
+  padding: 5px 8px;
   border-radius: 6px;
   font: inherit;
-  font-size: 8px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -7727,12 +7737,13 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-timeline strong {
   color: var(--color-ink-secondary);
-  font-size: 8.5px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .home-service-timeline span {
   color: var(--color-muted);
-  font-size: 7.75px;
+  font-size: 10px;
 }
 
 .home-service-event-list {
@@ -7753,19 +7764,20 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-event strong {
   color: var(--color-ink-secondary);
-  font-size: 8px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .home-service-event span,
 .home-service-event small {
   color: var(--color-muted);
-  font-size: 7.5px;
+  font-size: 10px;
 }
 
 .home-service-muted-message {
   margin: 0;
   color: var(--color-muted);
-  font-size: 8.5px;
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -7776,7 +7788,7 @@ button.bookings-kpi-cell:focus-visible {
   margin: 0;
   padding: 7px 8px;
   border-radius: 6px;
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -7835,14 +7847,15 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-map-unavailable strong {
   color: var(--color-ink);
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .home-service-map-unavailable p {
   max-width: 680px;
   margin: 3px 0 0;
   color: var(--color-muted);
-  font-size: 8.5px;
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -7886,7 +7899,8 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-location-record strong {
   overflow: hidden;
   color: var(--color-ink-secondary);
-  font-size: 8.5px;
+  font-size: 11px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -7894,20 +7908,20 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-location-record span {
   overflow: hidden;
   color: var(--color-muted);
-  font-size: 7.5px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .home-service-location-chip {
   min-width: max-content;
-  padding: 3px 5px;
+  padding: 3px 6px;
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--color-line);
   border-radius: 999px;
-  font-size: 7px !important;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .home-service-location-record-empty {
@@ -7917,7 +7931,7 @@ button.bookings-kpi-cell:focus-visible {
   align-items: center;
   justify-content: center;
   color: var(--color-muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 /* Drivers ----------------------------------------------------- */
@@ -7949,6 +7963,7 @@ button.bookings-kpi-cell:focus-visible {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
+  font-size: 12px;
 }
 
 .home-service-driver-inspector-header > div {
@@ -7989,13 +8004,14 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-driver-assignment-list strong {
   color: var(--color-ink-secondary);
-  font-size: 8px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .home-service-driver-assignment-list span,
 .home-service-driver-assignment-list small {
   color: var(--color-muted);
-  font-size: 7.5px;
+  font-size: 10px;
 }
 
 /* Responsive -------------------------------------------------- */
@@ -8178,16 +8194,17 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-map-center-message strong {
   color: var(--color-ink-secondary);
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .home-service-map-center-message > span {
-  font-size: 8.5px;
+  font-size: 11px;
 }
 
 .home-service-map-center-message small {
   max-width: 220px;
-  font-size: 7.5px;
+  font-size: 10px;
   line-height: 1.4;
 }
 
@@ -8204,10 +8221,10 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .home-service-map-legend {
-  width: 168px;
+  width: 175px;
   top: 9px;
   left: 9px;
-  padding: 7px;
+  padding: 8px;
 }
 
 .home-service-map-overlay-heading {
@@ -8221,8 +8238,10 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-map-overlay-heading strong {
   color: var(--color-ink);
-  font-size: 8.5px;
-  font-weight: 750;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .home-service-map-overlay-heading button {
@@ -8250,12 +8269,14 @@ button.bookings-kpi-cell:focus-visible {
   gap: 5px;
   align-items: center;
   color: var(--color-ink-secondary);
-  font-size: 7.75px;
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .home-service-map-legend-row strong {
   color: var(--color-ink);
-  font-size: 7.75px;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .home-service-map-dot {
@@ -8310,7 +8331,7 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .home-service-map-drivers {
-  width: 235px;
+  width: 245px;
   bottom: 31px;
   left: 9px;
   padding: 8px;
@@ -8343,8 +8364,8 @@ button.bookings-kpi-cell:focus-visible {
   color: #ffffff;
   background: var(--color-accent);
   border-radius: 50%;
-  font-size: 7.5px;
-  font-weight: 750;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .home-service-map-driver-meta {
@@ -8357,7 +8378,8 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-map-driver-meta strong {
   overflow: hidden;
   color: var(--color-ink);
-  font-size: 8px;
+  font-size: 11px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -8365,7 +8387,7 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-map-driver-meta span {
   overflow: hidden;
   color: #047857;
-  font-size: 7px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -8379,20 +8401,21 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-map-driver-eta span {
   color: var(--color-muted);
-  font-size: 6.5px;
-  font-weight: 650;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
 .home-service-map-driver-eta strong {
   color: #047857;
-  font-size: 7.5px;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .home-service-map-driver-empty {
   padding: 14px 6px;
   color: var(--color-muted);
-  font-size: 7.5px;
+  font-size: 11px;
   text-align: center;
 }
 
@@ -8412,13 +8435,13 @@ button.bookings-kpi-cell:focus-visible {
   border-radius: 6px;
   box-shadow: 0 4px 12px rgb(15 23 42 / 9%);
   font: inherit;
-  font-size: 7.5px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .home-service-map-selected {
-  width: 205px;
+  width: 215px;
   right: 9px;
   bottom: 31px;
   padding: 8px;
@@ -8429,8 +8452,8 @@ button.bookings-kpi-cell:focus-visible {
 
 .home-service-map-selected-label {
   color: var(--color-accent);
-  font-size: 6.75px;
-  font-weight: 750;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -8438,7 +8461,8 @@ button.bookings-kpi-cell:focus-visible {
 .home-service-map-selected strong {
   overflow: hidden;
   color: var(--color-ink);
-  font-size: 8.5px;
+  font-size: 11px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -8447,29 +8471,29 @@ button.bookings-kpi-cell:focus-visible {
   > span:not(.home-service-map-selected-label, .home-service-map-selected-eta) {
   overflow: hidden;
   color: var(--color-muted);
-  font-size: 7.25px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .home-service-map-selected small {
   color: var(--color-muted);
-  font-size: 6.75px;
+  font-size: 10px;
 }
 
 .home-service-map-selected-eta {
   width: max-content;
   margin-top: 3px;
-  padding: 2px 5px;
+  padding: 2px 6px;
   color: #047857;
   background: #ecfdf5;
   border-radius: 999px;
-  font-size: 7px;
-  font-weight: 750;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .home-service-map-truth {
-  min-height: 23px;
+  min-height: 24px;
   padding: 0 8px;
   position: absolute;
   right: 0;
@@ -8482,7 +8506,7 @@ button.bookings-kpi-cell:focus-visible {
   color: var(--color-muted);
   background: rgb(255 255 255 / 92%);
   border-top: 1px solid rgb(203 213 225 / 75%);
-  font-size: 6.75px;
+  font-size: 10px;
 }
 
 .home-service-map-truth svg {
