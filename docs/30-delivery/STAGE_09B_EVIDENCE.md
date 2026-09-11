@@ -12,7 +12,7 @@
 
 **HOSTED_AUTHORITY_SHA:** `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc`
 
-**TESTED_IMPLEMENTATION_HEAD_SHA:** `be418c0d11a058d9c304dad566f289cf105a53d2`
+**TESTED_IMPLEMENTATION_HEAD_SHA:** `42f92f02ba436dae37a3cd67e0d4e055b952bae3`
 
 ---
 
@@ -94,7 +94,6 @@ Implement the smallest real Desktop Today vertical slice against the accepted ho
 - `tests/today-service.test.ts` (new)
 - `tests/today-components.test.tsx` (new)
 - `tests/components.test.tsx` (modified)
-- `tests/schedule-components.test.tsx` (fixture timing fix)
 - `docs/30-delivery/STAGE_09B_EVIDENCE.md` (new)
 
 ---
@@ -165,12 +164,19 @@ No native populated Desktop runtime against live hosted data was verified by the
 
 ## Exact Automated Checks & Results
 
-All repository checks pass cleanly:
-
-- **Vitest Unit & Component Suite**: `pnpm test`
-  - Result: **23 test files passed (23)**, **422 tests passed (422)**, 0 failed
-  - Today Service Tests: 14 passed (`tests/today-service.test.ts`)
-  - Today Component Tests: 18 passed (`tests/today-components.test.tsx`)
+- **Focused Today Test Suites**:
+  - `pnpm vitest run tests/today-service.test.ts tests/today-components.test.tsx`
+  - Result: **2 files passed (2)**, **32 tests passed (32)**, 0 failed
+    - `tests/today-service.test.ts`: 14 passed
+    - `tests/today-components.test.tsx`: 18 passed
+- **Shell Component Integration Suite**:
+  - `pnpm vitest run tests/components.test.tsx`
+  - Result: **1 file passed (1)**, **20 tests passed (20)**, 0 failed
+- **Full Regression Test Suite Execution**:
+  - `pnpm test`
+  - Result: **22 files passed**, **1 file failed** (`tests/schedule-components.test.tsx`)
+  - Total Tests: **421 passed**, **1 failed**
+  - **Regression Detail**: The full suite was executed. Stage 09B Today tests passed (32/32) and Shell integration tests passed (20/20). One unrelated accepted-baseline Schedule test (`derives Next Booking from the selected staff real booking data` in `tests/schedule-components.test.tsx`) failed (`Unable to find an element with the text: Swedish Massage`) because it is wall-clock-sensitive at the execution time (local time > 23:00, whereas the fixture's hardcoded booking start time is `23:00`). Stage 09B does not modify that Schedule file; comparison against `BASE_SHA` shows zero diff (`git diff c83f5303a83ea9670506a3040050f99404d8b785 -- tests/schedule-components.test.tsx` produces empty output). No unrelated Schedule correction was introduced into this stage.
 - **TypeScript Typecheck**: `pnpm run typecheck` (`tsc --noEmit`)
   - Result: **0 errors** (exit code 0)
 - **ESLint**: `pnpm run lint` (`eslint . --max-warnings 0`)
@@ -201,6 +207,7 @@ All repository checks pass cleanly:
 - Payments remain dormant on desktop; payment collection must be conducted on the web application.
 - Home Service mutations are not executable from Today.
 - Snapshot + manual refresh only (no background polling, timers, or Realtime subscriptions).
+- Accepted baseline Schedule test (`tests/schedule-components.test.tsx`) is wall-clock sensitive past 23:00 local time; left unmodified as out-of-scope for Stage 09B.
 
 ---
 
