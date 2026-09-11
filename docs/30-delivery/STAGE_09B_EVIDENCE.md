@@ -211,6 +211,63 @@ No native populated Desktop runtime against live hosted data was verified by the
 
 ---
 
+## OWNER-DIRECTED TODAY LAYOUT CORRECTION
+
+### Reference Visual Authority
+
+- **Approved Visual Reference**: `docs/20-product/reference-ui/current/crm/crm-today.png`
+- **Scope**: Layout and spatial composition pass prior to Stage 09B acceptance, preserving existing backend contract, bearer auth, server authority, and mutation safety.
+
+### Layout Changes Applied
+
+1. **Page-Level Two-Column Composition (`.today-page-grid`)**:
+   - Replaced the previous `ModuleMainGrid` + persistent `ModuleInspectorColumn` with a two-column Desktop Today grid (`minmax(0, 1fr)` main column + ~280–310px secondary right rail).
+   - Responsive degradation at 1024×768: right rail stacks cleanly below the main column; action cards adapt to 2×2 grid; queue table contains internal horizontal scroll when constrained.
+
+2. **Persistent Three-Card Right Rail (`.today-right-rail`)**:
+   - Replaces the old persistent booking inspector with three independent canonical cards:
+     - **Card 1: Activity (`TodayActivityCard`)**:
+       - Freshness indicator rendered as **"Snapshot"** (truthful to manual snapshot refresh; zero fake "Live" / "Realtime" claims).
+       - Two tabs: **Recent Scans** (rendering real scans from `data.attendance.items`, with truthful degraded/empty states and a "View Attendance →" canonical navigation button) and **Recent Activity** (rendering truthful operational alerts from `data.notifications` or truthful empty state; zero fabricated chronological audit log).
+     - **Card 2: Quick Actions (`TodayQuickActionsCard`)**:
+       - Four canonical module navigation buttons: View Customers (`customers`), Check Schedule (`schedule`), View Attendance (`attendance`), and Home Service (`home-service`).
+     - **Card 3: Today's Money (`TodayMoneyCard`)**:
+       - 2×2 metric structure showing "—" placeholders and a "Web only" badge.
+       - Truthful unavailable notice: _"Financial summary is not available in Desktop yet. Manage payments on web."_
+       - Contains **NO** authoritative monetary values, **NO** fake currency symbols (`₱`), and **NO** collect payment actions.
+
+3. **Front-Desk Action Strip (`.today-action-strip`)**:
+   - Four cards positioned above Active Service Workflow:
+     - **New Booking** (primary, navigates to canonical `bookings` module)
+     - **Walk-in** (informational front-desk guidance)
+     - **Book for Later** (informational phone/future booking guidance)
+     - **Home Service** (navigates to canonical `home-service` dispatch module)
+
+4. **Active Service Workflow Card Hierarchy**:
+   - Header with clear title and helper copy (_"One clear next action for every customer visit."_).
+   - Controls row with lifecycle tabs containing authoritative counts (**Waiting**, **In Service**, **Ready to Pay**, **Completed**, and **All Queue**), followed by search input.
+   - Dense Desktop table with columns: `TIME`, `CUSTOMER`, `SERVICE / SUMMARY`, `STATUS`, `ASSIGNEE`, `NEXT ACTION`.
+   - Compact status badges, staff/customer initials fallback avatars, and operational next action buttons.
+
+5. **Inspector Preservation & Relocation**:
+   - Persistent inspector removed from the primary right rail.
+   - Useful booking detail preserved in a secondary card (`.today-selected-booking-card`) directly associated with the selected queue row below the table, without creating an alternate drawer/modal framework.
+   - Readiness status preserved as a compact operational alert strip (`.today-alert-strip`) only when active issues or degradation occur, avoiding a wasteful permanent empty tab.
+
+### Explicit Confirmations
+
+- **NO fake data**: All displayed records originate strictly from `data.queue`, `data.attendance`, and `data.notifications`.
+- **NO fake money**: Today's Money contains zero fabricated figures; financial totals are explicitly marked web-only and dormant on Desktop.
+- **NO fake Live**: Freshness badge is strictly "Snapshot"; no background polling, timers, or WebSocket subscriptions added.
+- **NO payment mutations**: Payment Pending / Ready to Pay stage remains strictly read-only (`"Payment Pending — manage on web"`).
+- **NO Home Service mutations**: Home Service bookings remain strictly excluded from Today mutation eligibility.
+- **NO contract code rewritten**: `today-service.ts`, `today.ts`, and hosted routes are unchanged.
+- **NO hosted modifications**: `E:\cradlehub` remains 100% untouched at `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc`.
+- **NO second UI system**: Uses canonical tokens, styling classes, and existing shell navigation.
+- **Owner visual/runtime confirmation**: **PENDING**.
+
+---
+
 ## Rollback Instructions
 
 Before merge, abandon branch `stage/09b-desktop-today-ui`.
