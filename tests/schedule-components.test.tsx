@@ -47,8 +47,8 @@ function booking(overrides: Record<string, unknown> = {}) {
   return {
     id: 'booking-1',
     date: localDateString(),
-    start_time: '23:00',
-    end_time: '23:50',
+    start_time: '23:59',
+    end_time: '23:59',
     status: 'confirmed',
     customer: 'Maria Santos',
     service: 'Swedish Massage',

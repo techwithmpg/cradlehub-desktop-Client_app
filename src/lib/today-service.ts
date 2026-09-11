@@ -232,18 +232,7 @@ export function isTodayMutationResult(
   if (!isRecord(value) || value.ok !== true || !isRecord(value.data)) {
     return false;
   }
-  const data = value.data;
-  if (data.releasedNow !== undefined && typeof data.releasedNow !== 'boolean') {
-    return false;
-  }
-  if (
-    data.releaseAt !== undefined &&
-    typeof data.releaseAt !== 'string' &&
-    data.releaseAt !== null
-  ) {
-    return false;
-  }
-  return true;
+  return Object.keys(value.data).length === 0;
 }
 
 async function getAccessToken(client?: SupabaseClient): Promise<string> {

@@ -155,10 +155,7 @@ export type DesktopTodayMutationPayload =
   | { action: 'start_service'; bookingId: string }
   | { action: 'complete_service'; bookingId: string };
 
-export interface DesktopTodayMutationData {
-  releasedNow?: boolean;
-  releaseAt?: string | null;
-}
+export type DesktopTodayMutationData = Record<string, never>;
 
 export interface DesktopTodayMutationResult {
   ok: true;

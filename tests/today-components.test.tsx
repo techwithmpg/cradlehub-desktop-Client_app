@@ -547,4 +547,112 @@ describe('TodayView Component Suite', () => {
       screen.queryByRole('button', { name: /^complete service$/i }),
     ).toBeNull();
   });
+
+  describe('action-eligibility presentation lifecycle', () => {
+    it('offers Mark Arrived for confirmed + not_started in-spa booking', async () => {
+      const item = createQueueItem({
+        id: 'booking-confirmed-01',
+        status: 'confirmed',
+        bookingProgressStatus: 'not_started',
+        isHomeService: false,
+      });
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('action-mark_arrived-booking-confirmed-01'),
+        ).toBeDefined();
+      });
+      expect(
+        screen.getAllByRole('button', { name: /mark arrived/i }).length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it('offers Start Service for checked_in booking', async () => {
+      const item = createQueueItem({
+        id: 'booking-checkedin-01',
+        status: 'confirmed',
+        bookingProgressStatus: 'checked_in',
+        isHomeService: false,
+      });
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('action-start_service-booking-checkedin-01'),
+        ).toBeDefined();
+      });
+      expect(
+        screen.getAllByRole('button', { name: /start service/i }).length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it('offers Complete Service for session_started progress signal', async () => {
+      const item = createQueueItem({
+        id: 'booking-started-01',
+        status: 'confirmed',
+        bookingProgressStatus: 'session_started',
+        isHomeService: false,
+      });
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('action-complete_service-booking-started-01'),
+        ).toBeDefined();
+      });
+      expect(
+        screen.getAllByRole('button', { name: /complete service/i }).length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it('offers Complete Service when booking status is in_progress', async () => {
+      const item = createQueueItem({
+        id: 'booking-inprogress-01',
+        status: 'in_progress',
+        stage: 'in_service',
+        isHomeService: false,
+      });
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('action-complete_service-booking-inprogress-01'),
+        ).toBeDefined();
+      });
+      expect(
+        screen.getAllByRole('button', { name: /complete service/i }).length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it('offers Confirm for waiting/not_started booking with synthetic status without copied allow-list', async () => {
+      const item = createQueueItem({
+        id: 'booking-synth-01',
+        status: 'awaiting_confirmation',
+        stage: 'waiting',
+        bookingProgressStatus: 'not_started',
+        isHomeService: false,
+      });
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('action-confirm_booking-booking-synth-01'),
+        ).toBeDefined();
+      });
+      expect(
+        screen.getAllByRole('button', { name: /^confirm$/i }).length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

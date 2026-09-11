@@ -94,20 +94,29 @@ function getApplicableAction(booking: DesktopTodayQueueItem): {
     return null;
   }
 
-  // Pending bookings -> Confirm
-  if (
-    booking.status === 'pending' ||
-    booking.status === 'pending_crm_confirmation' ||
-    booking.status === 'pending_payment'
-  ) {
+  // A. Checked-in booking -> Start Service
+  if (booking.bookingProgressStatus === 'checked_in') {
     return {
-      action: 'confirm_booking',
-      label: 'Confirm',
+      action: 'start_service',
+      label: 'Start Service',
       tone: 'primary',
     };
   }
 
-  // Confirmed and not started -> Mark Arrived
+  // B. Started / in-service booking -> Complete Service
+  if (
+    booking.bookingProgressStatus === 'session_started' ||
+    booking.status === 'in_progress' ||
+    booking.stage === 'in_service'
+  ) {
+    return {
+      action: 'complete_service',
+      label: 'Complete Service',
+      tone: 'success',
+    };
+  }
+
+  // C. Confirmed + not started -> Mark Arrived
   if (
     booking.status === 'confirmed' &&
     booking.bookingProgressStatus === 'not_started'
@@ -119,24 +128,16 @@ function getApplicableAction(booking: DesktopTodayQueueItem): {
     };
   }
 
-  // Checked in -> Start Service
-  if (booking.bookingProgressStatus === 'checked_in') {
-    return {
-      action: 'start_service',
-      label: 'Start Service',
-      tone: 'primary',
-    };
-  }
-
-  // In service -> Complete Service
+  // D. Other non-Home-Service booking in the waiting operational stage, still not started -> Confirm
   if (
-    booking.bookingProgressStatus === 'in_progress' ||
-    booking.status === 'in_progress'
+    booking.stage === 'waiting' &&
+    booking.bookingProgressStatus === 'not_started' &&
+    booking.status !== 'confirmed'
   ) {
     return {
-      action: 'complete_service',
-      label: 'Complete Service',
-      tone: 'success',
+      action: 'confirm_booking',
+      label: 'Confirm',
+      tone: 'primary',
     };
   }
 

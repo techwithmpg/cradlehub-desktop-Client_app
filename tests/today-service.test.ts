@@ -258,6 +258,30 @@ describe('today-service', () => {
     expect(JSON.parse(capturedBody)).toEqual(payload);
   });
 
+  it('rejects mutation response when data contains unexpected fields such as releasedNow', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          data: { releasedNow: true },
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    const client = createMockSupabaseClient();
+    await expect(
+      mutateToday(
+        { action: 'confirm_booking', bookingId: 'booking-01' },
+        client,
+        mockFetch,
+      ),
+    ).rejects.toThrow(/unexpected response format/i);
+  });
+
   it('rejects mutation when server returns error response', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(
