@@ -633,12 +633,12 @@ function AttendanceReviewView({
               <ModuleTable aria-label="Attendance Review Queue">
                 <thead>
                   <tr>
-                    <th>Detected</th>
-                    <th>Staff Member</th>
-                    <th>Issue</th>
-                    <th>Severity</th>
-                    <th>Status</th>
-                    <th>Action</th>
+                    <th scope="col">Detected</th>
+                    <th scope="col">Staff Member</th>
+                    <th scope="col">Issue</th>
+                    <th scope="col">Severity</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Action</th>
                   </tr>
                 </thead>
 
@@ -1363,13 +1363,15 @@ function AttendanceHistoryView({
                 <ModuleTable aria-label="Attendance weekly history">
                   <thead>
                     <tr>
-                      <th>Staff Member</th>
+                      <th scope="col">Staff Member</th>
 
                       {dates.map((date) => (
-                        <th key={date}>{formatAttendanceHistoryDate(date)}</th>
+                        <th scope="col" key={date}>
+                          {formatAttendanceHistoryDate(date)}
+                        </th>
                       ))}
 
-                      <th>Total</th>
+                      <th scope="col">Total</th>
                     </tr>
                   </thead>
 
@@ -2572,13 +2574,13 @@ export function AttendanceView({ authContext }: AttendanceViewProps) {
                     <ModuleTable aria-label="Today's Attendance">
                       <thead>
                         <tr>
-                          <th>Time</th>
-                          <th>Staff Member</th>
-                          <th>Status</th>
-                          <th>Schedule</th>
-                          <th>Source</th>
-                          <th>Branch</th>
-                          <th>Notes / Action</th>
+                          <th scope="col">Time</th>
+                          <th scope="col">Staff Member</th>
+                          <th scope="col">Status</th>
+                          <th scope="col">Schedule</th>
+                          <th scope="col">Source</th>
+                          <th scope="col">Branch</th>
+                          <th scope="col">Notes / Action</th>
                         </tr>
                       </thead>
 

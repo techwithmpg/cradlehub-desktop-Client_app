@@ -436,6 +436,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
             onClick={() => setShowRejectModal(false)}
             role="dialog"
             aria-modal="true"
+            aria-label="Reject Application"
           >
             <div
               className="bookings-modal-content"
@@ -447,6 +448,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                   type="button"
                   className="bookings-modal-close-btn"
                   onClick={() => setShowRejectModal(false)}
+                  aria-label="Close dialog"
                 >
                   &times;
                 </button>

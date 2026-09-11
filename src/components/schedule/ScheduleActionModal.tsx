@@ -489,6 +489,7 @@ const ScheduleActionDialog: React.FC<ScheduleActionDialogProps> = ({
                     )
                   }
                   disabled={isSubmitting}
+                  aria-label="Reason for blocking time"
                 >
                   <option value="break">Break</option>
                   <option value="leave">Leave</option>

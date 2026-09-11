@@ -250,7 +250,11 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
               )}
             </div>
           ) : (
-            <table className="bookings-table" role="grid">
+            <table
+              className="bookings-table"
+              role="grid"
+              aria-label="Waitlist customers table"
+            >
               <thead>
                 <tr>
                   <th scope="col" style={{ width: '22%' }}>
@@ -374,7 +378,11 @@ export const CustomersListCard: React.FC<CustomersListCardProps> = ({
             )}
           </div>
         ) : (
-          <table className="bookings-table" role="grid">
+          <table
+            className="bookings-table"
+            role="grid"
+            aria-label="Customer directory table"
+          >
             <thead>
               <tr>
                 <th scope="col" style={{ width: '28%' }}>

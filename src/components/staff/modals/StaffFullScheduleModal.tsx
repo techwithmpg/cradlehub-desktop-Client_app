@@ -132,6 +132,7 @@ export const StaffFullScheduleModal: React.FC<StaffFullScheduleModalProps> = ({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      aria-label="Full Staff Schedule Modal"
       data-testid="full-schedule-modal"
     >
       <div

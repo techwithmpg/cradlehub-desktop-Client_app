@@ -1609,10 +1609,10 @@ export function HomeServiceView({ authContext }: HomeServiceViewProps) {
                           >
                             <thead>
                               <tr>
-                                <th>Time</th>
-                                <th>Customer / location</th>
-                                <th>Dispatch</th>
-                                <th>Assigned</th>
+                                <th scope="col">Time</th>
+                                <th scope="col">Customer / location</th>
+                                <th scope="col">Dispatch</th>
+                                <th scope="col">Assigned</th>
                               </tr>
                             </thead>
 
@@ -1981,11 +1981,11 @@ export function HomeServiceView({ authContext }: HomeServiceViewProps) {
                         >
                           <thead>
                             <tr>
-                              <th>Driver</th>
-                              <th>Staff</th>
-                              <th>Assigned</th>
-                              <th>Active Dispatches</th>
-                              <th>Latest Location</th>
+                              <th scope="col">Driver</th>
+                              <th scope="col">Staff</th>
+                              <th scope="col">Assigned</th>
+                              <th scope="col">Active Dispatches</th>
+                              <th scope="col">Latest Location</th>
                             </tr>
                           </thead>
 
