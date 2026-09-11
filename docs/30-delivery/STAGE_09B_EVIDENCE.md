@@ -2,7 +2,7 @@
 
 **Target:** CradleHub Windows desktop CRM client
 
-**Stage / Task:** Stage 09B — Desktop Today UI (Final Correction Pass)
+**Stage / Task:** Stage 09B — Desktop Today UI (Final Evidence Accuracy Correction)
 
 **Status:** `READY FOR OWNER FINAL VISUAL INSPECTION — NOT ACCEPTED / NOT MERGED`
 
@@ -10,9 +10,9 @@
 
 **BASE_SHA:** `c83f5303a83ea9670506a3040050f99404d8b785`
 
-**Starting Correction HEAD:** `4a08847b571a09e3c604b9fc09c9f196d92f0ea5`
+**Starting Correction HEAD:** `f898dc58572c81b5656da2436fd30e9029e92456`
 
-**HOSTED_AUTHORITY_SHA:** `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc`
+**HOSTED_AUTHORITY_SHA:** `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc` (inspected read-only in repository; not an assertion of deployed production runtime)
 
 **Final Implementation SHA:** Recorded externally after push to prevent self-referential hash skew.
 
@@ -72,37 +72,40 @@ Stage 09B implements the real Desktop Today operational workspace against the ac
   - Zero currency symbols (`₱`) are displayed in the modal.
   - Booking creation payload strictly enforces `paymentReceived: false` and `paymentMethod: undefined`.
 
-### 3. Viewport Geometry & Degradation
+### 3. Viewport Geometry & Degradation — Repository Layout Intent
 
-- **1440×900 and 1366×768**:
-  - Contained desktop workspace fitting inside the visible window with `height: 100%`, `overflow: hidden`, and zero page-level vertical scrollbar.
-  - Active Service Workflow card flexes to fill available vertical space and approximately aligns with the bottom of Today's Money card.
-  - Table container has `overflow-y: hidden` with rows paginated.
-- **1024×768 (Degraded Breakpoint)**:
-  - Content degrades gracefully without clipping any critical controls.
-  - `.today-workspace-content` enables vertical workspace scrolling (`overflow-y: auto; height: auto; min-height: 100%`).
-  - `.today-page-grid` stacks into single column (`1fr; height: auto`).
-  - Upper action cards reflow to a 2×2 grid (`repeat(2, 1fr)`).
-  - Right rail reflows to 3 columns (`repeat(3, 1fr)`), keeping all cards reachable.
-  - Horizontal table overflow is contained inside `.today-table-container` (`overflow-x: auto; min-height: 240px`).
-  - All four upper action cards, workflow controls, queue rows, pagination buttons, and right-rail cards remain fully accessible.
-- **NewBookingModal Viewport Fit**:
-  - Modal overlay centers card with `max-width: 980px` and `max-height: 90vh`.
-  - Header, mode tabs, and footer remain anchored and visible.
-  - Form body grid scrolls internally (`overflow-y: auto`), preventing modal clipping or window spill at 1440×900, 1366×768, and 1024×768.
+- **1440×900 and 1366×768 — Repository Layout Evidence**:
+  - Repository CSS/layout rules are configured to:
+    - Keep Today within the available workspace height (`height: 100%`, `min-height: 0`).
+    - Use `overflow: hidden` at normal desktop widths.
+    - Allow workflow card flex growth (`flex: 1`) to approximate the vertical extent of Today's Money card.
+    - Paginate the queue rather than vertically scrolling it (`overflow-y: hidden` on table container).
+  - Actual final Windows runtime fit at these dimensions:
+    - **NOT YET VERIFIED AFTER FINAL CORRECTION — OWNER VISUAL INSPECTION REQUIRED.**
+- **1024×768 — Repository Degraded Layout Evidence**:
+  - Repository breakpoint rules configure:
+    - Vertical workspace scrolling on `.today-workspace-content` (`overflow-y: auto; height: auto; min-height: 100%`).
+    - Single-column Today page grid layout (`grid-template-columns: 1fr`).
+    - 2×2 upper action cards grid (`repeat(2, 1fr)`).
+    - Three-column right rail layout (`grid-template-columns: repeat(3, 1fr)`).
+    - Horizontal table containment inside `.today-table-container` (`overflow-x: auto; min-height: 240px`).
+  - Actual clipping/reachability in the final Windows runtime:
+    - **NOT YET VERIFIED AFTER FINAL CORRECTION — OWNER VISUAL INSPECTION REQUIRED.**
+- **NewBookingModal Viewport Fit — Repository Layout Evidence**:
+  - Repository CSS configures the canonical `NewBookingModal` for internal scrolling and viewport containment:
+    - Overlay centers card with `max-width: 980px` and `max-height: 90vh`.
+    - Modal header, mode tabs, and footer are styled as non-growing header/footer flex rows.
+    - Form body grid is configured with `overflow-y: auto` to scroll internally.
+  - Final native behavior at 1440×900, 1366×768, and 1024×768:
+    - **OWNER VISUAL VERIFICATION PENDING.**
 
 ---
 
 ## Changed Implementation Files
 
-### Final Closure Correction Pass Files (vs starting HEAD `4a08847b571a09e3c604b9fc09c9f196d92f0ea5`)
+### Final Evidence Accuracy Correction (vs starting HEAD `f898dc58572c81b5656da2436fd30e9029e92456`)
 
-- `src/components/today/TodayView.tsx` (ResizeObserver callback ref for late-mount lifecycle + `showFinancialFields={false}` prop)
-- `src/components/bookings/NewBookingModal.tsx` (`showFinancialFields` presentation prop, financial field suppression, `paymentReceived: false` payload enforcement)
-- `src/components/today/TodayActivityCard.tsx` (truthful scan outcome with neutral "Recorded" fallback and neutral dot)
-- `src/styles.css` (neutral scan pill styling + 1024px unclipped vertical scrolling degradation)
-- `tests/today-components.test.tsx` (regression tests for ResizeObserver late-mount lifecycle, Today modal financial suppression, canonical modal backwards compatibility, and neutral scan fallback)
-- `docs/30-delivery/STAGE_09B_EVIDENCE.md` (authoritative reconciled stage evidence)
+- `docs/30-delivery/STAGE_09B_EVIDENCE.md` (corrected evidence classification, separating owner runtime evidence from repository/local test evidence)
 
 ### Cumulative Stage 09B Changed Files (vs `BASE_SHA` `c83f5303a83ea9670506a3040050f99404d8b785`)
 
@@ -126,39 +129,67 @@ Stage 09B implements the real Desktop Today operational workspace against the ac
 
 ## OWNER-PROVIDED MANUAL RUNTIME EVIDENCE
 
-Preserved observations reported by the owner from manual visual inspection of the running Windows desktop client:
+Genuine prior observations reported by the owner from earlier manual visual inspection of the running Windows desktop client:
 
-1. **Approved Workspace Composition**:
-   - Today header hierarchy (title, business date, branch context, static Front Desk View indicator, manual Refresh button).
-   - Four upper action cards layout and presence.
-   - Active Service Workflow visual language, table columns, and lifecycle tabs.
-   - Activity right-rail card with Snapshot freshness badge.
-   - Quick Actions right-rail card with canonical module navigation.
-   - Today's Money card with truthful web-only placeholder notice.
-   - Two-column operational workspace structure.
+**Approved Workspace Composition Preserved:**
 
-2. **Defects Addressed in Stage 09B Iterations**:
-   - Elimination of dead vertical workspace below the workflow.
-   - Complete removal of inline Booking Details under the queue table.
-   - Workflow height flexing to fill vertical space and approximately aligning with Today's Money bottom.
-   - Replacement of vertical queue scrolling with canonical pagination.
-   - Integration of the four upper action cards with canonical `NewBookingModal`.
-   - Complete suppression of financial/payment presentation in Today-opened booking modal.
-   - Safe late-mounting ResizeObserver lifecycle to prevent silent failure after loading state.
-   - Neutral "Recorded" fallback for attendance scans missing an authoritative outcome.
-   - Graceful degradation at 1024×768 without clipped controls or hidden content.
+- Today header hierarchy (title, business date, branch context, static Front Desk View indicator, manual Refresh button).
+- Four upper action cards layout and presence.
+- Active Service Workflow visual language, table columns, and lifecycle tabs.
+- Activity right-rail card with Snapshot freshness badge.
+- Quick Actions right-rail card with canonical module navigation.
+- Today's Money card with truthful web-only placeholder notice.
+- Overall two-column operational workspace structure.
 
-_Owner final visual inspection of these closure corrections is pending._
+_Final visual inspection of the subsequent closure corrections by the owner remains pending._
 
 ---
 
-## Exact Automated Checks & Results
+## REPOSITORY-VERIFIED FINAL CORRECTIONS
+
+**Evidence Class:** `REPOSITORY FACT / LOCAL TEST EVIDENCE` (Not owner runtime evidence)
+
+Verification from repository source inspection and automated local test execution confirms:
+
+1. **Inline Booking Details Removed**:
+   - Source inspection confirms removal of selection state, automatic first-row selection, row click handlers, and inline details card markup.
+   - Verified by test: _Section 33 — Booking Details Removed_ (4/4 tests passing in `tests/today-components.test.tsx`).
+
+2. **Canonical Pagination Implemented**:
+   - Table uses canonical `ModulePagination` component with `showPageSizeSelector={false}`.
+   - Dynamic page size is calculated by `calculateAdaptivePageSize`.
+   - Verified by test: _Section 35 — Today Queue Pagination_ (4/4 tests passing in `tests/today-components.test.tsx`).
+
+3. **ResizeObserver Callback-Ref Lifecycle**:
+   - `TodayView` uses `tableContainerCallbackRef` to attach `ResizeObserver` when the table container mounts after initial loading state resolves, disconnecting on element change or component unmount.
+   - Verified by test: _Section 36 — Stage 09B Closure Verifications_ (`ResizeObserver attaches when table container mounts after initial loading state resolves, and disconnects on unmount` passing in `tests/today-components.test.tsx`).
+
+4. **Financial Presentation Suppressed for Today**:
+   - `TodayView` passes `showFinancialFields={false}` to canonical `NewBookingModal`.
+   - Modal suppresses service prices, "Payment Received in Advance" checkbox, payment method selector, total amount row, payment status tags, and currency values, rendering Section 5 as "Notes".
+   - Submit payload forces `paymentReceived: false` and `paymentMethod: undefined`.
+   - Canonical `NewBookingModal` retains `showFinancialFields = true` default for standard Bookings behavior.
+   - Verified by tests: _Today-opened booking modal contains no payment/financial UI_, _Today booking submission sends paymentReceived=false and paymentMethod=undefined_, and _canonical NewBookingModal preserves financial UI by default when showFinancialFields is omitted_ (passing in `tests/today-components.test.tsx`).
+
+5. **Truthful Attendance Scan Outcome Fallback**:
+   - `TodayActivityCard` renders authoritative `scan.outcome` when present.
+   - When `scan.outcome` is null or empty, it renders neutral label `"Recorded"` with neutral dot (`.today-status-dot-neutral`) and neutral styling (`.today-scan-status-pill.neutral`), never claiming "Success".
+   - Verified by test: _renders neutral Recorded status fallback when scan.outcome is missing, and does NOT render Success_ (passing in `tests/today-components.test.tsx`).
+
+6. **Degraded 1024×768 Responsive Rules**:
+   - `src/styles.css` defines `@media (max-width: 1024px)` configuring vertical workspace scrolling (`overflow-y: auto`), single-column grid (`1fr`), 2×2 action cards, 3-column right rail, and horizontal table scroll containment (`overflow-x: auto`).
+
+---
+
+## Exact Automated Checks & Results (LOCAL TEST EVIDENCE)
+
+**Evidence Class:** `LOCAL TEST EVIDENCE` (Synthetic JSDOM / local node runner; not native Windows desktop verification)
 
 1. **Focused Today Test Suites**:
    - `pnpm vitest run tests/today-service.test.ts tests/today-components.test.tsx`
    - Result: **2 files passed (2)**, **56 tests passed (56)**, 0 failed
      - `tests/today-service.test.ts`: 14 passed
-     - `tests/today-components.test.tsx`: 42 passed (including late-mount ResizeObserver lifecycle, financial UI suppression, canonical modal backwards compatibility, and neutral attendance scan fallback)
+     - `tests/today-components.test.tsx`: 42 passed
 
 2. **Shell Component Suite**:
    - `pnpm vitest run tests/components.test.tsx`
@@ -192,30 +223,32 @@ _Owner final visual inspection of these closure corrections is pending._
    - `pnpm test`
    - Result: **23 test files passed (23)**, **446 tests passed (446)**, 0 failed
 
+_Note: Application tests were not re-executed during this documentation-only correction pass because no runtime or test files were changed._
+
 ---
 
 ## Security and Data Impact
 
 - No database schema, migration, or production database accessed or modified.
-- Hosted online repository (`E:\cradlehub`) inspected read-only and remains untouched at SHA `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc`.
-- Desktop renderer adheres strictly to the security boundary:
+- Hosted online repository (`E:\cradlehub`) inspected read-only in local workspace and remains untouched at SHA `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc` (repository source inspection only; not an assertion regarding deployed production state).
+- Desktop renderer adheres strictly to security boundaries:
   - Supabase Bearer token used via Tauri HTTP client.
   - Zero privileged secrets, master keys, or service-role keys in renderer bundle.
   - Zero client-selected branch authority or query override (branch is strictly server-resolved).
 - Strict payment dormancy on desktop:
   - Zero payment CTAs, payment method selectors, currency values, or collect-payment interactions in Today.
-  - NewBookingModal opened from Today suppresses all financial fields and guarantees `paymentReceived: false` and `paymentMethod: undefined` on submission.
+  - NewBookingModal opened from Today suppresses all financial fields and forces `paymentReceived: false` and `paymentMethod: undefined` on submission.
   - `ready_to_pay` stage in Today displays read-only status pill: _"Payment Pending — manage on web"_.
 - Home Service fail-closed boundary:
   - Home Service bookings are excluded from all Today lifecycle mutations.
-  - Home Service creation remains disabled and blocked on desktop.
+  - Home Service booking creation remains disabled and blocked on desktop.
 - Server is the sole authority for all mutations; renderer only presents actions based on authoritative lifecycle states.
 
 ---
 
 ## Known Limitations
 
-- OWNER-PROVIDED MANUAL RUNTIME EVIDENCE: Previous visual observations preserved; final owner visual re-inspection of these closure corrections is pending.
+- OWNER-PROVIDED MANUAL RUNTIME EVIDENCE: Previous visual observations preserved; final owner visual re-inspection of the closure corrections is pending.
 - Payments remain dormant on desktop; payment collection must be conducted on the web application.
 - Home Service mutations are not executable from Today.
 - Freshness model is snapshot + manual refresh (no background polling, timers, or Realtime subscriptions).
