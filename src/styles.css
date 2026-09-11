@@ -1043,6 +1043,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 20px;
 }
 
 .workspace-page-title {
@@ -1223,6 +1224,11 @@ body {
   color: var(--color-gray-900);
 }
 
+.bookings-header-refresh-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
 .bookings-header-refresh-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -1331,6 +1337,13 @@ body {
   line-height: 1;
   color: var(--color-gray-400);
   cursor: pointer;
+}
+
+.bookings-modal-close-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+  color: var(--color-gray-800);
 }
 
 .bookings-modal-body {
@@ -1642,6 +1655,11 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
+.bookings-scope-tab-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
 /* Toolbar */
 .bookings-toolbar-container {
   display: flex;
@@ -1738,6 +1756,11 @@ body {
   color: var(--color-gray-900);
 }
 
+.bookings-reset-filters-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
 /* DataGrid Table */
 .bookings-datagrid-wrapper {
   width: 100%;
@@ -1772,6 +1795,11 @@ body {
 
 .bookings-table tbody tr.booking-row:hover {
   background: #f7faf8;
+}
+
+.bookings-table tbody tr.booking-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 .bookings-table tbody tr.booking-row.selected {
@@ -1928,6 +1956,11 @@ body {
   border-color: var(--color-brand-dark);
 }
 
+.action-inspect-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
 /* Badges */
 .booking-badge {
   display: inline-block;
@@ -2043,6 +2076,11 @@ body {
   cursor: pointer;
 }
 
+.bookings-empty-reset-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* Footer Pagination */
 .bookings-table-footer {
   display: flex;
@@ -2103,6 +2141,16 @@ body {
 
 .pagination-btn:hover:not(:disabled) {
   background: var(--color-gray-50);
+}
+
+.pagination-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.page-size-select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 .pagination-btn:disabled {
@@ -2210,6 +2258,13 @@ body {
   color: var(--color-gray-700);
 }
 
+.inspector-close-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+  color: var(--color-gray-800);
+}
+
 .inspector-customer-identity {
   display: flex;
   align-items: center;
@@ -2305,6 +2360,11 @@ body {
   font-weight: 600;
   border-bottom-color: var(--color-brand-primary);
   background: var(--color-white);
+}
+
+.inspector-tab-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -1px;
 }
 
 .tab-pill-badge {
