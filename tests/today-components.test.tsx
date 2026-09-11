@@ -256,12 +256,10 @@ describe('TodayView Component Suite', () => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
     });
 
-    // Switch to Readiness inspector tab
-    fireEvent.click(screen.getByRole('tab', { name: /readiness/i }));
-
+    // Readiness is rendered in the operational readiness strip on the main workflow surface
     expect(screen.getByTestId('readiness-degraded')).toBeDefined();
     expect(
-      screen.getByText('Readiness evaluation service offline'),
+      screen.getByText(/Readiness evaluation service offline/),
     ).toBeDefined();
     expect(screen.queryByTestId('readiness-all-clear')).toBeNull();
   });
@@ -285,8 +283,8 @@ describe('TodayView Component Suite', () => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
     });
 
-    // Switch to Attendance tab
-    fireEvent.click(screen.getByRole('tab', { name: /attendance/i }));
+    // Recent Scans tab in Activity card
+    fireEvent.click(screen.getByRole('tab', { name: /recent scans/i }));
 
     expect(screen.getByTestId('attendance-degraded')).toBeDefined();
     expect(
@@ -311,8 +309,8 @@ describe('TodayView Component Suite', () => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
     });
 
-    // Switch to Alerts tab
-    fireEvent.click(screen.getByRole('tab', { name: /alerts/i }));
+    // Switch to Recent Activity tab in Activity card
+    fireEvent.click(screen.getByRole('tab', { name: /recent activity/i }));
 
     expect(screen.getByTestId('notifications-degraded')).toBeDefined();
     expect(screen.getByText('Notification service timed out')).toBeDefined();
@@ -335,7 +333,8 @@ describe('TodayView Component Suite', () => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
     });
 
-    fireEvent.click(screen.getByRole('tab', { name: /alerts/i }));
+    // Switch to Recent Activity tab in Activity card
+    fireEvent.click(screen.getByRole('tab', { name: /recent activity/i }));
 
     expect(screen.getByTestId('notifications-empty')).toBeDefined();
     expect(screen.getByText('No action-required notifications.')).toBeDefined();
@@ -653,6 +652,150 @@ describe('TodayView Component Suite', () => {
       expect(
         screen.getAllByRole('button', { name: /^confirm$/i }).length,
       ).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('Owner-Directed Layout Correction Suite', () => {
+    it('renders persistent three-card right rail and removes old persistent inspector tabs', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-page-grid')).toBeDefined();
+      });
+
+      // Three independent cards exist in the right rail
+      expect(screen.getByTestId('today-right-rail')).toBeDefined();
+      expect(screen.getByTestId('today-activity-card')).toBeDefined();
+      expect(screen.getByTestId('today-quick-actions-card')).toBeDefined();
+      expect(screen.getByTestId('today-money-card')).toBeDefined();
+
+      // Old persistent inspector column & tabs are NOT in the right rail
+      expect(screen.queryByTestId('module-inspector-column')).toBeNull();
+      expect(screen.queryByRole('tab', { name: /^readiness$/i })).toBeNull();
+    });
+
+    it('renders Activity card with Recent Scans and Recent Activity tabs, Snapshot badge, and no fake Live badge', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-activity-card')).toBeDefined();
+      });
+
+      // Tabs exist
+      expect(screen.getByTestId('tab-recent-scans')).toBeDefined();
+      expect(screen.getByTestId('tab-recent-activity')).toBeDefined();
+
+      // Truthful freshness indicator: "Snapshot", NOT "Live" or "Realtime"
+      expect(screen.getByText('Snapshot')).toBeDefined();
+      expect(screen.queryByText(/^live$/i)).toBeNull();
+      expect(screen.queryByText(/realtime/i)).toBeNull();
+
+      // Scans list renders real scan
+      expect(screen.getAllByText('Maria Santos').length).toBeGreaterThanOrEqual(
+        1,
+      );
+      expect(screen.getByText(/NFC Badge/)).toBeDefined();
+    });
+
+    it('Activity card footer navigates to attendance using canonical module navigation', async () => {
+      const onNavigate = vi.fn();
+      mockedFetchToday.mockResolvedValue(createTodayData());
+
+      render(<TodayView authContext={authContext} onNavigate={onNavigate} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('activity-view-attendance-btn'),
+        ).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('activity-view-attendance-btn'));
+      expect(onNavigate).toHaveBeenCalledWith('attendance');
+    });
+
+    it('Quick Actions card renders 4 canonical actions and navigates correctly', async () => {
+      const onNavigate = vi.fn();
+      mockedFetchToday.mockResolvedValue(createTodayData());
+
+      render(<TodayView authContext={authContext} onNavigate={onNavigate} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-quick-actions-card')).toBeDefined();
+      });
+
+      // Customers
+      fireEvent.click(screen.getByTestId('quick-action-customers'));
+      expect(onNavigate).toHaveBeenCalledWith('customers');
+
+      // Schedule
+      fireEvent.click(screen.getByTestId('quick-action-schedule'));
+      expect(onNavigate).toHaveBeenCalledWith('schedule');
+
+      // Attendance
+      fireEvent.click(screen.getByTestId('quick-action-attendance'));
+      expect(onNavigate).toHaveBeenCalledWith('attendance');
+
+      // Home Service
+      fireEvent.click(screen.getByTestId('quick-action-home-service'));
+      expect(onNavigate).toHaveBeenCalledWith('home-service');
+    });
+
+    it("Today's Money card shows truthful unavailable / web-only state with NO fake money values", async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-money-card')).toBeDefined();
+      });
+
+      expect(screen.getByText("Today's Money")).toBeDefined();
+      expect(screen.getByText('Web only')).toBeDefined();
+      expect(
+        screen.getByText(/Financial summary is not available in Desktop yet/i),
+      ).toBeDefined();
+
+      // Zero fake currency symbols, zero fake values
+      expect(screen.queryByText(/₱/)).toBeNull();
+      expect(screen.queryByText(/198/)).toBeNull();
+      expect(screen.queryByText(/145/)).toBeNull();
+
+      // No payment mutation controls
+      expect(
+        screen.queryByRole('button', { name: /collect payment/i }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /confirm payment/i }),
+      ).toBeNull();
+    });
+
+    it('renders front-desk action strip with New Booking, Walk-in, Book for Later, and Home Service', async () => {
+      const onNavigate = vi.fn();
+      mockedFetchToday.mockResolvedValue(createTodayData());
+
+      render(<TodayView authContext={authContext} onNavigate={onNavigate} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-action-strip')).toBeDefined();
+      });
+
+      expect(screen.getByTestId('action-card-new-booking')).toBeDefined();
+      expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
+      expect(screen.getByTestId('action-card-book-later')).toBeDefined();
+      expect(screen.getByTestId('kpi-home-service')).toBeDefined();
+
+      // New Booking navigates to bookings
+      fireEvent.click(screen.getByTestId('action-card-new-booking'));
+      expect(onNavigate).toHaveBeenCalledWith('bookings');
+
+      // Static Front Desk View indicator exists in header
+      expect(screen.getByTestId('today-view-selector').textContent).toContain(
+        'Front Desk View',
+      );
     });
   });
 });

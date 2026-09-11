@@ -360,7 +360,10 @@ export function CanonicalShell({
               </span>
 
               {activeModule === 'today' ? (
-                <TodayView authContext={authContext} />
+                <TodayView
+                  authContext={authContext}
+                  onNavigate={setActiveModule}
+                />
               ) : activeModule === 'bookings' ? (
                 <BookingsView authContext={authContext} />
               ) : activeModule === 'attendance' ? (
