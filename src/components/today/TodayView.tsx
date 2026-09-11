@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -12,7 +18,6 @@ import {
   Search,
   Truck,
   UserRound,
-  X,
 } from 'lucide-react';
 import type { AuthContext, NavModuleId } from '../../types/auth';
 import type {
@@ -20,13 +25,17 @@ import type {
   DesktopTodayQueueItem,
   TodayMutationAction,
 } from '../../types/today';
+import type { QuickBookingMode } from '../../types/bookings';
 import { fetchToday, mutateToday } from '../../lib/today-service';
 import {
   ModuleErrorBanner,
   ModuleLoadingState,
+  ModulePagination,
   ModuleSuccessBanner,
   ModuleWorkspace,
 } from '../workspace';
+import { NewBookingModal } from '../bookings/NewBookingModal';
+import { calculateAdaptivePageSize } from './adaptive-page-size';
 import { TodayActivityCard } from './TodayActivityCard';
 import { TodayQuickActionsCard } from './TodayQuickActionsCard';
 import { TodayMoneyCard } from './TodayMoneyCard';
@@ -156,7 +165,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState<string>('');
   const [stageFilter, setStageFilter] = useState<StageScopeFilter>('all');
   const [mutatingBookingId, setMutatingBookingId] = useState<string | null>(
@@ -167,6 +175,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
     message: string;
   } | null>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(5);
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Booking modal state
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [bookingModalInitialMode, setBookingModalInitialMode] = useState<
+    QuickBookingMode | undefined
+  >(undefined);
+
   const loadToday = useCallback(async (showSpinner = false) => {
     if (showSpinner) setIsLoading(true);
     setError(null);
@@ -174,12 +193,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
     try {
       const result = await fetchToday();
       setData(result);
-      setSelectedId((current) => {
-        if (current && result.queue.some((b) => b.id === current)) {
-          return current;
-        }
-        return result.queue[0]?.id ?? null;
-      });
     } catch (err: unknown) {
       const msg =
         err instanceof Error
@@ -187,7 +200,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
           : 'Unable to load authoritative Today workspace.';
       setError(msg);
       setData(null);
-      setSelectedId(null);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -201,12 +213,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
         const result = await fetchToday();
         if (!isMounted) return;
         setData(result);
-        setSelectedId((current) => {
-          if (current && result.queue.some((b) => b.id === current)) {
-            return current;
-          }
-          return result.queue[0]?.id ?? null;
-        });
         setError(null);
       } catch (err: unknown) {
         if (!isMounted) return;
@@ -216,7 +222,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
             : 'Unable to load authoritative Today workspace.';
         setError(msg);
         setData(null);
-        setSelectedId(null);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -228,11 +233,54 @@ export const TodayView: React.FC<TodayViewProps> = ({
     };
   }, [authContext.branchId]);
 
+  // Adaptive row count measurement via ResizeObserver
+  useEffect(() => {
+    const el = tableContainerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const height = entry.contentRect.height;
+        if (height > 0) {
+          const next = calculateAdaptivePageSize(height);
+          setPageSize((prev) => (prev !== next ? next : prev));
+        }
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const handleStageFilterChange = (filter: StageScopeFilter) => {
+    setStageFilter(filter);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setCurrentPage(1);
+  };
+
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     setMutationNotice(null);
     void loadToday(false);
   }, [loadToday]);
+
+  const handleOpenBookingModal = (mode?: QuickBookingMode) => {
+    setBookingModalInitialMode(mode);
+    setIsBookingModalOpen(true);
+  };
+
+  const handleBookingCreated = () => {
+    setIsBookingModalOpen(false);
+    setMutationNotice({
+      type: 'success',
+      message: 'Booking created successfully.',
+    });
+    void loadToday(false);
+  };
 
   const handleRunMutation = async (
     booking: DesktopTodayQueueItem,
@@ -248,20 +296,25 @@ export const TodayView: React.FC<TodayViewProps> = ({
         bookingId: booking.id,
       });
 
-      const actionSuccessMessages: Record<TodayMutationAction, string> = {
-        confirm_booking: 'Booking confirmed.',
-        mark_arrived: 'Arrival recorded.',
-        start_service: 'Service started.',
-        complete_service: 'Service completed.',
-      };
-
       setMutationNotice({
         type: 'success',
-        message: actionSuccessMessages[action] ?? 'Operation completed.',
+        message:
+          action === 'confirm_booking'
+            ? 'Booking confirmed.'
+            : action === 'mark_arrived'
+              ? 'Arrival recorded.'
+              : action === 'start_service'
+                ? 'Service started.'
+                : 'Service completed.',
       });
+
+      // Refetch snapshot after successful mutation
       await loadToday(false);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Mutation failed.';
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Mutation failed. Please try again.';
       setMutationNotice({
         type: 'error',
         message: msg,
@@ -271,20 +324,24 @@ export const TodayView: React.FC<TodayViewProps> = ({
     }
   };
 
+  // Filtered queue based on lifecycle stage and search query
   const filteredQueue = useMemo(() => {
     if (!data) return [];
-    const query = search.trim().toLowerCase();
-
     return data.queue.filter((item) => {
-      // Stage filter
+      // Stage filtering
       if (stageFilter !== 'all') {
-        if (item.stage !== stageFilter) {
+        if (stageFilter === 'waiting' && item.stage !== 'waiting') return false;
+        if (stageFilter === 'in_service' && item.stage !== 'in_service')
           return false;
-        }
+        if (stageFilter === 'ready_to_pay' && item.stage !== 'ready_to_pay')
+          return false;
+        if (stageFilter === 'completed' && item.stage !== 'completed')
+          return false;
       }
 
-      // Search filter
-      if (query) {
+      // Search query filtering
+      if (search.trim()) {
+        const query = search.toLowerCase().trim();
         const matchesCustomer = item.customerName
           ?.toLowerCase()
           .includes(query);
@@ -314,10 +371,18 @@ export const TodayView: React.FC<TodayViewProps> = ({
     });
   }, [data, stageFilter, search]);
 
-  const selectedBooking = useMemo(() => {
-    if (!data || !selectedId) return null;
-    return data.queue.find((b) => b.id === selectedId) ?? null;
-  }, [data, selectedId]);
+  // Pagination calculation
+  const totalItems = filteredQueue.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const paginatedQueue = useMemo(
+    () => filteredQueue.slice(startIndex, startIndex + pageSize),
+    [filteredQueue, startIndex, pageSize],
+  );
+  const startRecord = totalItems === 0 ? 0 : startIndex + 1;
+  const endRecord = Math.min(startIndex + pageSize, totalItems);
 
   return (
     <ModuleWorkspace
@@ -420,7 +485,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               <button
                 type="button"
                 className="today-action-card today-action-card-primary"
-                onClick={() => onNavigate?.('bookings')}
+                onClick={() => handleOpenBookingModal(undefined)}
                 data-testid="action-card-new-booking"
               >
                 <div className="today-action-card-icon-box">
@@ -441,7 +506,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               <button
                 type="button"
                 className="today-action-card"
-                onClick={() => onNavigate?.('bookings')}
+                onClick={() => handleOpenBookingModal('walkin')}
                 data-testid="action-card-walk-in"
               >
                 <div className="today-action-card-icon-box">
@@ -462,7 +527,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               <button
                 type="button"
                 className="today-action-card"
-                onClick={() => onNavigate?.('bookings')}
+                onClick={() => handleOpenBookingModal('standard_future')}
                 data-testid="action-card-book-later"
               >
                 <div className="today-action-card-icon-box">
@@ -485,7 +550,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               <button
                 type="button"
                 className="today-action-card"
-                onClick={() => onNavigate?.('home-service')}
+                onClick={() => handleOpenBookingModal('home_service')}
                 data-testid="kpi-home-service"
               >
                 <div className="today-action-card-icon-box">
@@ -588,7 +653,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     role="tab"
                     aria-selected={stageFilter === 'waiting'}
                     className={`today-wf-tab ${stageFilter === 'waiting' ? 'active' : ''}`}
-                    onClick={() => setStageFilter('waiting')}
+                    onClick={() => handleStageFilterChange('waiting')}
                     data-testid="kpi-waiting"
                   >
                     <Hourglass size={14} aria-hidden="true" />
@@ -603,7 +668,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     role="tab"
                     aria-selected={stageFilter === 'in_service'}
                     className={`today-wf-tab ${stageFilter === 'in_service' ? 'active' : ''}`}
-                    onClick={() => setStageFilter('in_service')}
+                    onClick={() => handleStageFilterChange('in_service')}
                     data-testid="kpi-in-service"
                   >
                     <CheckCircle2 size={14} aria-hidden="true" />
@@ -618,7 +683,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     role="tab"
                     aria-selected={stageFilter === 'ready_to_pay'}
                     className={`today-wf-tab ${stageFilter === 'ready_to_pay' ? 'active' : ''}`}
-                    onClick={() => setStageFilter('ready_to_pay')}
+                    onClick={() => handleStageFilterChange('ready_to_pay')}
                     data-testid="kpi-ready-to-pay"
                   >
                     <CreditCard size={14} aria-hidden="true" />
@@ -633,7 +698,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     role="tab"
                     aria-selected={stageFilter === 'completed'}
                     className={`today-wf-tab ${stageFilter === 'completed' ? 'active' : ''}`}
-                    onClick={() => setStageFilter('completed')}
+                    onClick={() => handleStageFilterChange('completed')}
                     data-testid="kpi-completed"
                   >
                     <CheckCircle2 size={14} aria-hidden="true" />
@@ -649,14 +714,15 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     role="tab"
                     aria-selected={stageFilter === 'all'}
                     className={`today-wf-tab ${stageFilter === 'all' ? 'active' : ''}`}
-                    onClick={() => setStageFilter('all')}
+                    onClick={() => handleStageFilterChange('all')}
                     data-testid="tab-all-queue"
                   >
-                    <span>All ({data.queue.length})</span>
+                    <span>All</span>
+                    <span className="today-wf-count">{data.summary.total}</span>
                   </button>
                 </div>
 
-                {/* Search Bar */}
+                {/* Queue Search Input */}
                 <div className="today-search-wrapper">
                   <Search
                     size={14}
@@ -668,17 +734,18 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     className="today-search-input"
                     placeholder="Search customer, booking ID, assignee..."
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     aria-label="Search today's bookings"
                     data-testid="today-search-input"
                   />
                 </div>
               </div>
 
-              {/* Table DataGrid Frame */}
+              {/* Queue Table Region */}
               <div
                 className="today-table-container"
-                data-testid="today-datagrid-frame"
+                ref={tableContainerRef}
+                data-testid="today-table-container"
               >
                 {filteredQueue.length === 0 ? (
                   <div
@@ -726,8 +793,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredQueue.map((booking) => {
-                        const isSelected = booking.id === selectedId;
+                      {paginatedQueue.map((booking) => {
                         const action = getApplicableAction(booking);
                         const isMutating = mutatingBookingId === booking.id;
 
@@ -750,15 +816,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         return (
                           <tr
                             key={booking.id}
-                            className={`today-table-row ${isSelected ? 'selected' : ''}`}
-                            onClick={() => setSelectedId(booking.id)}
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setSelectedId(booking.id);
-                              }
-                            }}
+                            className="today-table-row"
                             data-testid={`today-row-${booking.id}`}
                           >
                             {/* TIME */}
@@ -876,10 +934,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                             </td>
 
                             {/* NEXT ACTION */}
-                            <td
-                              className="today-col-action"
-                              onClick={(e) => e.stopPropagation()}
-                            >
+                            <td className="today-col-action">
                               {action ? (
                                 <button
                                   type="button"
@@ -927,107 +982,21 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 )}
               </div>
 
-              {/* Selected Booking Detail Section (Section 20 Preservation) */}
-              {selectedBooking && (
-                <div
-                  className="today-selected-booking-card"
-                  data-testid="selected-booking-detail"
-                >
-                  <div className="today-selected-header">
-                    <div className="today-selected-title-wrap">
-                      <h4 className="today-selected-title">
-                        Booking Details —{' '}
-                        {selectedBooking.customerName || 'Walk-in Customer'}
-                      </h4>
-                      <span className="today-selected-id">
-                        ID: {selectedBooking.id}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="today-selected-close-btn"
-                      onClick={() => setSelectedId(null)}
-                      aria-label="Close booking details"
-                    >
-                      <X size={16} aria-hidden="true" />
-                    </button>
-                  </div>
-
-                  <div className="today-selected-body">
-                    <div className="today-selected-grid">
-                      <div>
-                        <span className="today-detail-label">Time</span>
-                        <strong className="today-detail-value">
-                          {formatClock(selectedBooking.startTime)} –{' '}
-                          {formatClock(selectedBooking.endTime)}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="today-detail-label">Service</span>
-                        <strong className="today-detail-value">
-                          {selectedBooking.serviceName || 'Standard Service'} (
-                          {selectedBooking.serviceDuration || 60}m)
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="today-detail-label">Staff Member</span>
-                        <strong className="today-detail-value">
-                          {selectedBooking.staffName || 'Unassigned'}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="today-detail-label">
-                          Room / Resource
-                        </span>
-                        <strong className="today-detail-value">
-                          {selectedBooking.resourceName || 'None assigned'}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="today-detail-label">Contact</span>
-                        <strong className="today-detail-value">
-                          {selectedBooking.customerPhone || 'None'}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="today-detail-label">Stage</span>
-                        <div className="mt-1">
-                          {renderStageBadge(selectedBooking)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {selectedBooking.isHomeService && (
-                      <div className="today-selected-hs-info">
-                        <strong>Home Service Dispatch</strong>
-                        <p>
-                          Address:{' '}
-                          {selectedBooking.homeServiceAddress ||
-                            'Not specified'}
-                        </p>
-                        {selectedBooking.dispatchContextAvailable === false && (
-                          <p className="text-amber-800 font-medium">
-                            Dispatch context unavailable on desktop
-                          </p>
-                        )}
-                        {selectedBooking.driverName && (
-                          <p>Driver: {selectedBooking.driverName}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {selectedBooking.stage === 'ready_to_pay' && (
-                      <div className="today-selected-payment-notice">
-                        <span
-                          className="today-read-only-pill"
-                          data-testid="inspector-payment-pending-notice"
-                        >
-                          Payment Pending — manage on web
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              {/* In-Card Pagination Footer */}
+              {totalItems > 0 && (
+                <ModulePagination
+                  startRecord={startRecord}
+                  endRecord={endRecord}
+                  totalItems={totalItems}
+                  entityLabel="bookings"
+                  pageSize={pageSize}
+                  currentPage={validCurrentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  showPageSizeSelector={false}
+                  className="today-pagination"
+                  testId="today-pagination"
+                />
               )}
             </section>
           </div>
@@ -1053,6 +1022,16 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </aside>
         </div>
       ) : null}
+
+      {/* Canonical NewBookingModal for Upper Action Cards */}
+      <NewBookingModal
+        isOpen={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+        branchId={authContext.branchId}
+        branchName={authContext.branchName}
+        onBookingCreated={handleBookingCreated}
+        initialMode={bookingModalInitialMode}
+      />
     </ModuleWorkspace>
   );
 };

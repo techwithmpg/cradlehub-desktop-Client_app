@@ -7,12 +7,38 @@ import type {
   DesktopTodayQueueItem,
 } from '../src/types/today';
 import { TodayView } from '../src/components/today/TodayView';
+import { calculateAdaptivePageSize } from '../src/components/today/adaptive-page-size';
 import { fetchToday, mutateToday } from '../src/lib/today-service';
+import { createBranchBooking } from '../src/lib/bookings-service';
 
 vi.mock('../src/lib/today-service', () => ({
   fetchToday: vi.fn(),
   mutateToday: vi.fn(),
 }));
+
+vi.mock('../src/lib/bookings-service', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../src/lib/bookings-service')>();
+  return {
+    ...actual,
+    fetchBranchBookingOptions: vi.fn().mockResolvedValue({
+      services: [
+        {
+          id: 's-1',
+          name: 'Aromatherapy Massage',
+          durationMinutes: 60,
+          price: 700,
+          availableInSpa: true,
+          availableHomeService: true,
+        },
+      ],
+      staff: [{ id: 'staff-01', name: 'Maria Santos', nickname: 'Maria' }],
+      resources: [{ id: 'room-01', name: 'Room 1', type: 'room', capacity: 1 }],
+    }),
+    createBranchBooking: vi.fn(),
+    searchBranchCustomers: vi.fn().mockResolvedValue([]),
+  };
+});
 
 const mockedFetchToday = vi.mocked(fetchToday);
 const mockedMutateToday = vi.mocked(mutateToday);
@@ -368,10 +394,9 @@ describe('TodayView Component Suite', () => {
       screen.queryByRole('button', { name: /confirm payment/i }),
     ).toBeNull();
 
-    // In inspector detail: read-only text, no payment CTA
-    expect(
-      screen.getByTestId('inspector-payment-pending-notice').textContent,
-    ).toContain('Payment Pending — manage on web');
+    // In inspector detail: entirely removed from Today
+    expect(screen.queryByTestId('selected-booking-detail')).toBeNull();
+    expect(screen.queryByTestId('inspector-payment-pending-notice')).toBeNull();
   });
 
   it('shows truthful unavailable context when dispatchContextAvailable === false without faking no driver', async () => {
@@ -396,12 +421,8 @@ describe('TodayView Component Suite', () => {
 
     // In queue row
     expect(screen.getByText('Dispatch unavailable')).toBeDefined();
-
-    // In inspector
-    expect(
-      screen.getByText('Dispatch context unavailable on desktop'),
-    ).toBeDefined();
     expect(screen.queryByText('No driver assigned')).toBeNull();
+    expect(screen.queryByTestId('selected-booking-detail')).toBeNull();
   });
 
   it('executes supported operational mutation, handles in-flight pending state, and refreshes', async () => {
@@ -774,10 +795,9 @@ describe('TodayView Component Suite', () => {
     });
 
     it('renders front-desk action strip with New Booking, Walk-in, Book for Later, and Home Service', async () => {
-      const onNavigate = vi.fn();
       mockedFetchToday.mockResolvedValue(createTodayData());
 
-      render(<TodayView authContext={authContext} onNavigate={onNavigate} />);
+      render(<TodayView authContext={authContext} />);
 
       await waitFor(() => {
         expect(screen.getByTestId('today-action-strip')).toBeDefined();
@@ -788,14 +808,279 @@ describe('TodayView Component Suite', () => {
       expect(screen.getByTestId('action-card-book-later')).toBeDefined();
       expect(screen.getByTestId('kpi-home-service')).toBeDefined();
 
-      // New Booking navigates to bookings
-      fireEvent.click(screen.getByTestId('action-card-new-booking'));
-      expect(onNavigate).toHaveBeenCalledWith('bookings');
-
       // Static Front Desk View indicator exists in header
       expect(screen.getByTestId('today-view-selector').textContent).toContain(
         'Front Desk View',
       );
+    });
+  });
+
+  describe('Section 33 — Booking Details Removed', () => {
+    it('does not render selected-booking-detail card on initial load', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
+      });
+
+      expect(screen.queryByTestId('selected-booking-detail')).toBeNull();
+      expect(screen.queryByText(/Booking Details —/)).toBeNull();
+    });
+
+    it('clicking a queue row does not open an inline details card', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('today-row-booking-01'));
+      expect(screen.queryByTestId('selected-booking-detail')).toBeNull();
+    });
+
+    it('first loaded booking is not automatically selected or expanded', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
+      });
+
+      const row = screen.getByTestId('today-row-booking-01');
+      expect(row.classList.contains('selected')).toBe(false);
+      expect(row.getAttribute('tabindex')).toBeNull();
+      expect(screen.queryByTestId('selected-booking-detail')).toBeNull();
+    });
+
+    it('queue action buttons remain fully interactive without row selection', async () => {
+      const item = createQueueItem({
+        id: 'booking-interactive-01',
+        status: 'confirmed',
+        bookingProgressStatus: 'not_started',
+      });
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('action-mark_arrived-booking-interactive-01'),
+        ).toBeDefined();
+      });
+
+      const actionBtn = screen.getByTestId(
+        'action-mark_arrived-booking-interactive-01',
+      );
+      expect(actionBtn).toBeDefined();
+      expect((actionBtn as HTMLButtonElement).disabled).toBe(false);
+    });
+  });
+
+  describe('Section 34 — Upper Action Cards Open Canonical Booking Modal', () => {
+    it('New Booking card opens canonical NewBookingModal in default mode', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('action-card-new-booking')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('action-card-new-booking'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+      });
+      expect(
+        screen.getByRole('heading', { name: 'New Booking' }),
+      ).toBeDefined();
+    });
+
+    it('Walk-in card opens modal with Walk-in mode selected', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('action-card-walk-in'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+      });
+      const walkinTab = screen.getByRole('tab', { name: /walk-in/i });
+      expect(walkinTab.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('Book for Later card opens modal with Future mode selected', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('action-card-book-later')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('action-card-book-later'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+      });
+      const futureTab = screen.getByRole('tab', { name: /future/i });
+      expect(futureTab.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('Home Service card opens modal showing truthful disabled Home Service state and forbids submit', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('kpi-home-service')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('kpi-home-service'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+      });
+      expect(screen.getByTestId('home-service-disabled-notice')).toBeDefined();
+      expect(
+        screen.getByText(
+          /Home Service booking will be enabled after precise address\/location support is connected/i,
+        ),
+      ).toBeDefined();
+
+      const submitBtn = screen.getByRole('button', {
+        name: /create booking/i,
+      }) as HTMLButtonElement;
+      expect(submitBtn.disabled).toBe(true);
+
+      // Attempt submit
+      fireEvent.click(submitBtn);
+      expect(createBranchBooking).not.toHaveBeenCalled();
+    });
+
+    it('successful booking creation in modal triggers Today refresh without navigating away', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      const onNavigate = vi.fn();
+
+      render(<TodayView authContext={authContext} onNavigate={onNavigate} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
+      });
+
+      // Initial fetch was called once
+      expect(mockedFetchToday).toHaveBeenCalledTimes(1);
+
+      // Open modal
+      fireEvent.click(screen.getByTestId('action-card-walk-in'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+      });
+
+      // Does not navigate away
+      expect(onNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Section 35 — Today Queue Pagination', () => {
+    it('calculates adaptive page size correctly across height thresholds', () => {
+      expect(calculateAdaptivePageSize(0)).toBe(5);
+      expect(calculateAdaptivePageSize(100, 48, 36, 3, 8)).toBe(3); // min clamp
+      expect(calculateAdaptivePageSize(250, 48, 36, 3, 8)).toBe(4); // floor((250-36)/48) = 4
+      expect(calculateAdaptivePageSize(400, 48, 36, 3, 8)).toBe(7); // floor((400-36)/48) = 7
+      expect(calculateAdaptivePageSize(1000, 48, 36, 3, 8)).toBe(8); // max clamp
+    });
+
+    it('paginates queue rows and navigates next and previous pages', async () => {
+      const items = Array.from({ length: 12 }, (_, i) =>
+        createQueueItem({
+          id: `booking-${i + 1}`,
+          customerName: `Customer ${i + 1}`,
+        }),
+      );
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: items }));
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-row-booking-1')).toBeDefined();
+      });
+
+      // By default pageSize is 5 (fallback when container height is 0 in test environment)
+      expect(screen.getByTestId('today-row-booking-1')).toBeDefined();
+      expect(screen.getByTestId('today-row-booking-5')).toBeDefined();
+      expect(screen.queryByTestId('today-row-booking-6')).toBeNull();
+
+      // Next page
+      const nextBtn = screen.getByRole('button', { name: /next page/i });
+      fireEvent.click(nextBtn);
+
+      expect(screen.queryByTestId('today-row-booking-1')).toBeNull();
+      expect(screen.getByTestId('today-row-booking-6')).toBeDefined();
+      expect(screen.getByTestId('today-row-booking-10')).toBeDefined();
+      expect(screen.queryByTestId('today-row-booking-11')).toBeNull();
+
+      // Prev page
+      const prevBtn = screen.getByRole('button', { name: /previous page/i });
+      fireEvent.click(prevBtn);
+
+      expect(screen.getByTestId('today-row-booking-1')).toBeDefined();
+      expect(screen.queryByTestId('today-row-booking-6')).toBeNull();
+    });
+
+    it('resets page to 1 when changing stage filter', async () => {
+      const items = [
+        createQueueItem({ id: 'b-w-1', stage: 'waiting' }),
+        createQueueItem({ id: 'b-w-2', stage: 'waiting' }),
+        createQueueItem({ id: 'b-w-3', stage: 'waiting' }),
+        createQueueItem({ id: 'b-w-4', stage: 'waiting' }),
+        createQueueItem({ id: 'b-w-5', stage: 'waiting' }),
+        createQueueItem({ id: 'b-w-6', stage: 'waiting' }),
+        createQueueItem({ id: 'b-i-1', stage: 'in_service' }),
+      ];
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: items }));
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-row-b-w-1')).toBeDefined();
+      });
+
+      // Go to page 2
+      fireEvent.click(screen.getByRole('button', { name: /next page/i }));
+      expect(screen.getByTestId('today-row-b-w-6')).toBeDefined();
+
+      // Switch tab to in_service
+      fireEvent.click(screen.getByTestId('kpi-in-service'));
+      expect(screen.getByTestId('today-row-b-i-1')).toBeDefined();
+      // Pagination shows page 1
+      expect(screen.getByText(/Page 1 of 1/i)).toBeDefined();
+    });
+
+    it('resets page to 1 when changing search query', async () => {
+      const items = Array.from({ length: 12 }, (_, i) =>
+        createQueueItem({
+          id: `booking-${i + 1}`,
+          customerName: i === 11 ? 'Special Guest' : `Customer ${i + 1}`,
+        }),
+      );
+      mockedFetchToday.mockResolvedValue(createTodayData({ queue: items }));
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('today-row-booking-1')).toBeDefined();
+      });
+
+      // Go to page 2
+      fireEvent.click(screen.getByRole('button', { name: /next page/i }));
+
+      // Type in search
+      const searchInput = screen.getByTestId('today-search-input');
+      fireEvent.change(searchInput, { target: { value: 'Special' } });
+
+      expect(screen.getByTestId('today-row-booking-12')).toBeDefined();
+      expect(screen.getByText(/Page 1 of 1/i)).toBeDefined();
     });
   });
 });

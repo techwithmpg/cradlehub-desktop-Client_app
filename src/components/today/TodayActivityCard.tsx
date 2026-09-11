@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  Clock3,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import type {
   DesktopTodayAttendance,
   DesktopTodayNotifications,
@@ -96,7 +90,7 @@ export const TodayActivityCard: React.FC<TodayActivityCardProps> = ({
 
       {/* Tab Body */}
       <div className="today-activity-body">
-        {activeTab === 'scans' ? (
+        {activeTab === 'scans' && (
           <>
             {!attendance.available ? (
               <div
@@ -122,7 +116,7 @@ export const TodayActivityCard: React.FC<TodayActivityCardProps> = ({
                 className="today-scans-list"
                 data-testid="today-recent-scans-list"
               >
-                {attendance.items.slice(0, 8).map((scan) => {
+                {attendance.items.slice(0, 4).map((scan) => {
                   const initials =
                     scan.staffName
                       .split(' ')
@@ -174,18 +168,22 @@ export const TodayActivityCard: React.FC<TodayActivityCardProps> = ({
                 data-testid="activity-view-attendance-btn"
               >
                 <span>View Attendance</span>
-                <ArrowRight size={13} aria-hidden="true" />
+                <span aria-hidden="true">&rarr;</span>
               </button>
             </div>
           </>
-        ) : (
+        )}
+
+        {/* Tab 2: Recent Activity / Operational Alerts */}
+        {activeTab === 'activity' && (
           <>
             {!notifications.available ? (
               <div
                 className="today-activity-degraded"
+                role="status"
                 data-testid="notifications-degraded"
               >
-                <AlertCircle size={15} aria-hidden="true" />
+                <AlertTriangle size={16} aria-hidden="true" />
                 <span>
                   {notifications.error || 'Notification service timed out'}
                 </span>
@@ -207,7 +205,7 @@ export const TodayActivityCard: React.FC<TodayActivityCardProps> = ({
                 className="today-notifications-list"
                 data-testid="notifications-list"
               >
-                {notifications.items.map((notif) => (
+                {notifications.items.slice(0, 3).map((notif) => (
                   <div
                     key={notif.id}
                     className="today-notif-row"

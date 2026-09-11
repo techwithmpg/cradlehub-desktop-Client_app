@@ -338,7 +338,11 @@ export function CanonicalShell({
         )}
 
         {/* Operational Workspace Canvas */}
-        <main id="main-content" className="workspace-content" tabIndex={-1}>
+        <main
+          id="main-content"
+          className={`workspace-content ${activeModule === 'today' ? 'today-workspace-content' : ''}`.trim()}
+          tabIndex={-1}
+        >
           <ModuleWorkspaceHost
             wide={
               activeModule === 'today' ||
@@ -349,8 +353,13 @@ export function CanonicalShell({
               activeModule === 'home-service' ||
               activeModule === 'staff'
             }
+            className={activeModule === 'today' ? 'today-workspace-host' : ''}
           >
-            <ModuleWorkspaceMount>
+            <ModuleWorkspaceMount
+              className={
+                activeModule === 'today' ? 'today-workspace-mount' : ''
+              }
+            >
               <span
                 className="sr-only"
                 aria-hidden="true"

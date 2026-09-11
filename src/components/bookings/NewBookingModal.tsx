@@ -28,12 +28,13 @@ import {
   createBranchBooking,
 } from '../../lib/bookings-service';
 
-interface NewBookingModalProps {
+export interface NewBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   branchId: string;
   branchName: string;
   onBookingCreated: (result: { bookingId: string; warning?: string }) => void;
+  initialMode?: QuickBookingMode;
 }
 
 const MODES: Array<{
@@ -80,20 +81,27 @@ function getCurrentQuarterTime(): string {
 
 // Unmount on close; key by branch so old options and async work cannot leak.
 export const NewBookingModal: React.FC<NewBookingModalProps> = (props) =>
-  props.isOpen ? <BookingPreview key={props.branchId} {...props} /> : null;
+  props.isOpen ? (
+    <BookingPreview
+      key={`${props.branchId}-${props.initialMode || 'default'}`}
+      {...props}
+    />
+  ) : null;
 
 const BookingPreview: React.FC<NewBookingModalProps> = ({
   onClose,
   branchId,
   branchName,
   onBookingCreated,
+  initialMode,
 }) => {
+  const openingMode = initialMode || 'walkin';
   const [defaults] = useState(() => ({
     date: getTodayDateString(),
     startTime: getCurrentQuarterTime(),
   }));
   const [defaultServiceIds, setDefaultServiceIds] = useState<string[]>([]);
-  const [mode, setMode] = useState<QuickBookingMode>('walkin');
+  const [mode, setMode] = useState<QuickBookingMode>(openingMode);
   const [services, setServices] = useState<QuickBookingOptionService[]>([]);
   const [staffList, setStaffList] = useState<QuickBookingOptionStaff[]>([]);
   const [resourceList, setResourceList] = useState<
@@ -323,7 +331,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
 
   // Compare exact meaningful values with this opening's canonical defaults.
   const isDirty =
-    mode !== 'walkin' ||
+    mode !== openingMode ||
     selectedCustomer !== null ||
     customerSearchQuery !== '' ||
     fullName !== '' ||
@@ -350,7 +358,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
       fullName.trim().length < 2 ||
       phone.trim().length < 7 ||
       (paymentReceived && !paymentMethod) ||
-      (mode === 'home_service' && !homeServiceCity.trim())
+      mode === 'home_service'
     ) {
       return;
     }
@@ -368,8 +376,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
         email: email.trim() || undefined,
         serviceIds: selectedServiceIds,
         staffId: staffId || undefined,
-        resourceId:
-          mode === 'home_service' ? undefined : resourceId || undefined,
+        resourceId: resourceId || undefined,
         date,
         startTime,
         totalDurationMinutes,
@@ -450,7 +457,10 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
         <div className="new-booking-mode-tabs" role="tablist">
           {MODES.map((m) => {
             const isActive = mode === m.value;
-            const isDisabled = m.disabled || isLoadingOptions || isSubmitting;
+            const isDisabled =
+              (m.disabled && mode !== m.value) ||
+              isLoadingOptions ||
+              isSubmitting;
             return (
               <button
                 key={m.value}
@@ -471,6 +481,20 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
             );
           })}
         </div>
+
+        {mode === 'home_service' && (
+          <div
+            className="new-booking-error-banner"
+            role="alert"
+            data-testid="home-service-disabled-notice"
+          >
+            <AlertCircle size={16} className="error-icon" aria-hidden="true" />
+            <span className="error-message">
+              Home Service booking will be enabled after precise
+              address/location support is connected.
+            </span>
+          </div>
+        )}
 
         {submitError && (
           <div
@@ -1052,7 +1076,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
               fullName.trim().length < 2 ||
               phone.trim().length < 7 ||
               (paymentReceived && !paymentMethod) ||
-              (mode === 'home_service' && !homeServiceCity.trim())
+              mode === 'home_service'
             }
             onClick={handleSubmit}
           >

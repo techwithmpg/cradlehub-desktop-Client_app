@@ -8720,11 +8720,39 @@ button.bookings-kpi-cell:focus-visible {
    Stage 09B — Owner-Directed Today Reference Layout
    ============================================================ */
 
+.today-workspace-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 20px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.today-workspace-host {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.today-workspace-mount {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
 .today-workspace-root {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
 }
 
 /* Header */
@@ -8820,23 +8848,30 @@ button.bookings-kpi-cell:focus-visible {
 .today-page-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 290px;
-  gap: 18px;
-  align-items: start;
+  gap: 16px;
+  align-items: stretch;
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 .today-main-col {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex: 1;
 }
 
 /* Front-Desk Action Strip */
 .today-action-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .today-action-card {
@@ -8969,10 +9004,12 @@ button.bookings-kpi-cell:focus-visible {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  padding: 16px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
 }
 
 .today-workflow-header {
@@ -9086,7 +9123,12 @@ button.bookings-kpi-cell:focus-visible {
 /* Queue Table */
 .today-table-container {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid #f1f5f9;
   border-radius: 8px;
 }
@@ -9110,7 +9152,8 @@ button.bookings-kpi-cell:focus-visible {
 
 .today-queue-table tbody tr {
   border-bottom: 1px solid #f1f5f9;
-  cursor: pointer;
+  height: 48px;
+  cursor: default;
   transition: background 0.12s ease;
 }
 
@@ -9118,12 +9161,8 @@ button.bookings-kpi-cell:focus-visible {
   background: #f8fafc;
 }
 
-.today-queue-table tbody tr.selected {
-  background: #f0fdf4;
-}
-
 .today-queue-table tbody td {
-  padding: 10px 12px;
+  padding: 8px 12px;
   vertical-align: middle;
 }
 
@@ -9338,101 +9377,22 @@ button.bookings-kpi-cell:focus-visible {
   color: #94a3b8;
 }
 
-/* Selected Booking Detail Section */
-.today-selected-booking-card {
-  margin-top: 10px;
-  padding: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.today-selected-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.today-selected-title-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.today-selected-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.today-selected-id {
-  font-size: 10px;
-  color: #64748b;
-  font-family: monospace;
-}
-
-.today-selected-close-btn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-}
-
-.today-selected-close-btn:hover {
-  color: #334155;
-  background: #e2e8f0;
-}
-
-.today-selected-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px 16px;
-  font-size: 11px;
-}
-
-.today-detail-label {
-  display: block;
-  font-size: 10px;
-  color: #64748b;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 2px;
-}
-
-.today-detail-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.today-selected-hs-info {
-  font-size: 11px;
-  padding: 8px 10px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.today-selected-payment-notice {
-  margin-top: 4px;
+/* Pagination Footer */
+.today-pagination {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  flex-shrink: 0;
 }
 
 /* Right Rail Cards */
 .today-right-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 12px;
   min-width: 0;
+  height: 100%;
+  min-height: 0;
 }
 
 .today-right-card {
@@ -9440,10 +9400,11 @@ button.bookings-kpi-cell:focus-visible {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  padding: 14px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  min-height: 0;
 }
 
 .today-right-card-header {
@@ -9810,9 +9771,19 @@ button.bookings-kpi-cell:focus-visible {
 @media (max-width: 1024px) {
   .today-page-grid {
     grid-template-columns: 1fr;
+    height: auto;
+    flex: none;
   }
 
   .today-action-strip {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .today-right-rail {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto;
+    height: auto;
+    gap: 10px;
   }
 }

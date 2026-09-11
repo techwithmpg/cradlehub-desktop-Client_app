@@ -10,11 +10,12 @@ export interface ModulePaginationProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   prevPageAriaLabel?: string;
   nextPageAriaLabel?: string;
   className?: string;
   testId?: string;
+  showPageSizeSelector?: boolean;
 }
 
 /**
@@ -37,6 +38,7 @@ export const ModulePagination: React.FC<ModulePaginationProps> = ({
   nextPageAriaLabel = 'Next page',
   className = '',
   testId = 'module-pagination',
+  showPageSizeSelector = true,
 }) => {
   const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages || 1);
 
@@ -52,24 +54,26 @@ export const ModulePagination: React.FC<ModulePaginationProps> = ({
       </div>
 
       <div className="footer-pagination-controls">
-        <div className="page-size-selector-wrapper">
-          <span className="page-size-label">Rows per page:</span>
-          <select
-            className="page-size-select"
-            value={pageSize}
-            onChange={(e) => {
-              onPageSizeChange(Number(e.target.value));
-              onPageChange(1);
-            }}
-            aria-label="Rows per page"
-          >
-            {pageSizeOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showPageSizeSelector && onPageSizeChange && (
+          <div className="page-size-selector-wrapper">
+            <span className="page-size-label">Rows per page:</span>
+            <select
+              className="page-size-select"
+              value={pageSize}
+              onChange={(e) => {
+                onPageSizeChange(Number(e.target.value));
+                onPageChange(1);
+              }}
+              aria-label="Rows per page"
+            >
+              {pageSizeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="pagination-buttons">
           <button
