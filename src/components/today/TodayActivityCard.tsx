@@ -146,13 +146,34 @@ export const TodayActivityCard: React.FC<TodayActivityCardProps> = ({
                           {scan.sourceLabel ? ` • ${scan.sourceLabel}` : ''}
                         </span>
                       </div>
-                      <span className="today-scan-status-pill">
-                        <span
-                          className="today-status-dot-green"
-                          aria-hidden="true"
-                        />
-                        {scan.outcome || 'Success'}
-                      </span>
+                      {(() => {
+                        const hasOutcome = Boolean(
+                          scan.outcome && scan.outcome.trim(),
+                        );
+                        const outcomeText = hasOutcome
+                          ? scan.outcome
+                          : 'Recorded';
+                        const isNeutral = !hasOutcome;
+
+                        return (
+                          <span
+                            className={`today-scan-status-pill ${
+                              isNeutral ? 'neutral' : 'success'
+                            }`}
+                            data-testid={`scan-status-${scan.eventId}`}
+                          >
+                            <span
+                              className={
+                                isNeutral
+                                  ? 'today-status-dot-neutral'
+                                  : 'today-status-dot-green'
+                              }
+                              aria-hidden="true"
+                            />
+                            {outcomeText}
+                          </span>
+                        );
+                      })()}
                     </div>
                   );
                 })}

@@ -9577,11 +9577,23 @@ button.bookings-kpi-cell:focus-visible {
   flex-shrink: 0;
 }
 
+.today-scan-status-pill.neutral {
+  color: #475569;
+  background: #f1f5f9;
+}
+
 .today-status-dot-green {
   width: 4px;
   height: 4px;
   border-radius: 50%;
   background: #16a34a;
+}
+
+.today-status-dot-neutral {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #94a3b8;
 }
 
 .today-activity-footer {
@@ -9769,10 +9781,39 @@ button.bookings-kpi-cell:focus-visible {
 
 /* Responsive Breakpoints */
 @media (max-width: 1024px) {
+  .today-workspace-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100%;
+  }
+
+  .today-workspace-host,
+  .today-workspace-mount,
+  .today-workspace-root {
+    height: auto;
+    min-height: 100%;
+  }
+
   .today-page-grid {
     grid-template-columns: 1fr;
     height: auto;
     flex: none;
+  }
+
+  .today-main-col {
+    height: auto;
+    flex: none;
+  }
+
+  .today-workflow-card {
+    height: auto;
+    min-height: 420px;
+  }
+
+  .today-table-container {
+    overflow-x: auto;
+    min-height: 240px;
   }
 
   .today-action-strip {

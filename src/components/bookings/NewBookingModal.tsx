@@ -35,6 +35,7 @@ export interface NewBookingModalProps {
   branchName: string;
   onBookingCreated: (result: { bookingId: string; warning?: string }) => void;
   initialMode?: QuickBookingMode;
+  showFinancialFields?: boolean;
 }
 
 const MODES: Array<{
@@ -94,6 +95,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
   branchName,
   onBookingCreated,
   initialMode,
+  showFinancialFields = true,
 }) => {
   const openingMode = initialMode || 'walkin';
   const [defaults] = useState(() => ({
@@ -345,8 +347,8 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     resourceId !== '' ||
     date !== defaults.date ||
     startTime !== defaults.startTime ||
-    paymentReceived !== false ||
-    paymentMethod !== '' ||
+    (showFinancialFields &&
+      (paymentReceived !== false || paymentMethod !== '')) ||
     JSON.stringify(selectedServiceIds) !== JSON.stringify(defaultServiceIds);
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -357,7 +359,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
       selectedServiceIds.length === 0 ||
       fullName.trim().length < 2 ||
       phone.trim().length < 7 ||
-      (paymentReceived && !paymentMethod) ||
+      (showFinancialFields && paymentReceived && !paymentMethod) ||
       mode === 'home_service'
     ) {
       return;
@@ -382,8 +384,9 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
         totalDurationMinutes,
         totalPrice,
         mode,
-        paymentReceived,
-        paymentMethod: paymentReceived ? paymentMethod : undefined,
+        paymentReceived: showFinancialFields ? paymentReceived : false,
+        paymentMethod:
+          showFinancialFields && paymentReceived ? paymentMethod : undefined,
         notes: notes.trim() || undefined,
       });
 
@@ -712,9 +715,11 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                           <span className="service-duration">
                             {srv.durationMinutes} mins
                           </span>
-                          <span className="service-price">
-                            {formatCurrency(srv.price)}
-                          </span>
+                          {showFinancialFields && (
+                            <span className="service-price">
+                              {formatCurrency(srv.price)}
+                            </span>
+                          )}
                         </div>
                       </button>
                     );
@@ -889,51 +894,59 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
             {/* 5. Payment & Notes */}
             <section className="booking-form-section">
               <div className="section-header">
-                <CreditCard
-                  size={15}
-                  className="section-icon"
-                  aria-hidden="true"
-                />
-                <h3 className="section-title">Payment & Notes</h3>
-              </div>
-
-              <div className="form-row-2">
-                <div className="form-group">
-                  <label className="form-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={paymentReceived}
-                      onChange={(e) => setPaymentReceived(e.target.checked)}
+                {showFinancialFields ? (
+                  <>
+                    <CreditCard
+                      size={15}
+                      className="section-icon"
+                      aria-hidden="true"
                     />
-                    <span>Payment Received in Advance</span>
-                  </label>
-                </div>
-
-                {paymentReceived && (
-                  <div className="form-group">
-                    <label
-                      className="form-label"
-                      htmlFor="payment-method-select"
-                    >
-                      Payment Method <span className="required">*</span>
-                    </label>
-                    <select
-                      id="payment-method-select"
-                      className="form-select"
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      required={paymentReceived}
-                    >
-                      <option value="">Select payment method...</option>
-                      <option value="cash">Cash</option>
-                      <option value="gcash">GCash</option>
-                      <option value="maya">Maya</option>
-                      <option value="card">Debit/Credit Card</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
+                    <h3 className="section-title">Payment & Notes</h3>
+                  </>
+                ) : (
+                  <h3 className="section-title">Notes</h3>
                 )}
               </div>
+
+              {showFinancialFields && (
+                <div className="form-row-2">
+                  <div className="form-group">
+                    <label className="form-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={paymentReceived}
+                        onChange={(e) => setPaymentReceived(e.target.checked)}
+                      />
+                      <span>Payment Received in Advance</span>
+                    </label>
+                  </div>
+
+                  {paymentReceived && (
+                    <div className="form-group">
+                      <label
+                        className="form-label"
+                        htmlFor="payment-method-select"
+                      >
+                        Payment Method <span className="required">*</span>
+                      </label>
+                      <select
+                        id="payment-method-select"
+                        className="form-select"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        required={paymentReceived}
+                      >
+                        <option value="">Select payment method...</option>
+                        <option value="cash">Cash</option>
+                        <option value="gcash">GCash</option>
+                        <option value="maya">Maya</option>
+                        <option value="card">Debit/Credit Card</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label" htmlFor="booking-notes">
@@ -981,9 +994,11 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                       <span className="service-row-name">
                         {idx + 1}. {s.name}
                       </span>
-                      <span className="service-row-price">
-                        {formatCurrency(s.price)}
-                      </span>
+                      {showFinancialFields && (
+                        <span className="service-row-price">
+                          {formatCurrency(s.price)}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1029,28 +1044,34 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                 </span>
               </div>
 
-              <div className="summary-divider" />
+              {showFinancialFields && (
+                <>
+                  <div className="summary-divider" />
 
-              <div className="summary-total-row">
-                <span className="total-label">Total Amount</span>
-                <span className="total-amount">
-                  {formatCurrency(totalPrice)}
-                </span>
-              </div>
+                  <div className="summary-total-row">
+                    <span className="total-label">Total Amount</span>
+                    <span className="total-amount">
+                      {formatCurrency(totalPrice)}
+                    </span>
+                  </div>
 
-              <div className="summary-payment-status">
-                {paymentReceived && paymentMethod ? (
-                  <span className="status-tag paid">
-                    Payment received ({paymentMethod.toUpperCase()})
-                  </span>
-                ) : paymentReceived ? (
-                  <span className="status-tag pending">
-                    Payment received (Method required)
-                  </span>
-                ) : (
-                  <span className="status-tag pending">Payment pending</span>
-                )}
-              </div>
+                  <div className="summary-payment-status">
+                    {paymentReceived && paymentMethod ? (
+                      <span className="status-tag paid">
+                        Payment received ({paymentMethod.toUpperCase()})
+                      </span>
+                    ) : paymentReceived ? (
+                      <span className="status-tag pending">
+                        Payment received (Method required)
+                      </span>
+                    ) : (
+                      <span className="status-tag pending">
+                        Payment pending
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </aside>
         </form>

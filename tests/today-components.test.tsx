@@ -10,6 +10,7 @@ import { TodayView } from '../src/components/today/TodayView';
 import { calculateAdaptivePageSize } from '../src/components/today/adaptive-page-size';
 import { fetchToday, mutateToday } from '../src/lib/today-service';
 import { createBranchBooking } from '../src/lib/bookings-service';
+import { NewBookingModal } from '../src/components/bookings/NewBookingModal';
 
 vi.mock('../src/lib/today-service', () => ({
   fetchToday: vi.fn(),
@@ -983,6 +984,106 @@ describe('TodayView Component Suite', () => {
       // Does not navigate away
       expect(onNavigate).not.toHaveBeenCalled();
     });
+
+    it('Today-opened booking modal contains no payment/financial UI and suppresses prices, totals, and payment status', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('action-card-walk-in'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+      });
+
+      // Section title is "Notes", NOT "Payment & Notes"
+      expect(screen.getByRole('heading', { name: /^notes$/i })).toBeDefined();
+      expect(screen.queryByText(/payment & notes/i)).toBeNull();
+
+      // No advance payment checkbox
+      expect(screen.queryByText(/payment received in advance/i)).toBeNull();
+      // No payment method select
+      expect(screen.queryByLabelText(/payment method/i)).toBeNull();
+      // No total amount row in summary
+      expect(screen.queryByText('Total Amount')).toBeNull();
+      // No payment status badges in summary
+      expect(screen.queryByText(/payment pending/i)).toBeNull();
+      expect(screen.queryByText(/payment received/i)).toBeNull();
+      // No currency formatting (₱) in the modal
+      expect(screen.queryByText(/₱/)).toBeNull();
+    });
+
+    it('Today booking submission sends paymentReceived=false and paymentMethod=undefined', async () => {
+      mockedFetchToday.mockResolvedValue(createTodayData());
+      const mockedCreateBooking = vi.mocked(createBranchBooking);
+      mockedCreateBooking.mockResolvedValue({
+        ok: true,
+        bookingId: 'b-new-123',
+      });
+
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId('action-card-walk-in'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+      });
+
+      // Fill in customer details
+      fireEvent.change(screen.getByLabelText(/full name/i), {
+        target: { value: 'Jane Doe' },
+      });
+      fireEvent.change(screen.getByLabelText(/phone number/i), {
+        target: { value: '+639171234567' },
+      });
+
+      // Submit booking
+      const submitBtn = screen.getByRole('button', { name: /create booking/i });
+      expect((submitBtn as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(mockedCreateBooking).toHaveBeenCalled();
+      });
+
+      const callArgs = mockedCreateBooking.mock.calls[0][0];
+      expect(callArgs.paymentReceived).toBe(false);
+      expect(callArgs.paymentMethod).toBeUndefined();
+    });
+
+    it('canonical NewBookingModal preserves financial UI by default when showFinancialFields is omitted', async () => {
+      render(
+        <NewBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          branchId="branch-101"
+          branchName="Downtown Spa"
+          onBookingCreated={vi.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+      });
+
+      // Default behavior preserves "Payment & Notes"
+      expect(screen.getByText('Payment & Notes')).toBeDefined();
+      // Preserves "Payment Received in Advance"
+      expect(screen.getByText(/Payment Received in Advance/i)).toBeDefined();
+      // Preserves Total Amount row
+      expect(screen.getByText('Total Amount')).toBeDefined();
+      // Preserves payment status badge
+      expect(screen.getByText(/Payment pending/i)).toBeDefined();
+      // Preserves service prices
+      expect(screen.getAllByText(/₱/).length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('Section 35 — Today Queue Pagination', () => {
@@ -1081,6 +1182,93 @@ describe('TodayView Component Suite', () => {
 
       expect(screen.getByTestId('today-row-booking-12')).toBeDefined();
       expect(screen.getByText(/Page 1 of 1/i)).toBeDefined();
+    });
+  });
+
+  describe('Section 36 — Stage 09B Closure Verifications', () => {
+    it('ResizeObserver attaches when table container mounts after initial loading state resolves, and disconnects on unmount', async () => {
+      const observeFn = vi.fn();
+      const disconnectFn = vi.fn();
+      class MockResizeObserver {
+        observe = observeFn;
+        disconnect = disconnectFn;
+        unobserve = vi.fn();
+      }
+      vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
+      let resolveFetch!: (data: DesktopTodayData) => void;
+      const deferredPromise = new Promise<DesktopTodayData>((resolve) => {
+        resolveFetch = resolve;
+      });
+      mockedFetchToday.mockReturnValue(deferredPromise);
+
+      const { unmount } = render(<TodayView authContext={authContext} />);
+
+      // Step 1: Loading state is active; table container is not in DOM
+      expect(screen.getByTestId('today-loading-skeleton')).toBeDefined();
+      expect(screen.queryByTestId('today-table-container')).toBeNull();
+      expect(observeFn).not.toHaveBeenCalled();
+
+      // Step 2: Data resolves
+      resolveFetch(createTodayData());
+
+      // Step 3: Table container mounts
+      await waitFor(() => {
+        expect(screen.getByTestId('today-table-container')).toBeDefined();
+      });
+
+      // Observer must be attached to the mounted container
+      expect(observeFn).toHaveBeenCalledWith(
+        screen.getByTestId('today-table-container'),
+      );
+
+      // Step 4: On unmount, observer disconnects cleanly
+      unmount();
+      expect(disconnectFn).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it('renders neutral Recorded status fallback when scan.outcome is missing, and does NOT render Success', async () => {
+      const data = createTodayData({
+        attendance: {
+          available: true,
+          selectedDate: '2026-09-12',
+          timezone: 'Asia/Manila',
+          lastHourCount: 1,
+          items: [
+            {
+              eventId: 'scan-no-outcome',
+              staffId: 'staff-02',
+              staffName: 'Elena Rostova',
+              staffNickname: 'Elena',
+              eventType: 'break_start',
+              outcome: null as unknown as string,
+              reasonCode: null,
+              message: null,
+              occurredAt: '2026-09-12T09:30:00Z',
+              clockInAt: null,
+              clockOutAt: null,
+              sourceLabel: 'Staff Terminal',
+            },
+          ],
+          error: null,
+        },
+      });
+
+      mockedFetchToday.mockResolvedValue(data);
+      render(<TodayView authContext={authContext} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('scan-status-scan-no-outcome')).toBeDefined();
+      });
+
+      const pill = screen.getByTestId('scan-status-scan-no-outcome');
+      expect(pill.textContent).toContain('Recorded');
+      expect(pill.textContent).not.toContain('Success');
+      expect(pill.className).toContain('neutral');
+      expect(pill.className).not.toContain('success');
+      expect(pill.querySelector('.today-status-dot-neutral')).not.toBeNull();
+      expect(pill.querySelector('.today-status-dot-green')).toBeNull();
     });
   });
 });

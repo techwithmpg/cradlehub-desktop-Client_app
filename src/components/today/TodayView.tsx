@@ -178,7 +178,40 @@ export const TodayView: React.FC<TodayViewProps> = ({
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(5);
-  const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  const tableContainerCallbackRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+
+      if (node && typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            const height = entry.contentRect.height;
+            if (height > 0) {
+              const next = calculateAdaptivePageSize(height);
+              setPageSize((prev) => (prev !== next ? next : prev));
+            }
+          }
+        });
+        observer.observe(node);
+        observerRef.current = observer;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+    };
+  }, []);
 
   // Booking modal state
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -232,25 +265,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
       isMounted = false;
     };
   }, [authContext.branchId]);
-
-  // Adaptive row count measurement via ResizeObserver
-  useEffect(() => {
-    const el = tableContainerRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const height = entry.contentRect.height;
-        if (height > 0) {
-          const next = calculateAdaptivePageSize(height);
-          setPageSize((prev) => (prev !== next ? next : prev));
-        }
-      }
-    });
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   const handleStageFilterChange = (filter: StageScopeFilter) => {
     setStageFilter(filter);
@@ -744,7 +758,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               {/* Queue Table Region */}
               <div
                 className="today-table-container"
-                ref={tableContainerRef}
+                ref={tableContainerCallbackRef}
                 data-testid="today-table-container"
               >
                 {filteredQueue.length === 0 ? (
@@ -1031,6 +1045,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         branchName={authContext.branchName}
         onBookingCreated={handleBookingCreated}
         initialMode={bookingModalInitialMode}
+        showFinancialFields={false}
       />
     </ModuleWorkspace>
   );
