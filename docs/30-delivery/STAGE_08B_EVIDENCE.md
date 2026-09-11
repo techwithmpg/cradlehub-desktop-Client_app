@@ -10,11 +10,11 @@
 
 **BASE_SHA:** `88631802b6d16c7dae2061a733eb60c6cdff359c`
 
-**HEAD_SHA:** `8647b85b52a67c0240a73dbfe2d22efc392d51a5`
+**HEAD_SHA:** `0faca504e2eb03e14126220a4c3e1ea454abbc0f`
 
 **Accepted Hosted Contract SHA:** `045e9193ae9cac427c13ddf97b053dee34f6ea62`
 
-> `HEAD_SHA` records the previous remote HEAD. The current commit applies review corrections for canonical typography, duplicate evidence removal, and accurate evidence classification.
+> `HEAD_SHA` records the tested implementation commit. The following evidence-only commit changes documentation only.
 
 ---
 
@@ -31,7 +31,7 @@ Implemented and verified:
 - Drivers tab displaying real Active Staff records, assigned counts, active dispatches, and latest recorded snapshot
 - Location Map tab presenting truthful static coordinates context without unauthorized mapping provider integration
 - Authoritative mutations: `assign_driver`, `assign_therapist`, `prepare_dispatch`, `release_to_driver`, `reschedule`, `cancel`
-- Canonical typography: all text strictly conforms to the existing desktop typography hierarchy (10px to 16px; no sub-10px micro-fonts, no bespoke scale)
+- Canonical typography: Home Service-specific typography was aligned to the established Desktop typography scale and hierarchy (no sub-10px micro-fonts in the Stage 08B block)
 
 ---
 
@@ -63,15 +63,17 @@ Repository verification confirms:
 - **Zero Simulation**: No simulated success, fake route optimization, fabricated ETAs, artificial driver movements, or synthetic ratings exist.
 - **Failures Remain Failures**: Network failures, 4xx/5xx responses, and malformed payloads are caught and surfaced via accessible error banners; they do not masquerade as empty state.
 - **Truthful Mapping State**: MapCard renders real coordinates when present, shows `Coordinates pending` when absent, and clearly labels driver snapshots with provenance and timestamp.
-- **Dispatch Details Modal**: Automated component tests prove that the modal opens upon row selection (click or Enter/Space), displays authoritative booking details, timeline, and service items, surfaces detail loading errors gracefully, and closes via close button or Escape key while retaining queue selection.
-- **Canonical Typography**: All Home Service font sizes and styles strictly inherit from the established desktop typography system:
-  - Module/Dialog Headings: 14px – 16px, font-weight 700 / 600
-  - Section Headings & Top Tabs: 13px, font-weight 600
-  - Primary Table Data & Inputs: 12px
-  - Filters, Subtabs, Action Buttons, Definition Terms: 11px / 11.5px
-  - Table Headers, Badges, Status Chips, Captions, Timestamps: 10px, font-weight 600
-  - No bespoke micro-fonts below 10px exist.
-- **Code-Level Viewport Adaptability**: Layout responsiveness and breakpoint rules (1440×900, 1366×768, and degraded 1024×768) were verified via CSS inspection and automated test rendering; native runtime viewport verification is deferred to final system QA.
+- **Dispatch Details Modal**: Component tests cover dispatch selection (via click and Enter/Space keyboard selection), modal opening, authoritative detail rendering, close behavior (via close button and Escape key), detail error handling, and relevant mutation interactions.
+- **Canonical Typography**: Home Service-specific typography was aligned to the established Desktop typography scale and hierarchy:
+  - One font family remains active (`var(--font-sans)`); no alternate typography system was introduced.
+  - Bespoke screenshot-scale 6–9px micro-fonts were removed.
+  - The Stage 08B Home Service-specific typography block contains no sub-10px micro-font sizes:
+    - Module/Dialog Headings: 14px – 16px, font-weight 700 / 600
+    - Section Headings & Top Tabs: 13px, font-weight 600
+    - Primary Table Data & Inputs: 12px
+    - Filters, Subtabs, Action Buttons, Definition Terms: 11px / 11.5px
+    - Table Headers, Badges, Status Chips, Captions, Timestamps: 10px, font-weight 600
+- **Code-Level Viewport Adaptability**: Responsive breakpoint rules were inspected in repository source. Native Desktop runtime verification at 1440×900, 1366×768, and degraded 1024×768 is deferred to final system QA.
 
 ---
 
@@ -88,7 +90,7 @@ The following owner-provided manual runtime evidence was established:
 - The owner chose the Dispatch Queue + enlarged location area + modal design.
 - The owner deferred exhaustive cross-system testing and live sample booking end-to-end walkthrough until later.
 
-_(Note: Manual opening/interaction with the Dispatch Details modal against a real populated queue booking and multi-viewport native verification were not part of the owner's initial visual inspection pass and remain deferred to final system QA.)_
+_(Note: Manual opening/interaction with the Dispatch Details modal against a real populated queue booking, manual verification of every mutation, manual validation of full end-to-end dispatch, and multi-viewport native verification were not part of the owner's initial visual inspection pass and remain deferred to final system QA.)_
 
 ---
 
@@ -109,7 +111,7 @@ Investigation of the sample booking ("testing 2", ID `6800dafe-ff21-49b5-b061-67
 
 ## Exact Automated Checks & Results
 
-All repository checks pass:
+All repository checks pass at tested implementation HEAD `0faca504e2eb03e14126220a4c3e1ea454abbc0f`:
 
 - **Vitest**: `pnpm test`
   - Total test files: **21 passed (21)**
@@ -150,9 +152,14 @@ All repository checks pass:
 
 ## Rollback Instructions
 
-To rollback Stage 08B changes:
+Before merge, abandon this stage branch.
 
-```bash
-git checkout stage/08b-desktop-home-service-ui
-git reset --hard 88631802b6d16c7dae2061a733eb60c6cdff359c
-```
+After merge, revert the Stage 08B implementation, correction, and evidence commits rather than rewriting accepted history.
+
+No database rollback is required because Stage 08B introduced no schema or migration changes.
+
+---
+
+## Gate
+
+`READY FOR INDEPENDENT REVIEW — NOT MERGED — NEXT STAGE NOT AUTHORIZED`
