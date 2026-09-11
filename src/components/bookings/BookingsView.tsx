@@ -253,6 +253,7 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
               <BookingInspectorCard
                 booking={selectedBooking}
                 onClose={() => setSelectedBooking(null)}
+                onBookingUpdated={handleRefresh}
               />
             </ModuleInspectorColumn>
           </ModuleMainGrid>

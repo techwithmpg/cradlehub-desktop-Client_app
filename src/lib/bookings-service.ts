@@ -909,3 +909,202 @@ export async function createBranchBooking(
     error: errorMessage,
   };
 }
+
+export const BOOKING_CANCELLATION_REASONS = [
+  { value: 'customer_requested', label: 'Customer requested cancellation' },
+  { value: 'customer_unavailable', label: 'Customer unavailable' },
+  { value: 'duplicate_booking', label: 'Duplicate booking' },
+  { value: 'scheduling_conflict', label: 'Scheduling conflict' },
+  { value: 'staff_unavailable', label: 'Staff unavailable' },
+  { value: 'payment_issue', label: 'Payment issue' },
+  { value: 'invalid_booking', label: 'Invalid booking' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+export type BookingCancellationReason =
+  (typeof BOOKING_CANCELLATION_REASONS)[number]['value'];
+
+export interface CancelBookingInput {
+  bookingId: string;
+  cancellationReason?: BookingCancellationReason;
+  note?: string;
+}
+
+export interface CancelBookingResult {
+  ok: boolean;
+  code?: string;
+  error?: string;
+  message?: string;
+}
+
+export interface RescheduleBookingInput {
+  bookingId: string;
+  date: string;
+  startTime: string;
+  note?: string;
+  homeServiceAddress?: string;
+  homeServiceAccessNote?: string;
+}
+
+export interface RescheduleBookingResult {
+  ok: boolean;
+  code?: string;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Cancels a branch booking via authoritative desktop v1 API.
+ */
+export async function cancelBranchBooking(
+  input: CancelBookingInput,
+  client?: SupabaseClient,
+  customFetch?: typeof fetch,
+): Promise<CancelBookingResult> {
+  const baseUrl = getHostedApiBaseUrl();
+  if (!baseUrl) {
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error: 'Booking service is not configured for this desktop installation.',
+    };
+  }
+
+  const supabase = client ?? getSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      ok: false,
+      code: 'AUTH_SESSION_REQUIRED',
+      error: 'Your session has expired. Sign in again to cancel this booking.',
+    };
+  }
+
+  const endpoint = `${baseUrl}/api/desktop/v1/bookings/${encodeURIComponent(input.bookingId)}/cancel`;
+  const fetchFn = customFetch ?? tauriFetch;
+
+  try {
+    const response = await fetchFn(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        cancellationReason: input.cancellationReason,
+        note: input.note?.trim() || undefined,
+      }),
+    });
+
+    let body: { ok?: boolean; code?: string; message?: string; error?: string };
+    try {
+      body = await response.json();
+    } catch {
+      return {
+        ok: false,
+        code: 'SERVER_ERROR',
+        error: `Server responded with status ${response.status}, but response could not be parsed.`,
+      };
+    }
+
+    if (response.ok && body?.ok === true) {
+      return { ok: true, message: 'Booking cancelled.' };
+    }
+
+    return {
+      ok: false,
+      code: body?.code || 'CANCELLATION_FAILED',
+      error: body?.message || body?.error || 'Failed to cancel booking.',
+    };
+  } catch {
+    return {
+      ok: false,
+      code: 'NETWORK_ERROR',
+      error:
+        'Booking cancellation requires a connection. Please check your network and try again.',
+    };
+  }
+}
+
+/**
+ * Reschedules a branch booking via authoritative desktop v1 API.
+ */
+export async function rescheduleBranchBooking(
+  input: RescheduleBookingInput,
+  client?: SupabaseClient,
+  customFetch?: typeof fetch,
+): Promise<RescheduleBookingResult> {
+  const baseUrl = getHostedApiBaseUrl();
+  if (!baseUrl) {
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error: 'Booking service is not configured for this desktop installation.',
+    };
+  }
+
+  const supabase = client ?? getSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      ok: false,
+      code: 'AUTH_SESSION_REQUIRED',
+      error:
+        'Your session has expired. Sign in again to reschedule this booking.',
+    };
+  }
+
+  const endpoint = `${baseUrl}/api/desktop/v1/bookings/${encodeURIComponent(input.bookingId)}/reschedule`;
+  const fetchFn = customFetch ?? tauriFetch;
+
+  try {
+    const response = await fetchFn(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        date: input.date,
+        startTime: input.startTime,
+        note: input.note?.trim() || undefined,
+        homeServiceAddress: input.homeServiceAddress?.trim() || undefined,
+        homeServiceAccessNote: input.homeServiceAccessNote?.trim() || undefined,
+      }),
+    });
+
+    let body: { ok?: boolean; code?: string; message?: string; error?: string };
+    try {
+      body = await response.json();
+    } catch {
+      return {
+        ok: false,
+        code: 'SERVER_ERROR',
+        error: `Server responded with status ${response.status}, but response could not be parsed.`,
+      };
+    }
+
+    if (response.ok && body?.ok === true) {
+      return { ok: true, message: 'Booking rescheduled successfully.' };
+    }
+
+    return {
+      ok: false,
+      code: body?.code || 'RESCHEDULE_FAILED',
+      error: body?.message || body?.error || 'Failed to reschedule booking.',
+    };
+  } catch {
+    return {
+      ok: false,
+      code: 'NETWORK_ERROR',
+      error:
+        'Booking reschedule requires a connection. Please check your network and try again.',
+    };
+  }
+}

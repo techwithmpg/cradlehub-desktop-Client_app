@@ -5,10 +5,13 @@ import type {
   InspectorTab,
 } from '../../types/bookings';
 import { ModuleInspectorFrame, ModuleInspectorEmptyState } from '../workspace';
+import { CancelBookingModal } from './CancelBookingModal';
+import { RescheduleBookingModal } from './RescheduleBookingModal';
 
-interface BookingInspectorCardProps {
+export interface BookingInspectorCardProps {
   booking: Booking | null;
   onClose: () => void;
+  onBookingUpdated?: () => void;
 }
 
 const INSPECTOR_TABS: Array<{
@@ -92,9 +95,11 @@ function renderStatusBadge(status: BookingStatus) {
 export const BookingInspectorCard: React.FC<BookingInspectorCardProps> = ({
   booking,
   onClose,
+  onBookingUpdated,
 }) => {
   const [activeTab, setActiveTab] = useState<InspectorTab>('overview');
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
 
   if (!booking) {
     return (
@@ -270,11 +275,7 @@ export const BookingInspectorCard: React.FC<BookingInspectorCardProps> = ({
                 <button
                   type="button"
                   className="quick-action-btn primary"
-                  onClick={() =>
-                    setActionNotice(
-                      'Reschedule workflow is authenticated and will be available in the authorized mutations pass.',
-                    )
-                  }
+                  onClick={() => setIsRescheduleModalOpen(true)}
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -296,11 +297,7 @@ export const BookingInspectorCard: React.FC<BookingInspectorCardProps> = ({
                 <button
                   type="button"
                   className="quick-action-btn danger"
-                  onClick={() =>
-                    setActionNotice(
-                      'Cancel Booking workflow requires manager/CRM authorization.',
-                    )
-                  }
+                  onClick={() => setIsCancelModalOpen(true)}
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -342,15 +339,6 @@ export const BookingInspectorCard: React.FC<BookingInspectorCardProps> = ({
                   <span className="dormant-tag">Dormant</span>
                 </button>
               </div>
-
-              {actionNotice && (
-                <div className="inspector-action-notice" role="alert">
-                  <span>{actionNotice}</span>
-                  <button type="button" onClick={() => setActionNotice(null)}>
-                    &times;
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Customer Snapshot */}
@@ -588,40 +576,25 @@ export const BookingInspectorCard: React.FC<BookingInspectorCardProps> = ({
         )}
       </div>
 
-      {actionNotice && (
-        <div
-          className="bookings-modal-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="inspector-action-notice-title"
-        >
-          <div className="bookings-modal-content">
-            <div className="bookings-modal-header">
-              <h3 id="inspector-action-notice-title">Booking Action Notice</h3>
-              <button
-                type="button"
-                className="bookings-modal-close-btn"
-                onClick={() => setActionNotice(null)}
-                aria-label="Close Notice"
-              >
-                &times;
-              </button>
-            </div>
-            <div className="bookings-modal-body">
-              <p>{actionNotice}</p>
-            </div>
-            <div className="bookings-modal-footer">
-              <button
-                type="button"
-                className="bookings-modal-primary-btn"
-                onClick={() => setActionNotice(null)}
-              >
-                Understood
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelBookingModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        booking={booking}
+        onBookingCancelled={() => {
+          setIsCancelModalOpen(false);
+          onBookingUpdated?.();
+        }}
+      />
+
+      <RescheduleBookingModal
+        isOpen={isRescheduleModalOpen}
+        onClose={() => setIsRescheduleModalOpen(false)}
+        booking={booking}
+        onBookingRescheduled={() => {
+          setIsRescheduleModalOpen(false);
+          onBookingUpdated?.();
+        }}
+      />
     </ModuleInspectorFrame>
   );
 };
