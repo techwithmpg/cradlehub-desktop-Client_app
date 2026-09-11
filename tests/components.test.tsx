@@ -305,6 +305,13 @@ describe('Stage 01 UI Components', () => {
       expect(screen.getByTestId('active-module-title').textContent).toBe(
         'Today',
       );
+      expect(screen.getByTestId('today-workspace')).toBeDefined();
+
+      // Click Settings (still unavailable module)
+      await user.click(screen.getByTestId('nav-item-settings'));
+      expect(screen.getByTestId('active-module-title').textContent).toBe(
+        'Settings',
+      );
       expect(screen.getByTestId('module-unavailable-panel')).toBeDefined();
       expect(
         screen.getByText(

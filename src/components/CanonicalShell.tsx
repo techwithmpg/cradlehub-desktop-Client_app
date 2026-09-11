@@ -17,6 +17,7 @@ import {
   ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
+import { TodayView } from './today/TodayView';
 import { BookingsView } from './bookings/BookingsView';
 import { CustomersView } from './customers/CustomersView';
 import { StaffView } from './staff/StaffView';
@@ -340,6 +341,7 @@ export function CanonicalShell({
         <main id="main-content" className="workspace-content" tabIndex={-1}>
           <ModuleWorkspaceHost
             wide={
+              activeModule === 'today' ||
               activeModule === 'bookings' ||
               activeModule === 'attendance' ||
               activeModule === 'customers' ||
@@ -357,7 +359,9 @@ export function CanonicalShell({
                 {currentNavConfig.label}
               </span>
 
-              {activeModule === 'bookings' ? (
+              {activeModule === 'today' ? (
+                <TodayView authContext={authContext} />
+              ) : activeModule === 'bookings' ? (
                 <BookingsView authContext={authContext} />
               ) : activeModule === 'attendance' ? (
                 <AttendanceView authContext={authContext} />
