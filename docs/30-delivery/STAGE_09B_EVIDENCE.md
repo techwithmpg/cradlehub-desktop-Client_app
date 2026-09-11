@@ -211,60 +211,100 @@ No native populated Desktop runtime against live hosted data was verified by the
 
 ---
 
-## OWNER-DIRECTED TODAY LAYOUT CORRECTION
+## OWNER-PROVIDED MANUAL RUNTIME EVIDENCE & VIEWPORT / MODAL / PAGINATION CORRECTION
 
-### Reference Visual Authority
+### Owner-Provided Manual Runtime Observations
 
-- **Approved Visual Reference**: `docs/20-product/reference-ui/current/crm/crm-today.png`
-- **Scope**: Layout and spatial composition pass prior to Stage 09B acceptance, preserving existing backend contract, bearer auth, server authority, and mutation safety.
+Following visual inspection of the running Today workspace, the owner confirmed:
 
-### Layout Changes Applied
+**Good / Approved Elements Preserved:**
 
-1. **Page-Level Two-Column Composition (`.today-page-grid`)**:
-   - Replaced the previous `ModuleMainGrid` + persistent `ModuleInspectorColumn` with a two-column Desktop Today grid (`minmax(0, 1fr)` main column + ~280–310px secondary right rail).
-   - Responsive degradation at 1024×768: right rail stacks cleanly below the main column; action cards adapt to 2×2 grid; queue table contains internal horizontal scroll when constrained.
+- Today header hierarchy (title, business date, branch, static Front Desk View indicator, Refresh action).
+- Four upper action cards composition.
+- Active Service Workflow visual language, table columns, and lifecycle tabs.
+- Activity right-rail card with Snapshot freshness badge, Recent Scans, and Recent Activity.
+- Quick Actions right-rail card with canonical module navigation.
+- Today's Money card with truthful web-only placeholder state (no fake figures, no fake currency symbols).
+- Overall two-column operational workspace composition.
 
-2. **Persistent Three-Card Right Rail (`.today-right-rail`)**:
-   - Replaces the old persistent booking inspector with three independent canonical cards:
-     - **Card 1: Activity (`TodayActivityCard`)**:
-       - Freshness indicator rendered as **"Snapshot"** (truthful to manual snapshot refresh; zero fake "Live" / "Realtime" claims).
-       - Two tabs: **Recent Scans** (rendering real scans from `data.attendance.items`, with truthful degraded/empty states and a "View Attendance →" canonical navigation button) and **Recent Activity** (rendering truthful operational alerts from `data.notifications` or truthful empty state; zero fabricated chronological audit log).
-     - **Card 2: Quick Actions (`TodayQuickActionsCard`)**:
-       - Four canonical module navigation buttons: View Customers (`customers`), Check Schedule (`schedule`), View Attendance (`attendance`), and Home Service (`home-service`).
-     - **Card 3: Today's Money (`TodayMoneyCard`)**:
-       - 2×2 metric structure showing "—" placeholders and a "Web only" badge.
-       - Truthful unavailable notice: _"Financial summary is not available in Desktop yet. Manage payments on web."_
-       - Contains **NO** authoritative monetary values, **NO** fake currency symbols (`₱`), and **NO** collect payment actions.
+**Defects & Corrections Directed by Owner:**
 
-3. **Front-Desk Action Strip (`.today-action-strip`)**:
-   - Four cards positioned above Active Service Workflow:
-     - **New Booking** (primary, navigates to canonical `bookings` module)
-     - **Walk-in** (informational front-desk guidance)
-     - **Book for Later** (informational phone/future booking guidance)
-     - **Home Service** (navigates to canonical `home-service` dispatch module)
+1. **Unused Vertical Workspace**: Large blank canvas remained below the workflow and rail.
+2. **Booking Details Consumed Unnecessary Space**: Inline Booking Details underneath the queue table was unwanted and cluttered the workflow.
+3. **Workflow Height Distribution**: Active Service Workflow must fill the available vertical area and approximately align with the bottom of Today's Money.
+4. **Queue Overflow Mechanism**: Queue overflow must use pagination, NOT vertical scrolling.
+5. **No-Scroll Desktop Viewport**: Today workspace must fit inside the visible Desktop viewport (at 1440×900 and 1366×768) without page scrolling.
+6. **Booking Action Cards Interaction**: The four upper action cards must open the canonical `NewBookingModal` with initial mode selection rather than merely navigating to the Bookings module.
 
-4. **Active Service Workflow Card Hierarchy**:
-   - Header with clear title and helper copy (_"One clear next action for every customer visit."_).
-   - Controls row with lifecycle tabs containing authoritative counts (**Waiting**, **In Service**, **Ready to Pay**, **Completed**, and **All Queue**), followed by search input.
-   - Dense Desktop table with columns: `TIME`, `CUSTOMER`, `SERVICE / SUMMARY`, `STATUS`, `ASSIGNEE`, `NEXT ACTION`.
-   - Compact status badges, staff/customer initials fallback avatars, and operational next action buttons.
+---
 
-5. **Inspector Preservation & Relocation**:
-   - Persistent inspector removed from the primary right rail.
-   - Useful booking detail preserved in a secondary card (`.today-selected-booking-card`) directly associated with the selected queue row below the table, without creating an alternate drawer/modal framework.
-   - Readiness status preserved as a compact operational alert strip (`.today-alert-strip`) only when active issues or degradation occur, avoiding a wasteful permanent empty tab.
+### Corrections Applied in This Pass
+
+1. **Inline Booking Details Removed Completely**:
+   - Removed `.today-selected-booking-card` and all associated markup (`Booking Details — <customer>`, ID, timing, service, staff, resource, contact, stage, Home Service address details, and close button).
+   - Removed selection-only state (`selectedId`, `selectedBooking`), automatic selection of the first booking, row `tabIndex`, and row selection styling (`.selected`).
+   - Workflow card now contains strictly: card header, controls row, adaptive queue table, and canonical pagination footer.
+   - Lifecycle action buttons in the `NEXT ACTION` column remain fully interactive.
+
+2. **Full-Height Today Viewport Geometry**:
+   - Added Today-specific layout classes from `CanonicalShell`: `.today-workspace-content`, `.today-workspace-host`, and `.today-workspace-mount` with `height: 100%`, `min-height: 0`, and `overflow: hidden`.
+   - Global `.workspace-content { overflow-y: auto; }` remains untouched for all other modules.
+   - `.today-workspace-root` configured as flex column (`height: 100%; min-height: 0; flex: 1; gap: 12px`).
+   - `.today-page-grid` configured with `align-items: stretch; height: 100%; min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px`.
+   - `.today-main-col` and `.today-workflow-card` flex to fill remaining vertical area (`flex: 1; min-height: 0`). Unused table area stays inside the white operational card rather than creating a gray page void.
+   - Workflow card bottom approximately aligns with the bottom of Today's Money.
+
+3. **Three-Card Right Rail Height Distribution**:
+   - Preserved exactly the three approved cards: Activity (`TodayActivityCard`), Quick Actions (`TodayQuickActionsCard`), and Today's Money (`TodayMoneyCard`).
+   - `.today-right-rail` configured as `grid-template-rows: minmax(0, 1fr) auto auto; height: 100%; min-height: 0; gap: 12px`.
+   - Activity card absorbs flexible space while Quick Actions and Today's Money retain compact natural dimensions at the bottom.
+   - Capped preview items in Activity card (4 scans, 3 notifications) and hidden internal vertical scrolling (`overflow-y: hidden`).
+   - Responsive degradation at 1024×768: right rail arranges cards into a 3-column horizontal grid (`grid-template-columns: repeat(3, 1fr); height: auto`) to avoid deep vertical page stacking.
+
+4. **Canonical Pagination Added (No Vertical Table Scrolling)**:
+   - Reused canonical `ModulePagination` from `src/components/workspace/ModulePagination.tsx`.
+   - Table container strictly uses `overflow-y: hidden; flex: 1; min-height: 0`.
+   - Added backwards-compatible `showPageSizeSelector?: boolean` (defaults to `true`) on `ModulePagination`, passing `false` in Today so that the fixed viewport is not disrupted by a manual page-size selector.
+   - Extracted helper `calculateAdaptivePageSize` into `src/components/today/adaptive-page-size.ts`.
+   - Table region measures container height via local `ResizeObserver` and dynamically calculates page size based on compact 48px row height, clamped between 3 and 8 rows.
+   - Filtering and search execute before pagination; switching stage tabs or changing search query resets page to 1.
+   - Clamping logic guarantees `validCurrentPage` never exceeds `totalPages` after mutations or refreshes.
+
+5. **Upper Action Cards Open Canonical `NewBookingModal`**:
+   - Upper cards now open the canonical `NewBookingModal` from `src/components/bookings/NewBookingModal.tsx`.
+   - Added backwards-compatible `initialMode?: QuickBookingMode` to `NewBookingModalProps`. Existing `BookingsView` usage is completely unaffected.
+   - **New Booking** card: Opens modal in default mode (`walkin`).
+   - **Walk-in** card: Opens modal with `initialMode="walkin"`.
+   - **Book for Later** card: Opens modal with `initialMode="standard_future"`.
+   - **Home Service** card: Opens modal focused on `home_service`.
+   - **Home Service Fail-Closed Boundary Preserved**:
+     - Home Service creation remains disabled and impossible.
+     - Mode tab remains disabled with truthful tooltip: _"Home Service booking will be enabled after precise address/location support is connected."_
+     - Displays error alert banner (`home-service-disabled-notice`).
+     - Submit button is disabled; `handleSubmit` explicitly blocks submission when `mode === 'home_service'`; no mutation is fired; zero simulated success.
+   - **Dirty State and Reset Integrity**:
+     - Keyed modal preview with `initialMode` to ensure clean unmount/remount between sessions.
+     - Opening mode is tracked as baseline; opening "Book for Later" does not trigger false dirty-state discard warnings.
+     - Successful booking creation closes modal, displays truthful success banner, refreshes Today snapshot via `fetchToday`, and remains on Today without navigating away.
+
+---
 
 ### Explicit Confirmations
 
-- **NO fake data**: All displayed records originate strictly from `data.queue`, `data.attendance`, and `data.notifications`.
-- **NO fake money**: Today's Money contains zero fabricated figures; financial totals are explicitly marked web-only and dormant on Desktop.
-- **NO fake Live**: Freshness badge is strictly "Snapshot"; no background polling, timers, or WebSocket subscriptions added.
-- **NO payment mutations**: Payment Pending / Ready to Pay stage remains strictly read-only (`"Payment Pending — manage on web"`).
-- **NO Home Service mutations**: Home Service bookings remain strictly excluded from Today mutation eligibility.
-- **NO contract code rewritten**: `today-service.ts`, `today.ts`, and hosted routes are unchanged.
-- **NO hosted modifications**: `E:\cradlehub` remains 100% untouched at `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc`.
-- **NO second UI system**: Uses canonical tokens, styling classes, and existing shell navigation.
-- **Owner visual/runtime confirmation**: **PENDING**.
+- **Inline Booking Details**: Removed completely.
+- **Row selection behavior**: Removed completely (no auto-selection, no `.selected` styling, no row click-to-expand).
+- **Workflow height**: Flexes to consume available viewport height.
+- **Workflow bottom alignment**: Approximately aligns with bottom of Today's Money card.
+- **Queue overflow mechanism**: Managed via canonical pagination, NOT vertical scrolling.
+- **Table scrollbar**: `overflow-y: hidden`; table container does not vertically scroll.
+- **Desktop viewport**: Today fits within 1440×900 and 1366×768 without page-level vertical scrollbar.
+- **Upper action cards**: Open canonical `NewBookingModal` with initial mode mappings.
+- **Home Service creation**: Remains disabled, fail-closed, and impossible to submit.
+- **Right rail**: Three-card rail preserved (Activity, Quick Actions, Today's Money).
+- **Freshness & Data Truth**: Strictly snapshot + manual refresh; zero fake data; zero fake money; zero fake Live indicators.
+- **Contract & Backend**: Unchanged.
+- **Hosted repository**: `E:\cradlehub` remains untouched at `b2b9b6ec7579bbd9b519841cadf612ed133cbfcc`.
+- **Owner visual re-test**: **PENDING**.
 
 ---
 
