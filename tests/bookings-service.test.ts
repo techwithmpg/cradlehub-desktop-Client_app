@@ -10,6 +10,8 @@ import {
   validateHostedApiBaseUrl,
   EXPECTED_HOSTED_API_ORIGIN,
   createBranchBooking,
+  cancelBranchBooking,
+  rescheduleBranchBooking,
 } from '../src/lib/bookings-service';
 import type { Booking } from '../src/types/bookings';
 
@@ -1019,6 +1021,467 @@ describe('Bookings Service', () => {
             date: '2026-09-05',
             startTime: '14:00',
             mode: 'walkin',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('SERVER_ERROR');
+        expect(res.error).toContain('502');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+  });
+
+  describe('cancelBranchBooking', () => {
+    const validConfigUrl = EXPECTED_HOSTED_API_ORIGIN;
+
+    it('fails closed with API_CONFIG_REQUIRED when API base url is invalid', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = 'http://insecure.example.com';
+        const customFetch = vi.fn();
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'valid-token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await cancelBranchBooking(
+          {
+            bookingId: 'booking-1',
+            cancellationReason: 'customer_requested',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('API_CONFIG_REQUIRED');
+        expect(customFetch).not.toHaveBeenCalled();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('fails closed with AUTH_SESSION_REQUIRED when user is unauthenticated', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn();
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await cancelBranchBooking(
+          {
+            bookingId: 'booking-1',
+            cancellationReason: 'customer_requested',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('AUTH_SESSION_REQUIRED');
+        expect(res.error).toContain('session has expired');
+        expect(customFetch).not.toHaveBeenCalled();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('submits cancellation payload to desktop v1 endpoint with Bearer auth', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            message: 'Booking cancelled.',
+          }),
+        } as unknown as Response);
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'valid-session-jwt' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await cancelBranchBooking(
+          {
+            bookingId: 'b-99',
+            cancellationReason: 'staff_unavailable',
+            note: 'Therapist called in sick',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(true);
+        expect(res.message).toBe('Booking cancelled.');
+        expect(customFetch).toHaveBeenCalledOnce();
+
+        const [calledUrl, calledOpts] = customFetch.mock.calls[0];
+        expect(calledUrl).toBe(
+          `${validConfigUrl}/api/desktop/v1/bookings/b-99/cancel`,
+        );
+        expect(calledOpts.method).toBe('POST');
+        expect(calledOpts.headers).toEqual({
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer valid-session-jwt',
+        });
+        const parsedBody = JSON.parse(calledOpts.body as string);
+        expect(parsedBody.cancellationReason).toBe('staff_unavailable');
+        expect(parsedBody.note).toBe('Therapist called in sick');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('returns CANCELLATION_FAILED with hosted error message on 400 error', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            ok: false,
+            code: 'INVALID_STATUS',
+            message: 'Completed bookings cannot be cancelled.',
+          }),
+        } as unknown as Response);
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'secret-token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await cancelBranchBooking(
+          {
+            bookingId: 'b-completed',
+            cancellationReason: 'customer_requested',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('INVALID_STATUS');
+        expect(res.error).toBe('Completed bookings cannot be cancelled.');
+        expect(res.error).not.toContain('secret-token');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('returns NETWORK_ERROR when fetch throws an exception', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi
+          .fn()
+          .mockRejectedValue(new Error('Network offline'));
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await cancelBranchBooking(
+          {
+            bookingId: 'b-offline',
+            cancellationReason: 'customer_requested',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('NETWORK_ERROR');
+        expect(res.error).toContain('requires a connection');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('returns SERVER_ERROR when response body is not valid JSON', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: false,
+          status: 504,
+          json: async () => {
+            throw new Error('Gateway Timeout HTML');
+          },
+        } as unknown as Response);
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await cancelBranchBooking(
+          {
+            bookingId: 'b-timeout',
+            cancellationReason: 'customer_requested',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('SERVER_ERROR');
+        expect(res.error).toContain('504');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+  });
+
+  describe('rescheduleBranchBooking', () => {
+    const validConfigUrl = EXPECTED_HOSTED_API_ORIGIN;
+
+    it('fails closed with API_CONFIG_REQUIRED when API base url is invalid', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = 'http://insecure.example.com';
+        const customFetch = vi.fn();
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'valid-token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await rescheduleBranchBooking(
+          {
+            bookingId: 'booking-1',
+            date: '2026-09-15',
+            startTime: '16:00',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('API_CONFIG_REQUIRED');
+        expect(customFetch).not.toHaveBeenCalled();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('fails closed with AUTH_SESSION_REQUIRED when user is unauthenticated', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn();
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await rescheduleBranchBooking(
+          {
+            bookingId: 'booking-1',
+            date: '2026-09-15',
+            startTime: '16:00',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('AUTH_SESSION_REQUIRED');
+        expect(res.error).toContain('session has expired');
+        expect(customFetch).not.toHaveBeenCalled();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('submits reschedule payload to desktop v1 endpoint with Bearer auth', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            message: 'Booking rescheduled successfully.',
+          }),
+        } as unknown as Response);
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'valid-session-jwt' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await rescheduleBranchBooking(
+          {
+            bookingId: 'b-42',
+            date: '2026-09-16',
+            startTime: '15:30',
+            note: 'Customer called to move 1 day ahead',
+            homeServiceAddress: 'Tower 2, Ortigas',
+            homeServiceAccessNote: 'Ring unit 14B',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(true);
+        expect(res.message).toBe('Booking rescheduled successfully.');
+        expect(customFetch).toHaveBeenCalledOnce();
+
+        const [calledUrl, calledOpts] = customFetch.mock.calls[0];
+        expect(calledUrl).toBe(
+          `${validConfigUrl}/api/desktop/v1/bookings/b-42/reschedule`,
+        );
+        expect(calledOpts.method).toBe('POST');
+        expect(calledOpts.headers).toEqual({
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer valid-session-jwt',
+        });
+        const parsedBody = JSON.parse(calledOpts.body as string);
+        expect(parsedBody.date).toBe('2026-09-16');
+        expect(parsedBody.startTime).toBe('15:30');
+        expect(parsedBody.note).toBe('Customer called to move 1 day ahead');
+        expect(parsedBody.homeServiceAddress).toBe('Tower 2, Ortigas');
+        expect(parsedBody.homeServiceAccessNote).toBe('Ring unit 14B');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('returns RESCHEDULE_FAILED with hosted error message on 400 error', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            ok: false,
+            code: 'SLOT_UNAVAILABLE',
+            message: 'Selected therapist has a conflicting booking.',
+          }),
+        } as unknown as Response);
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'secret-token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await rescheduleBranchBooking(
+          {
+            bookingId: 'b-conflict',
+            date: '2026-09-16',
+            startTime: '15:30',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('SLOT_UNAVAILABLE');
+        expect(res.error).toBe('Selected therapist has a conflicting booking.');
+        expect(res.error).not.toContain('secret-token');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('returns NETWORK_ERROR when fetch throws an exception', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi
+          .fn()
+          .mockRejectedValue(new Error('Connection dropped'));
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await rescheduleBranchBooking(
+          {
+            bookingId: 'b-net',
+            date: '2026-09-16',
+            startTime: '15:30',
+          },
+          client,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('NETWORK_ERROR');
+        expect(res.error).toContain('requires a connection');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('returns SERVER_ERROR when response body cannot be parsed as JSON', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: false,
+          status: 502,
+          json: async () => {
+            throw new Error('Bad Gateway HTML');
+          },
+        } as unknown as Response);
+
+        const client = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({
+              data: { session: { access_token: 'token' } },
+            }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await rescheduleBranchBooking(
+          {
+            bookingId: 'b-502',
+            date: '2026-09-16',
+            startTime: '15:30',
           },
           client,
           customFetch,

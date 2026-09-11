@@ -10,6 +10,8 @@ import { BookingsListCard } from '../src/components/bookings/BookingsListCard';
 import { BookingInspectorCard } from '../src/components/bookings/BookingInspectorCard';
 import { BookingsView } from '../src/components/bookings/BookingsView';
 import { NewBookingModal } from '../src/components/bookings/NewBookingModal';
+import { CancelBookingModal } from '../src/components/bookings/CancelBookingModal';
+import { RescheduleBookingModal } from '../src/components/bookings/RescheduleBookingModal';
 import * as bookingsService from '../src/lib/bookings-service';
 import * as supabaseLib from '../src/lib/supabase';
 
@@ -310,7 +312,7 @@ describe('Stage 02 Bookings UI Components', () => {
       ).toBeDefined();
     });
 
-    it('opens dormant action modal when clicking Reschedule or Cancel quick actions', async () => {
+    it('opens Reschedule modal when clicking Reschedule quick action', async () => {
       const user = userEvent.setup();
       const mockBooking = createMockBooking();
       render(<BookingInspectorCard booking={mockBooking} onClose={vi.fn()} />);
@@ -318,13 +320,34 @@ describe('Stage 02 Bookings UI Components', () => {
       const rescheduleBtn = screen.getByRole('button', { name: /reschedule/i });
       await user.click(rescheduleBtn);
 
-      expect(screen.getByRole('dialog')).toBeDefined();
-      expect(screen.getByText(/Booking Action Notice/i)).toBeDefined();
+      expect(screen.getByTestId('reschedule-booking-modal')).toBeDefined();
+      expect(screen.getByText(/Reschedule or Adjust Booking/i)).toBeDefined();
 
-      const closeBtn = screen.getByRole('button', { name: /understood/i });
+      const closeBtn = screen.getByRole('button', {
+        name: /close reschedule dialog/i,
+      });
       await user.click(closeBtn);
 
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByTestId('reschedule-booking-modal')).toBeNull();
+    });
+
+    it('opens Cancel modal when clicking Cancel quick action', async () => {
+      const user = userEvent.setup();
+      const mockBooking = createMockBooking();
+      render(<BookingInspectorCard booking={mockBooking} onClose={vi.fn()} />);
+
+      const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+      await user.click(cancelBtn);
+
+      expect(screen.getByTestId('cancel-booking-modal')).toBeDefined();
+      expect(screen.getByText(/Cancel booking\?/i)).toBeDefined();
+
+      const closeBtn = screen.getByRole('button', {
+        name: /close cancellation dialog/i,
+      });
+      await user.click(closeBtn);
+
+      expect(screen.queryByTestId('cancel-booking-modal')).toBeNull();
     });
   });
 
@@ -605,6 +628,271 @@ describe('Stage 02 Bookings UI Components', () => {
         expect(onBookingCreated).toHaveBeenCalledOnce();
         expect(onClose).toHaveBeenCalledOnce();
       });
+    });
+  });
+
+  describe('CancelBookingModal', () => {
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('returns null when isOpen is false', () => {
+      const mockBooking = createMockBooking();
+      const { container } = render(
+        <CancelBookingModal
+          isOpen={false}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+      expect(container.firstChild).toBeNull();
+    });
+
+    it('renders booking summary information and cancellation reason dropdown', () => {
+      const mockBooking = createMockBooking();
+      render(
+        <CancelBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+
+      expect(screen.getByTestId('cancel-booking-modal')).toBeDefined();
+      expect(screen.getByText('Maria Santos')).toBeDefined();
+      expect(screen.getByText('Full Body Massage')).toBeDefined();
+      expect(screen.getByText('Select a cancellation reason')).toBeDefined();
+      expect(screen.getByText('Customer requested cancellation')).toBeDefined();
+    });
+
+    it('submits cancellation with reason and note and fires callbacks on success', async () => {
+      const mockBooking = createMockBooking({ id: 'b-cancel-123' });
+      const onClose = vi.fn();
+      const onBookingCancelled = vi.fn();
+      const cancelSpy = vi
+        .spyOn(bookingsService, 'cancelBranchBooking')
+        .mockResolvedValue({
+          ok: true,
+          message: 'Booking cancelled.',
+        });
+
+      render(
+        <CancelBookingModal
+          isOpen={true}
+          onClose={onClose}
+          booking={mockBooking}
+          onBookingCancelled={onBookingCancelled}
+        />,
+      );
+
+      const reasonSelect = screen.getByRole('combobox');
+      fireEvent.change(reasonSelect, {
+        target: { value: 'customer_requested' },
+      });
+
+      const noteInput = screen.getByPlaceholderText(/add internal context/i);
+      fireEvent.change(noteInput, {
+        target: { value: 'Customer has an emergency' },
+      });
+
+      const confirmBtn = screen.getByRole('button', {
+        name: 'Cancel Booking',
+      });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(cancelSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            bookingId: 'b-cancel-123',
+            cancellationReason: 'customer_requested',
+            note: 'Customer has an emergency',
+          }),
+        );
+        expect(onBookingCancelled).toHaveBeenCalledOnce();
+        expect(onClose).toHaveBeenCalledOnce();
+      });
+    });
+
+    it('displays error message when cancel operation fails', async () => {
+      const mockBooking = createMockBooking();
+      vi.spyOn(bookingsService, 'cancelBranchBooking').mockResolvedValue({
+        ok: false,
+        code: 'CANCEL_FAILED',
+        error: 'Cancellation window has passed.',
+      });
+
+      render(
+        <CancelBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+
+      const reasonSelect = screen.getByRole('combobox');
+      fireEvent.change(reasonSelect, {
+        target: { value: 'customer_requested' },
+      });
+
+      const confirmBtn = screen.getByRole('button', {
+        name: 'Cancel Booking',
+      });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Cancellation window has passed.'),
+        ).toBeDefined();
+      });
+    });
+
+    it('closes modal when Escape key is pressed', () => {
+      const mockBooking = createMockBooking();
+      const onClose = vi.fn();
+      render(
+        <CancelBookingModal
+          isOpen={true}
+          onClose={onClose}
+          booking={mockBooking}
+        />,
+      );
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('RescheduleBookingModal', () => {
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('returns null when isOpen is false', () => {
+      const mockBooking = createMockBooking();
+      const { container } = render(
+        <RescheduleBookingModal
+          isOpen={false}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+      expect(container.firstChild).toBeNull();
+    });
+
+    it('prefills current date and time and renders home service fields when applicable', () => {
+      const mockBooking = createMockBooking({
+        delivery_type: 'home_service',
+        metadata: {
+          home_service: {
+            address: 'Unit 402, Amber Tower',
+            access_notes: 'Buzz code 1234',
+          },
+        },
+      });
+
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+
+      expect(screen.getByTestId('reschedule-booking-modal')).toBeDefined();
+      expect(screen.getByDisplayValue('2026-09-05')).toBeDefined();
+      expect(screen.getByDisplayValue('10:00')).toBeDefined();
+      expect(screen.getByDisplayValue('Unit 402, Amber Tower')).toBeDefined();
+      expect(screen.getByDisplayValue('Buzz code 1234')).toBeDefined();
+    });
+
+    it('submits reschedule with updated fields and calls callbacks on success', async () => {
+      const mockBooking = createMockBooking({ id: 'b-resched-77' });
+      const onClose = vi.fn();
+      const onBookingRescheduled = vi.fn();
+      const reschedSpy = vi
+        .spyOn(bookingsService, 'rescheduleBranchBooking')
+        .mockResolvedValue({
+          ok: true,
+          message: 'Booking rescheduled successfully.',
+        });
+
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={onClose}
+          booking={mockBooking}
+          onBookingRescheduled={onBookingRescheduled}
+        />,
+      );
+
+      const dateInput = screen.getByLabelText(/new date/i);
+      fireEvent.change(dateInput, { target: { value: '2026-09-12' } });
+
+      const timeInput = screen.getByLabelText(/start time/i);
+      fireEvent.change(timeInput, { target: { value: '14:30' } });
+
+      const submitBtn = screen.getByRole('button', {
+        name: 'Save Booking Changes',
+      });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(reschedSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            bookingId: 'b-resched-77',
+            date: '2026-09-12',
+            startTime: '14:30',
+          }),
+        );
+        expect(onBookingRescheduled).toHaveBeenCalledOnce();
+        expect(onClose).toHaveBeenCalledOnce();
+      });
+    });
+
+    it('displays error message when reschedule fails', async () => {
+      const mockBooking = createMockBooking();
+      vi.spyOn(bookingsService, 'rescheduleBranchBooking').mockResolvedValue({
+        ok: false,
+        code: 'SLOT_UNAVAILABLE',
+        error: 'Requested time slot is no longer available.',
+      });
+
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+
+      const dateInput = screen.getByLabelText(/new date/i);
+      fireEvent.change(dateInput, { target: { value: '2026-09-12' } });
+
+      const submitBtn = screen.getByRole('button', {
+        name: 'Save Booking Changes',
+      });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Requested time slot is no longer available.'),
+        ).toBeDefined();
+      });
+    });
+
+    it('closes modal when Escape key is pressed', () => {
+      const mockBooking = createMockBooking();
+      const onClose = vi.fn();
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={onClose}
+          booking={mockBooking}
+        />,
+      );
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledOnce();
     });
   });
 });
