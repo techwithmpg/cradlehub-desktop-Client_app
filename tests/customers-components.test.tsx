@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -320,6 +321,7 @@ describe('Customers Workspace Component Suite', () => {
     expect(followupSearchInput.placeholder).toBe(
       'Search follow-up requests by name or phone...',
     );
+    await screen.findAllByText('Pedro Penduko');
   });
 
   it('handles authoritative list error truthfully without rendering fake empty state or zero KPIs and renders exactly one unavailable presentation', async () => {
@@ -547,7 +549,9 @@ describe('Customers Workspace Component Suite', () => {
     window.innerHeight = 900;
 
     // Trigger observer callback
-    observerCallback!([{}]);
+    act(() => {
+      observerCallback!([{}]);
+    });
 
     // Should recalculate and query with new pageSize
     await waitFor(() => {
@@ -561,7 +565,9 @@ describe('Customers Workspace Component Suite', () => {
     // Calling observerCallback again with the same height does not loop or re-query
     const callCount = vi.mocked(customersService.fetchBranchCustomers).mock
       .calls.length;
-    observerCallback!([{}]);
+    act(() => {
+      observerCallback!([{}]);
+    });
     await new Promise((r) => setTimeout(r, 50));
     expect(
       vi.mocked(customersService.fetchBranchCustomers).mock.calls.length,
