@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type {
   StaffBlockedTime,
   StaffMember,
-  StaffScheduleAdjustmentInput,
+  StaffScheduleOverride,
 } from '../../../types/staff';
-import { adjustStaffSchedule } from '../../../lib/staff-service';
+import { mutateSchedule } from '../../../lib/schedule-service';
 
 interface StaffScheduleModalProps {
   isOpen: boolean;
@@ -12,6 +12,8 @@ interface StaffScheduleModalProps {
   staff: StaffMember | null;
   branchId: string;
   initialDate?: string;
+  overrideId?: string;
+  existingOverrides?: StaffScheduleOverride[];
   existingBlocks?: StaffBlockedTime[];
   onScheduleAdjusted: () => void;
 }
@@ -29,6 +31,8 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
   staff,
   branchId,
   initialDate,
+  overrideId,
+  existingOverrides = [],
   existingBlocks = [],
   onScheduleAdjusted,
 }) => {
@@ -72,32 +76,139 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
   const requiresTimes =
     adjustmentType === 'working_hours' || adjustmentType === 'blocked_time';
   const isRemoveBlock = adjustmentType === 'remove_block';
-  const isRemoveOverride = adjustmentType === 'remove_override';
 
   const handleSave = async () => {
     setIsSaving(true);
     setError(null);
 
-    const input: StaffScheduleAdjustmentInput = {
-      staffId: staff.id,
-      branchId,
-      date,
-      adjustmentType,
-      ...(requiresTimes && { startTime, endTime }),
-      ...(isRemoveBlock && { blockId }),
-      ...(reason.trim() && { reason: reason.trim() }),
-    };
+    try {
+      if (adjustmentType === 'working_hours') {
+        if (!startTime || !endTime) {
+          setError('Start and end time are required.');
+          setIsSaving(false);
+          return;
+        }
+        if (startTime >= endTime) {
+          setError('Start time must be before end time.');
+          setIsSaving(false);
+          return;
+        }
 
-    const result = await adjustStaffSchedule(input);
-    if (!result.ok) {
-      setError(result.error);
+        const result = await mutateSchedule('upsert_override', {
+          branchId,
+          staffId: staff.id,
+          overrideDate: date,
+          isDayOff: false,
+          shiftType: 'single',
+          startTime,
+          endTime,
+          ...(reason.trim() ? { reason: reason.trim() } : {}),
+        });
+
+        if (!result.ok) {
+          setError(result.message);
+          setIsSaving(false);
+          return;
+        }
+      } else if (adjustmentType === 'day_off') {
+        const result = await mutateSchedule('upsert_override', {
+          branchId,
+          staffId: staff.id,
+          overrideDate: date,
+          isDayOff: true,
+          ...(reason.trim() ? { reason: reason.trim() } : {}),
+        });
+
+        if (!result.ok) {
+          setError(result.message);
+          setIsSaving(false);
+          return;
+        }
+      } else if (adjustmentType === 'blocked_time') {
+        if (!startTime || !endTime) {
+          setError('Start and end time are required for blocked time.');
+          setIsSaving(false);
+          return;
+        }
+        if (startTime >= endTime) {
+          setError('Start time must be before end time.');
+          setIsSaving(false);
+          return;
+        }
+
+        const validReasons = ['break', 'leave', 'training', 'other'];
+        const normalizedReason = validReasons.includes(reason.toLowerCase())
+          ? reason.toLowerCase()
+          : 'break';
+
+        const result = await mutateSchedule('create_blocked_time', {
+          branchId,
+          staffId: staff.id,
+          blockDate: date,
+          startTime,
+          endTime,
+          reason: normalizedReason,
+        });
+
+        if (!result.ok) {
+          setError(result.message);
+          setIsSaving(false);
+          return;
+        }
+      } else if (adjustmentType === 'remove_override') {
+        const targetOverride = existingOverrides.find(
+          (o) => o.staff_id === staff.id && o.override_date === date,
+        );
+        const resolvedOverrideId = targetOverride?.id || overrideId;
+
+        if (!resolvedOverrideId) {
+          setError('No schedule override found to remove for this date.');
+          setIsSaving(false);
+          return;
+        }
+
+        const result = await mutateSchedule('delete_override', {
+          branchId,
+          staffId: staff.id,
+          overrideId: resolvedOverrideId,
+        });
+
+        if (!result.ok) {
+          setError(result.message);
+          setIsSaving(false);
+          return;
+        }
+      } else if (adjustmentType === 'remove_block') {
+        if (!blockId) {
+          setError('Select a block to remove.');
+          setIsSaving(false);
+          return;
+        }
+
+        const result = await mutateSchedule('delete_blocked_time', {
+          branchId,
+          staffId: staff.id,
+          blockId,
+        });
+
+        if (!result.ok) {
+          setError(result.message);
+          setIsSaving(false);
+          return;
+        }
+      }
+
       setIsSaving(false);
-      return;
+      onScheduleAdjusted();
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'The schedule adjustment could not be completed.',
+      );
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
-    onScheduleAdjusted();
-    onClose();
   };
 
   return (
@@ -157,6 +268,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
+                data-testid="adj-type-working_hours"
                 className={`text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'working_hours'
                     ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
@@ -168,6 +280,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               </button>
               <button
                 type="button"
+                data-testid="adj-type-day_off"
                 className={`text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'day_off'
                     ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
@@ -179,6 +292,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               </button>
               <button
                 type="button"
+                data-testid="adj-type-blocked_time"
                 className={`text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'blocked_time'
                     ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
@@ -190,6 +304,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               </button>
               <button
                 type="button"
+                data-testid="adj-type-remove_override"
                 className={`text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'remove_override'
                     ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
@@ -203,6 +318,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
             {existingBlocks.length > 0 && (
               <button
                 type="button"
+                data-testid="adj-type-remove_block"
                 className={`w-full mt-2 text-xs py-2 px-3 rounded-lg border text-left font-medium transition-colors ${
                   adjustmentType === 'remove_block'
                     ? 'border-[var(--cs-brand-green)] bg-[var(--cs-sand-mist)] text-[var(--cs-text)]'
@@ -226,6 +342,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
             <input
               id="schedule-date"
               type="date"
+              data-testid="schedule-modal-date"
               className="bookings-search-input text-xs w-full"
               value={date}
               onChange={(e) => setDate(e.target.value)}
@@ -245,6 +362,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
                 <input
                   id="schedule-start-time"
                   type="time"
+                  data-testid="schedule-modal-start-time"
                   className="bookings-search-input text-xs w-full"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
@@ -260,6 +378,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
                 <input
                   id="schedule-end-time"
                   type="time"
+                  data-testid="schedule-modal-end-time"
                   className="bookings-search-input text-xs w-full"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
@@ -279,6 +398,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               </label>
               <select
                 id="schedule-block-select"
+                data-testid="schedule-modal-block-select"
                 className="bookings-select-filter text-xs w-full"
                 value={blockId}
                 onChange={(e) => setBlockId(e.target.value)}
@@ -292,8 +412,33 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
             </div>
           )}
 
-          {/* Reason / Note */}
-          {!isRemoveBlock && !isRemoveOverride && (
+          {/* Block Reason Dropdown */}
+          {adjustmentType === 'blocked_time' && (
+            <div>
+              <label
+                htmlFor="schedule-block-reason"
+                className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1"
+              >
+                Block Reason
+              </label>
+              <select
+                id="schedule-block-reason"
+                data-testid="schedule-modal-block-reason"
+                className="bookings-select-filter text-xs w-full"
+                value={reason || 'break'}
+                onChange={(e) => setReason(e.target.value)}
+              >
+                <option value="break">Break</option>
+                <option value="leave">Leave</option>
+                <option value="training">Training</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          )}
+
+          {/* Override Reason / Note */}
+          {(adjustmentType === 'working_hours' ||
+            adjustmentType === 'day_off') && (
             <div>
               <label
                 htmlFor="schedule-reason"
@@ -304,6 +449,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
               <input
                 id="schedule-reason"
                 type="text"
+                data-testid="schedule-modal-reason"
                 placeholder="e.g. Doctor appointment, Training, Personal leave..."
                 className="bookings-search-input text-xs w-full"
                 value={reason}
@@ -327,6 +473,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
           <button
             type="button"
             className="btn-secondary-compact text-xs"
+            data-testid="schedule-modal-cancel-btn"
             onClick={onClose}
             disabled={isSaving}
           >
@@ -335,6 +482,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
           <button
             type="button"
             className="bookings-header-primary-btn text-xs py-1.5 px-4"
+            data-testid="schedule-modal-submit-btn"
             onClick={handleSave}
             disabled={isSaving}
           >
