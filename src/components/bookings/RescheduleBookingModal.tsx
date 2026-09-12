@@ -35,6 +35,44 @@ function formatTimeDisplay(timeStr?: string | null): string {
   return `${displayHour}:${minute} ${ampm}`;
 }
 
+function readHomeServiceAddress(booking: Booking | null): string {
+  const meta = booking?.metadata as Record<string, unknown> | null | undefined;
+  const canonical = meta?.home_service_address as
+    Record<string, unknown> | null | undefined;
+  if (canonical && typeof canonical.full_address === 'string') {
+    return canonical.full_address;
+  }
+  // Bounded compatibility fallback for existing Desktop test payloads
+  const legacy = meta?.home_service as
+    Record<string, unknown> | null | undefined;
+  if (legacy && typeof legacy.address === 'string') {
+    return legacy.address;
+  }
+  return '';
+}
+
+function readHomeServiceAccessNote(booking: Booking | null): string {
+  const meta = booking?.metadata as Record<string, unknown> | null | undefined;
+  const canonical = meta?.home_service_address as
+    Record<string, unknown> | null | undefined;
+  if (canonical && typeof canonical.access_note === 'string') {
+    return canonical.access_note;
+  }
+  // Bounded compatibility fallback for existing Desktop test payloads
+  const legacy = meta?.home_service as
+    Record<string, unknown> | null | undefined;
+  if (legacy) {
+    if (typeof legacy.access_notes === 'string') return legacy.access_notes;
+    if (typeof legacy.access_note === 'string') return legacy.access_note;
+  }
+  return '';
+}
+
+function normalizeTimeForCompare(time?: string | null): string {
+  if (!time) return '';
+  return time.slice(0, 5);
+}
+
 interface RescheduleBookingModalDialogProps {
   onClose: () => void;
   booking: Booking;
@@ -46,23 +84,17 @@ const RescheduleBookingModalDialog: React.FC<
 > = ({ onClose, booking, onBookingRescheduled }) => {
   const isHomeService =
     booking.delivery_type === 'home_service' || booking.type === 'home_service';
-  const meta = booking.metadata as Record<string, unknown> | null | undefined;
-  const hs = meta?.home_service as Record<string, unknown> | null | undefined;
+
+  const initialAddress = readHomeServiceAddress(booking);
+  const initialAccessNote = readHomeServiceAccessNote(booking);
 
   const [date, setDate] = useState(booking.booking_date || '');
   const [startTime, setStartTime] = useState(
     booking.start_time ? booking.start_time.slice(0, 5) : '',
   );
-  const [homeServiceAddress, setHomeServiceAddress] = useState(
-    typeof hs?.address === 'string' ? hs.address : '',
-  );
-  const [homeServiceAccessNote, setHomeServiceAccessNote] = useState(
-    typeof hs?.access_notes === 'string'
-      ? hs.access_notes
-      : typeof hs?.access_note === 'string'
-        ? hs.access_note
-        : '',
-  );
+  const [homeServiceAddress, setHomeServiceAddress] = useState(initialAddress);
+  const [homeServiceAccessNote, setHomeServiceAccessNote] =
+    useState(initialAccessNote);
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,12 +109,20 @@ const RescheduleBookingModalDialog: React.FC<
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSubmitting, onClose]);
 
-  const hasChanges =
-    date !== booking.booking_date ||
-    startTime !== (booking.start_time ? booking.start_time.slice(0, 5) : '') ||
-    Boolean(note.trim()) ||
-    Boolean(homeServiceAddress.trim()) ||
-    Boolean(homeServiceAccessNote.trim());
+  const dateChanged = date !== (booking.booking_date || '');
+  const timeChanged =
+    normalizeTimeForCompare(startTime) !==
+    normalizeTimeForCompare(booking.start_time);
+  const addressChanged =
+    isHomeService &&
+    (homeServiceAddress.trim() !== initialAddress.trim() ||
+      homeServiceAccessNote.trim() !== initialAccessNote.trim());
+
+  // A free-form CRM note alone is NOT an operational change; only date, time, or address changes qualify.
+  const changed = dateChanged || timeChanged || addressChanged;
+
+  // Hosted behavior requires CRM reason for time and address changes.
+  const requiresReason = timeChanged || addressChanged;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,8 +131,18 @@ const RescheduleBookingModalDialog: React.FC<
       return;
     }
 
-    if (!hasChanges) {
-      setError('Modify at least one field or provide a note to save changes.');
+    if (!changed) {
+      setError('Choose a new date, time, or address before saving.');
+      return;
+    }
+
+    if (requiresReason && !note.trim()) {
+      setError('Add a CRM reason before saving this change.');
+      return;
+    }
+
+    if (isHomeService && addressChanged && !homeServiceAddress.trim()) {
+      setError('Enter the updated home-service address.');
       return;
     }
 
@@ -165,7 +215,7 @@ const RescheduleBookingModalDialog: React.FC<
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body-content space-y-4">
-            {/* Current Schedule Summary */}
+            {/* Current Schedule Summary with Full Operational Context */}
             <div className="rounded-lg border border-[var(--cs-border)] bg-[var(--cs-surface-warm)] p-3 text-xs space-y-1.5">
               <div className="grid grid-cols-[5.5rem_1fr] gap-x-2">
                 <span className="text-[var(--cs-text-muted)] font-medium">
@@ -197,11 +247,28 @@ const RescheduleBookingModalDialog: React.FC<
               </div>
               <div className="grid grid-cols-[5.5rem_1fr] gap-x-2">
                 <span className="text-[var(--cs-text-muted)] font-medium">
-                  Location:
+                  Mode:
+                </span>
+                <span className="text-[var(--cs-text)]">
+                  {isHomeService ? 'Home Service' : 'In-spa'}
+                </span>
+              </div>
+              <div className="grid grid-cols-[5.5rem_1fr] gap-x-2">
+                <span className="text-[var(--cs-text-muted)] font-medium">
+                  Therapist:
+                </span>
+                <span className="text-[var(--cs-text)] truncate font-medium">
+                  {booking.staff?.full_name || 'Unassigned'}
+                </span>
+              </div>
+              <div className="grid grid-cols-[5.5rem_1fr] gap-x-2">
+                <span className="text-[var(--cs-text-muted)] font-medium">
+                  {isHomeService ? 'Current Address:' : 'Room / Resource:'}
                 </span>
                 <span className="text-[var(--cs-text)] truncate">
-                  {booking.resource?.name ||
-                    (isHomeService ? 'Home Service' : 'Room unassigned')}
+                  {isHomeService
+                    ? initialAddress || 'No address saved'
+                    : booking.resource?.name || 'No room assigned'}
                 </span>
               </div>
             </div>
@@ -247,6 +314,26 @@ const RescheduleBookingModalDialog: React.FC<
                   className="w-full h-9 rounded-md border border-[var(--cs-border)] bg-[var(--cs-surface)] px-2.5 text-xs text-[var(--cs-text)] outline-none focus:border-[var(--color-accent)]"
                 />
               </div>
+            </div>
+
+            {/* Assigned Therapist Block (Authoritative Reassignment Unavailable on Desktop v1) */}
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-[var(--cs-text)]">
+                Assigned Therapist
+              </label>
+              <div className="flex items-center justify-between rounded-md border border-[var(--cs-border)] bg-[var(--cs-surface-warm)] px-3 py-2 text-xs">
+                <span className="text-[var(--cs-text)] font-medium">
+                  {booking.staff?.full_name || 'Unassigned'}
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--cs-text-muted)] bg-[var(--cs-surface)] border border-[var(--cs-border)] px-1.5 py-0.5 rounded">
+                  Reassignment Unavailable
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--cs-text-muted)]">
+                Therapist reassignment requires an authoritative Desktop backend
+                action (Stage 12). Existing therapist assignment remains
+                preserved.
+              </p>
             </div>
 
             {/* Home Service Delivery Details */}
@@ -296,16 +383,26 @@ const RescheduleBookingModalDialog: React.FC<
                 className="block text-xs font-semibold text-[var(--cs-text)]"
               >
                 CRM Reason / Internal Note{' '}
-                <span className="font-normal text-[var(--cs-text-muted)]">
-                  (optional)
-                </span>
+                {requiresReason ? (
+                  <span className="text-red-700" aria-hidden="true">
+                    *
+                  </span>
+                ) : (
+                  <span className="font-normal text-[var(--cs-text-muted)]">
+                    (optional for date-only change)
+                  </span>
+                )}
               </label>
               <textarea
                 id="reschedule-note"
                 rows={3}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Reason for reschedule (e.g. customer requested earlier time)"
+                placeholder={
+                  requiresReason
+                    ? 'Reason for reschedule (required for time/address changes)'
+                    : 'Reason for reschedule (e.g. customer requested new date)'
+                }
                 maxLength={500}
                 className="w-full rounded-md border border-[var(--cs-border)] bg-[var(--cs-surface)] p-2 text-xs text-[var(--cs-text)] outline-none focus:border-[var(--color-accent)]"
               />
@@ -333,7 +430,7 @@ const RescheduleBookingModalDialog: React.FC<
             <button
               type="submit"
               className="px-3.5 py-1.5 rounded-md bg-[var(--color-accent,#0f766e)] text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 shadow-sm"
-              disabled={isSubmitting || !hasChanges}
+              disabled={isSubmitting || !changed}
             >
               {isSubmitting ? 'Saving…' : 'Save Booking Changes'}
             </button>
