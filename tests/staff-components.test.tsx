@@ -10,11 +10,18 @@ import {
 import { StaffView } from '../src/components/staff/StaffView';
 import { CanonicalShell } from '../src/components/CanonicalShell';
 import * as staffService from '../src/lib/staff-service';
+import * as scheduleService from '../src/lib/schedule-service';
+import { StaffApplicationApprovalModal } from '../src/components/staff/modals/StaffApplicationApprovalModal';
+import { StaffRoleModal } from '../src/components/staff/modals/StaffRoleModal';
+import { StaffScheduleModal } from '../src/components/staff/modals/StaffScheduleModal';
+import { StaffOffboardingNoticeModal } from '../src/components/staff/modals/StaffOffboardingNoticeModal';
 import type { AuthContext } from '../src/types/auth';
 import type {
   BranchServiceOption,
   StaffMember,
   StaffOnboardingRequest,
+  StaffScheduleOverride,
+  StaffBlockedTime,
 } from '../src/types/staff';
 
 const mockAuthContext: AuthContext = {
@@ -622,21 +629,8 @@ describe('Staff Workspace Component Suite', () => {
     expect(screen.getByTestId('staff-row-staff-15')).toBeDefined();
   });
 
-  it('switches internal inspector tabs and supports inline profile editing', async () => {
-    const updateProfileSpy = vi
-      .spyOn(staffService, 'updateStaffProfile')
-      .mockResolvedValue({
-        ok: true,
-        staff: {
-          id: 's-1',
-          full_name: 'Maria Santos-Reyes',
-          nickname: 'Mary',
-          phone: '09171234567',
-          staff_type: 'therapist',
-          tier: 'senior',
-          is_head: true,
-        },
-      });
+  it('switches internal inspector tabs and verifies inline profile editing fails closed', async () => {
+    const updateProfileSpy = vi.spyOn(staffService, 'updateStaffProfile');
 
     render(<StaffView authContext={mockAuthContext} />);
 
@@ -667,15 +661,23 @@ describe('Staff Workspace Component Suite', () => {
     const nameInput = screen.getByTestId('edit-staff-name');
     expect(nameInput).toBeDefined();
 
-    // Update name
+    // Verify unavailable notice is shown
+    expect(
+      screen.getByText(
+        /UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT REQUIRED/,
+      ),
+    ).toBeDefined();
+
+    // Verify Save Profile button is disabled
+    const saveBtn = screen.getByTestId('save-profile-btn') as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+
+    // Update name and attempt click
     fireEvent.change(nameInput, { target: { value: 'Maria Santos-Reyes' } });
+    fireEvent.click(saveBtn);
 
-    // Save profile changes
-    fireEvent.click(screen.getByTestId('save-profile-btn'));
-
-    await waitFor(() => {
-      expect(updateProfileSpy).toHaveBeenCalled();
-    });
+    // Verify direct mutation was NOT called
+    expect(updateProfileSpy).not.toHaveBeenCalled();
   });
 
   it('switches between all 6 primary workspace tabs', async () => {
@@ -842,5 +844,519 @@ describe('Staff Workspace Component Suite', () => {
     });
 
     expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+  });
+});
+
+describe('Staff Fail-Closed Security & Parity Suite (Stage 11)', () => {
+  const mockApplicant: StaffOnboardingRequest = mockOnboardingRequests[0];
+
+  const mockStaff: StaffMember = {
+    id: 's-1',
+    branch_id: 'branch-1',
+    auth_user_id: 'u-1',
+    full_name: 'Maria Santos',
+    nickname: 'Mary',
+    phone: '09171234567',
+    avatar_url: null,
+    tier: 'senior',
+    system_role: 'staff',
+    staff_type: 'therapist',
+    is_head: true,
+    is_active: true,
+    is_cross_branch: false,
+    created_at: '2025-05-10T08:00:00Z',
+    updated_at: '2025-05-10T08:00:00Z',
+    status: 'active',
+    services: [],
+  };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
+      ok: true,
+      data: mockStaffRoster,
+      kpis: {
+        totalStaff: 4,
+        activeStaff: 2,
+        awaitingStaff: 1,
+        invitedStaff: 1,
+      },
+    });
+    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue(
+      mockBranchServices,
+    );
+    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue(
+      mockOnboardingRequests,
+    );
+    vi.spyOn(staffService, 'fetchBranchScheduleWeek').mockResolvedValue({
+      overrides: [],
+      blockedTimes: [],
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('proves Staff approval modal fails closed without calling reviewOnboardingRequest and has disabled submit', () => {
+    const reviewSpy = vi.spyOn(staffService, 'reviewOnboardingRequest');
+    const onApprovedSpy = vi.fn();
+    const onCloseSpy = vi.fn();
+
+    render(
+      <StaffApplicationApprovalModal
+        isOpen={true}
+        onClose={onCloseSpy}
+        request={mockApplicant}
+        branchId="branch-1"
+        branchName="Cradle Alabang"
+        branchServices={[]}
+        onApproved={onApprovedSpy}
+      />,
+    );
+
+    // 1. Truthful unavailable notice is displayed
+    expect(
+      screen.getByText(
+        /UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT REQUIRED/,
+      ),
+    ).toBeDefined();
+    expect(
+      screen.getByText(
+        /Staff onboarding approval requires the authoritative Desktop staff-review service/i,
+      ),
+    ).toBeDefined();
+
+    // 2. Submit / Approve CTA is disabled
+    const approveBtn = screen.getByTestId(
+      'approve-application-submit-btn',
+    ) as HTMLButtonElement;
+    expect(approveBtn.disabled).toBe(true);
+
+    // 3. Attempting click does not execute mutation or simulated success
+    fireEvent.click(approveBtn);
+    expect(reviewSpy).not.toHaveBeenCalled();
+    expect(onApprovedSpy).not.toHaveBeenCalled();
+
+    // 4. Modal is keyboard accessible (escape / cancel)
+    fireEvent.click(screen.getByTestId('cancel-approval-modal-btn'));
+    expect(onCloseSpy).toHaveBeenCalled();
+  });
+
+  it('proves Staff rejection in Applications tab fails closed without calling reviewOnboardingRequest', async () => {
+    const reviewSpy = vi.spyOn(staffService, 'reviewOnboardingRequest');
+
+    render(<StaffView authContext={mockAuthContext} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
+    });
+
+    // Switch to Applications tab
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    await waitFor(() => {
+      expect(screen.getByTestId('staff-applications-view')).toBeDefined();
+    });
+
+    // Select application row to populate inspector
+    fireEvent.click(screen.getByTestId('application-row-req-1'));
+
+    // Open reject modal in Inspector
+    const rejectBtn = screen.getByTestId('inspector-reject-app-btn');
+    fireEvent.click(rejectBtn);
+
+    // Verify Reject modal opens with fail-closed warning
+    expect(screen.getByTestId('reject-app-modal')).toBeDefined();
+    expect(
+      screen.getByText(
+        /UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT REQUIRED/,
+      ),
+    ).toBeDefined();
+
+    // Confirm button is disabled
+    const confirmRejectBtn = screen.getByTestId(
+      'confirm-reject-btn',
+    ) as HTMLButtonElement;
+    expect(confirmRejectBtn.disabled).toBe(true);
+
+    // Click confirm reject
+    fireEvent.click(confirmRejectBtn);
+
+    // Assert reviewOnboardingRequest was NOT called
+    expect(reviewSpy).not.toHaveBeenCalled();
+  });
+
+  it('proves Staff role modal fails closed without calling updateStaffSystemRole and has disabled submit', () => {
+    const updateRoleSpy = vi.spyOn(staffService, 'updateStaffSystemRole');
+    const onRoleUpdatedSpy = vi.fn();
+    const onCloseSpy = vi.fn();
+
+    render(
+      <StaffRoleModal
+        isOpen={true}
+        onClose={onCloseSpy}
+        staff={mockStaff}
+        actorRole="manager"
+        onRoleUpdated={onRoleUpdatedSpy}
+      />,
+    );
+
+    // 1. Truthful unavailable notice is displayed
+    expect(
+      screen.getByText(
+        /UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT REQUIRED/,
+      ),
+    ).toBeDefined();
+
+    // 2. Save Role button is disabled
+    const saveRoleBtn = screen.getByTestId(
+      'save-role-modal',
+    ) as HTMLButtonElement;
+    expect(saveRoleBtn.disabled).toBe(true);
+
+    // 3. Click does not trigger mutation or callback
+    fireEvent.click(saveRoleBtn);
+    expect(updateRoleSpy).not.toHaveBeenCalled();
+    expect(onRoleUpdatedSpy).not.toHaveBeenCalled();
+
+    // 4. Modal is dismissible via keyboard / close
+    fireEvent.click(screen.getByTestId('cancel-role-modal'));
+    expect(onCloseSpy).toHaveBeenCalled();
+  });
+
+  it('proves Staff offboarding modal is read-only informational with no mutations', () => {
+    const onCloseSpy = vi.fn();
+    render(
+      <StaffOffboardingNoticeModal
+        isOpen={true}
+        onClose={onCloseSpy}
+        staff={mockStaff}
+      />,
+    );
+
+    // Informational contract notice displayed
+    expect(screen.getByTestId('staff-offboarding-modal')).toBeDefined();
+    expect(screen.getByText('OFFBOARDING CONTRACT REQUIRED')).toBeDefined();
+    expect(
+      screen.getByText(
+        /offboarding mutations are blocked pending backend contract deployment/i,
+      ),
+    ).toBeDefined();
+
+    // Close button dismisses
+    fireEvent.click(screen.getByTestId('close-offboarding-modal'));
+    expect(onCloseSpy).toHaveBeenCalled();
+  });
+});
+
+describe('Staff Schedule Authoritative Mutation Suite (Stage 11)', () => {
+  const mockStaff: StaffMember = {
+    id: 's-1',
+    branch_id: 'branch-1',
+    auth_user_id: 'u-1',
+    full_name: 'Maria Santos',
+    nickname: 'Mary',
+    phone: '09171234567',
+    avatar_url: null,
+    tier: 'senior',
+    system_role: 'staff',
+    staff_type: 'therapist',
+    is_head: true,
+    is_active: true,
+    is_cross_branch: false,
+    created_at: '2025-05-10T08:00:00Z',
+    updated_at: '2025-05-10T08:00:00Z',
+    status: 'active',
+    services: [],
+  };
+
+  const existingOverride: StaffScheduleOverride = {
+    id: 'ov-1',
+    staff_id: 's-1',
+    override_date: '2026-03-15',
+    is_day_off: false,
+    start_time: '09:00:00',
+    end_time: '18:00:00',
+    reason: 'Temporary coverage',
+  };
+
+  const existingBlock: StaffBlockedTime = {
+    id: 'blk-1',
+    staff_id: 's-1',
+    block_date: '2026-03-15',
+    start_time: '12:00:00',
+    end_time: '13:00:00',
+    reason: 'Lunch break',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('routes working_hours adjustment to mutateSchedule(upsert_override) with exact payload', async () => {
+    const mutateSpy = vi
+      .spyOn(scheduleService, 'mutateSchedule')
+      .mockResolvedValue({
+        ok: true,
+        action: 'upsert_override',
+        record_id: 'ov-new',
+      });
+    const adjustSpy = vi.spyOn(staffService, 'adjustStaffSchedule');
+    const onAdjusted = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffScheduleModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchId="branch-1"
+        initialDate="2026-03-15"
+        onScheduleAdjusted={onAdjusted}
+      />,
+    );
+
+    // Form inputs: working_hours is default
+    const reasonInput = screen.getByTestId('schedule-modal-reason');
+    fireEvent.change(reasonInput, { target: { value: 'Coverage for event' } });
+
+    // Submit
+    const submitBtn = screen.getByTestId('schedule-modal-submit-btn');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mutateSpy).toHaveBeenCalledWith('upsert_override', {
+        branchId: 'branch-1',
+        staffId: 's-1',
+        overrideDate: '2026-03-15',
+        isDayOff: false,
+        shiftType: 'single',
+        startTime: '09:00',
+        endTime: '18:00',
+        reason: 'Coverage for event',
+      });
+    });
+
+    expect(adjustSpy).not.toHaveBeenCalled();
+    expect(onAdjusted).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('routes day_off adjustment to mutateSchedule(upsert_override) with isDayOff: true', async () => {
+    const mutateSpy = vi
+      .spyOn(scheduleService, 'mutateSchedule')
+      .mockResolvedValue({
+        ok: true,
+        action: 'upsert_override',
+        record_id: 'ov-off',
+      });
+    const onAdjusted = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffScheduleModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchId="branch-1"
+        initialDate="2026-03-16"
+        onScheduleAdjusted={onAdjusted}
+      />,
+    );
+
+    // Select day_off
+    fireEvent.click(screen.getByTestId('adj-type-day_off'));
+
+    // Reason
+    fireEvent.change(screen.getByTestId('schedule-modal-reason'), {
+      target: { value: 'Personal leave approved' },
+    });
+
+    fireEvent.click(screen.getByTestId('schedule-modal-submit-btn'));
+
+    await waitFor(() => {
+      expect(mutateSpy).toHaveBeenCalledWith('upsert_override', {
+        branchId: 'branch-1',
+        staffId: 's-1',
+        overrideDate: '2026-03-16',
+        isDayOff: true,
+        reason: 'Personal leave approved',
+      });
+    });
+
+    expect(onAdjusted).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('routes blocked_time adjustment to mutateSchedule(create_blocked_time) with blockReason', async () => {
+    const mutateSpy = vi
+      .spyOn(scheduleService, 'mutateSchedule')
+      .mockResolvedValue({
+        ok: true,
+        action: 'create_blocked_time',
+        record_id: 'blk-new',
+      });
+    const onAdjusted = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffScheduleModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchId="branch-1"
+        initialDate="2026-03-17"
+        onScheduleAdjusted={onAdjusted}
+      />,
+    );
+
+    // Select blocked_time
+    fireEvent.click(screen.getByTestId('adj-type-blocked_time'));
+
+    // Set times and blockReason
+    fireEvent.change(screen.getByTestId('schedule-modal-start-time'), {
+      target: { value: '14:00' },
+    });
+    fireEvent.change(screen.getByTestId('schedule-modal-end-time'), {
+      target: { value: '15:00' },
+    });
+    fireEvent.change(screen.getByTestId('schedule-modal-block-reason'), {
+      target: { value: 'training' },
+    });
+
+    fireEvent.click(screen.getByTestId('schedule-modal-submit-btn'));
+
+    await waitFor(() => {
+      expect(mutateSpy).toHaveBeenCalledWith('create_blocked_time', {
+        branchId: 'branch-1',
+        staffId: 's-1',
+        blockDate: '2026-03-17',
+        startTime: '14:00',
+        endTime: '15:00',
+        reason: 'training',
+      });
+    });
+
+    expect(onAdjusted).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('routes remove_override adjustment to mutateSchedule(delete_override) with overrideId', async () => {
+    const mutateSpy = vi
+      .spyOn(scheduleService, 'mutateSchedule')
+      .mockResolvedValue({
+        ok: true,
+        action: 'delete_override',
+      });
+    const onAdjusted = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffScheduleModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchId="branch-1"
+        initialDate="2026-03-15"
+        existingOverrides={[existingOverride]}
+        onScheduleAdjusted={onAdjusted}
+      />,
+    );
+
+    // Select remove_override
+    fireEvent.click(screen.getByTestId('adj-type-remove_override'));
+
+    fireEvent.click(screen.getByTestId('schedule-modal-submit-btn'));
+
+    await waitFor(() => {
+      expect(mutateSpy).toHaveBeenCalledWith('delete_override', {
+        branchId: 'branch-1',
+        staffId: 's-1',
+        overrideId: 'ov-1',
+      });
+    });
+
+    expect(onAdjusted).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('routes remove_block adjustment to mutateSchedule(delete_blocked_time) with blockId', async () => {
+    const mutateSpy = vi
+      .spyOn(scheduleService, 'mutateSchedule')
+      .mockResolvedValue({
+        ok: true,
+        action: 'delete_blocked_time',
+      });
+    const onAdjusted = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffScheduleModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchId="branch-1"
+        initialDate="2026-03-15"
+        existingBlocks={[existingBlock]}
+        onScheduleAdjusted={onAdjusted}
+      />,
+    );
+
+    // Select remove_block
+    fireEvent.click(screen.getByTestId('adj-type-remove_block'));
+
+    fireEvent.click(screen.getByTestId('schedule-modal-submit-btn'));
+
+    await waitFor(() => {
+      expect(mutateSpy).toHaveBeenCalledWith('delete_blocked_time', {
+        branchId: 'branch-1',
+        staffId: 's-1',
+        blockId: 'blk-1',
+      });
+    });
+
+    expect(onAdjusted).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('displays authoritative server error on mutation failure and keeps modal open', async () => {
+    const mutateSpy = vi
+      .spyOn(scheduleService, 'mutateSchedule')
+      .mockResolvedValue({
+        ok: false,
+        code: 'FORBIDDEN',
+        message:
+          'Operator lacks schedule management permission for this staff member',
+      });
+    const onAdjusted = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffScheduleModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchId="branch-1"
+        initialDate="2026-03-15"
+        onScheduleAdjusted={onAdjusted}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('schedule-modal-submit-btn'));
+
+    await waitFor(() => {
+      expect(mutateSpy).toHaveBeenCalled();
+    });
+
+    // Error banner is displayed
+    expect(
+      screen.getByText(
+        'Operator lacks schedule management permission for this staff member',
+      ),
+    ).toBeDefined();
+
+    // Modal stays open, no callbacks
+    expect(onAdjusted).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
