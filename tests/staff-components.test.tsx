@@ -15,6 +15,7 @@ import { StaffApplicationApprovalModal } from '../src/components/staff/modals/St
 import { StaffRoleModal } from '../src/components/staff/modals/StaffRoleModal';
 import { StaffScheduleModal } from '../src/components/staff/modals/StaffScheduleModal';
 import { StaffOffboardingNoticeModal } from '../src/components/staff/modals/StaffOffboardingNoticeModal';
+import { StaffCapabilityModal } from '../src/components/staff/modals/StaffCapabilityModal';
 import type { AuthContext } from '../src/types/auth';
 import type {
   BranchServiceOption,
@@ -1357,6 +1358,254 @@ describe('Staff Schedule Authoritative Mutation Suite (Stage 11)', () => {
 
     // Modal stays open, no callbacks
     expect(onAdjusted).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('prevents backdrop click and Escape from closing StaffScheduleModal while mutation is in flight (success path)', async () => {
+    type MutateResult = Awaited<
+      ReturnType<typeof scheduleService.mutateSchedule>
+    >;
+    let resolveMutation!: (value: MutateResult) => void;
+    const pendingPromise = new Promise<MutateResult>((resolve) => {
+      resolveMutation = resolve;
+    });
+
+    vi.spyOn(scheduleService, 'mutateSchedule').mockReturnValue(pendingPromise);
+
+    const onAdjusted = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffScheduleModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchId="branch-1"
+        initialDate="2026-03-15"
+        onScheduleAdjusted={onAdjusted}
+      />,
+    );
+
+    const submitBtn = screen.getByTestId(
+      'schedule-modal-submit-btn',
+    ) as HTMLButtonElement;
+    expect(submitBtn.disabled).toBe(false);
+
+    // Click submit
+    fireEvent.click(submitBtn);
+
+    // Verify in-flight submitting state
+    expect(submitBtn.disabled).toBe(true);
+    expect(submitBtn.textContent).toContain('Saving Adjustment...');
+
+    // Click backdrop while in flight -> must NOT close
+    const backdrop = screen.getByTestId('staff-schedule-modal');
+    fireEvent.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Press Escape while in flight -> must NOT close
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Resolve mutation successfully
+    resolveMutation({
+      ok: true,
+      action: 'upsert_override',
+    });
+
+    // Modal should complete lifecycle and close cleanly
+    await waitFor(() => {
+      expect(onAdjusted).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('prevents backdrop click while in flight and keeps modal open on authoritative mutation error', async () => {
+    type MutateResult = Awaited<
+      ReturnType<typeof scheduleService.mutateSchedule>
+    >;
+    let resolveMutation!: (value: MutateResult) => void;
+    const pendingPromise = new Promise<MutateResult>((resolve) => {
+      resolveMutation = resolve;
+    });
+
+    vi.spyOn(scheduleService, 'mutateSchedule').mockReturnValue(pendingPromise);
+
+    const onAdjusted = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffScheduleModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchId="branch-1"
+        initialDate="2026-03-15"
+        onScheduleAdjusted={onAdjusted}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('schedule-modal-submit-btn'));
+
+    // Click backdrop while in flight -> must NOT close
+    const backdrop = screen.getByTestId('staff-schedule-modal');
+    fireEvent.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Resolve with authoritative failure
+    resolveMutation({
+      ok: false,
+      code: 'SCHEDULE_CONFLICT',
+      message: 'Time block overlaps existing booking',
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Time block overlaps existing booking'),
+      ).toBeDefined();
+    });
+
+    // Modal remains open, no callbacks
+    expect(onAdjusted).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('Staff Capability Authoritative RPC & In-Flight Lifecycle Suite (Stage 11)', () => {
+  const mockStaff: StaffMember = {
+    id: 's-1',
+    branch_id: 'branch-1',
+    auth_user_id: 'u-1',
+    full_name: 'Maria Santos',
+    nickname: 'Mary',
+    phone: '09171234567',
+    avatar_url: null,
+    tier: 'senior',
+    system_role: 'staff',
+    staff_type: 'therapist',
+    is_head: true,
+    is_active: true,
+    is_cross_branch: false,
+    created_at: '2025-05-10T08:00:00Z',
+    updated_at: '2025-05-10T08:00:00Z',
+    status: 'active',
+    services: [],
+  };
+
+  const mockBranchServices: BranchServiceOption[] = [
+    {
+      id: 'srv-1',
+      name: 'Swedish Massage',
+      duration_minutes: 60,
+    },
+  ];
+
+  it('prevents backdrop click and Escape from closing StaffCapabilityModal while RPC is in flight and completes on success', async () => {
+    type RpcResult = Awaited<
+      ReturnType<typeof staffService.updateStaffCapabilities>
+    >;
+    let resolveRPC!: (value: RpcResult) => void;
+    const pendingPromise = new Promise<RpcResult>((resolve) => {
+      resolveRPC = resolve;
+    });
+
+    vi.spyOn(staffService, 'updateStaffCapabilities').mockReturnValue(
+      pendingPromise,
+    );
+
+    const onCapabilitiesSaved = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffCapabilityModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchServices={mockBranchServices}
+        onCapabilitiesSaved={onCapabilitiesSaved}
+      />,
+    );
+
+    const saveBtn = screen.getByTestId(
+      'save-capability-modal',
+    ) as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(false);
+
+    // Start save
+    fireEvent.click(saveBtn);
+
+    // Verify in-flight state
+    expect(saveBtn.disabled).toBe(true);
+    expect(saveBtn.textContent).toContain('Saving...');
+
+    // Click backdrop while in flight -> must NOT close
+    const backdrop = screen.getByTestId('staff-capability-modal');
+    fireEvent.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Press Escape while in flight -> must NOT close
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Resolve RPC successfully
+    resolveRPC({
+      ok: true,
+      message: 'Capabilities updated (0 assigned).',
+    });
+
+    await waitFor(() => {
+      expect(onCapabilitiesSaved).toHaveBeenCalledWith('s-1', []);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('prevents backdrop click while RPC is in flight and displays authoritative error while keeping modal open', async () => {
+    type RpcResult = Awaited<
+      ReturnType<typeof staffService.updateStaffCapabilities>
+    >;
+    let resolveRPC!: (value: RpcResult) => void;
+    const pendingPromise = new Promise<RpcResult>((resolve) => {
+      resolveRPC = resolve;
+    });
+
+    vi.spyOn(staffService, 'updateStaffCapabilities').mockReturnValue(
+      pendingPromise,
+    );
+
+    const onCapabilitiesSaved = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <StaffCapabilityModal
+        isOpen={true}
+        onClose={onClose}
+        staff={mockStaff}
+        branchServices={mockBranchServices}
+        onCapabilitiesSaved={onCapabilitiesSaved}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('save-capability-modal'));
+
+    // Click backdrop while in flight -> must NOT close
+    const backdrop = screen.getByTestId('staff-capability-modal');
+    fireEvent.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Resolve with authoritative RPC error string
+    resolveRPC({
+      ok: false,
+      error: 'crm_staff_services_branch_mismatch',
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('crm_staff_services_branch_mismatch'),
+      ).toBeDefined();
+    });
+
+    // Modal remains open and onCapabilitiesSaved was not called
+    expect(onCapabilitiesSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 });
