@@ -273,43 +273,58 @@ The initial Stage 11 audit referenced commit `1ea191f3ebedccda6a2249f3ee8f1b53d5
 - **Trigger**: Capabilities tab "Manage"
 - **Fields**: Multi-select service checklist.
 - **Authoritative API**: Supabase RPC `replace_staff_service_capabilities` under authenticated session.
+- **Authority Verification**: Audited in hosted migration `supabase/migrations/20260806132402_service_catalog_unification_repair.sql`. Function is `SECURITY DEFINER`, verifies `auth.uid()`, enforces caller role (`owner`, `manager`, `assistant_manager`, `store_manager`, `crm`), validates branch match, prevents privilege escalation, checks branch service assignability, and revokes public/anon access.
 - **Desktop Status**: **PARITY COMPLETE**
 
-#### Workflow 2: Approve / Reject Onboarding Application
+#### Workflow 2: Approve Onboarding Application
 
 - **Hosted Reference**: `crm-staff-applications-tab.tsx`
-- **Desktop Source File**: `StaffApplicationApprovalModal.tsx`, `StaffInspectorCard.tsx`
-- **Current Write Path**: Direct Supabase client table updates on `staff_onboarding_requests` and `staff`.
-- **Security Assessment**: Does not use a server-authoritative `/api/desktop/v1/staff` endpoint. Client-driven mutations carry security risks without dedicated server validation.
+- **Desktop Source File**: `StaffApplicationApprovalModal.tsx`
+- **Current Desktop Runtime**: **FAIL-CLOSED / NO WRITE** (Unsafe direct Supabase writes disconnected; shows truthful unavailable notice; approve CTA disabled).
+- **Security Assessment**: Direct client mutations carry security risks without dedicated server validation.
 - **Required Hosted Endpoint (Stage 12)**: `POST /api/desktop/v1/staff/onboarding/review`
 - **Desktop Status**: **BLOCKED — HOSTED ENDPOINT REQUIRED**
 
-#### Workflow 3: Assign System Role
+#### Workflow 3: Reject Onboarding Application
+
+- **Hosted Reference**: `crm-staff-applications-tab.tsx`
+- **Desktop Source File**: `StaffInspectorCard.tsx`
+- **Current Desktop Runtime**: **FAIL-CLOSED / NO WRITE** (Unsafe direct Supabase writes disconnected; shows truthful unavailable notice; confirm rejection CTA disabled).
+- **Security Assessment**: Direct client mutations carry security risks without dedicated server validation.
+- **Required Hosted Endpoint (Stage 12)**: `POST /api/desktop/v1/staff/onboarding/review`
+- **Desktop Status**: **BLOCKED — HOSTED ENDPOINT REQUIRED**
+
+#### Workflow 4: Assign System Role
 
 - **Hosted Reference**: `crm-staff-branch-resolution-dialog.tsx`
 - **Desktop Source File**: `StaffRoleModal.tsx`
-- **Current Write Path**: Direct update to `staff.system_role`.
+- **Current Desktop Runtime**: **FAIL-CLOSED / NO WRITE** (Unsafe direct Supabase writes disconnected; shows truthful unavailable notice; save role CTA disabled).
 - **Security Assessment**: Bypasses server-authoritative role transition logic.
 - **Required Hosted Endpoint (Stage 12)**: `POST /api/desktop/v1/staff/:staffId/role`
 - **Desktop Status**: **BLOCKED — HOSTED ENDPOINT REQUIRED**
 
-#### Workflow 4: Staff Shift / Schedule Modal
+#### Workflow 5: Staff Schedule Adjustment
 
-- **Hosted Reference**: `staff-schedule-calendar-modal.tsx`
+- **Hosted Reference**: `adjust-schedule-dialog.tsx`, `staff-schedule-calendar-modal.tsx`
 - **Desktop Source File**: `StaffScheduleModal.tsx`
-- **Current Write Path**: Direct upsert to `schedule_overrides`.
-- **Required Hosted Endpoint (Stage 12)**: Route through `/api/desktop/v1/schedule/mutations`.
-- **Desktop Status**: **BLOCKED — HOSTED ENDPOINT REQUIRED**
+- **Current Desktop Runtime**: Authoritative route dispatch via `scheduleService.mutateSchedule(...)`.
+- **Authoritative API**: `POST /api/desktop/v1/schedule/mutations`
+  - Working Hours: `action: "upsert_override"` (`isDayOff: false`, `shiftType: "single"`, `startTime`, `endTime`, `reason`)
+  - Day Off: `action: "upsert_override"` (`isDayOff: true`, `reason`)
+  - Block Time: `action: "create_blocked_time"` (`startTime`, `endTime`, `reason: "break"|"leave"|"training"|"other"`)
+  - Clear Override: `action: "delete_override"` (`overrideId`)
+  - Remove Block: `action: "delete_blocked_time"` (`blockId`)
+- **Desktop Status**: **PARITY COMPLETE**
 
-#### Workflow 5: Offboarding Notice
+#### Workflow 6: Offboarding Notice
 
 - **Hosted Reference**: Administrative Offboarding flow
 - **Desktop Source File**: `StaffOffboardingNoticeModal.tsx`
-- **Current Write Path**: Direct update to `staff.is_active`.
+- **Current Desktop Runtime**: **READ-ONLY INFORMATIONAL / NO WRITE** (Modal presents informational notice regarding server offboarding contract requirements; does not execute any writes).
 - **Required Hosted Endpoint (Stage 12)**: `POST /api/desktop/v1/staff/:staffId/offboard`
 - **Desktop Status**: **BLOCKED — HOSTED ENDPOINT REQUIRED**
 
-#### Workflow 6: Add Staff Guidance Modal
+#### Workflow 7: Add Staff Guidance Modal
 
 - **Hosted Reference**: Administrative Roster Guidance
 - **Desktop Source File**: `StaffAddGuidanceModal.tsx`
@@ -343,7 +358,8 @@ The initial Stage 11 audit referenced commit `1ea191f3ebedccda6a2249f3ee8f1b53d5
   - Schedule: Adjust Working Hours / Day Off Modal
   - Home Service: Dispatch Details & Driver Assignment
   - Home Service: Reassign Therapist in Dispatch
-  - Staff: Service Capabilities Modal
+  - Staff: Service Capabilities Modal (`replace_staff_service_capabilities` RPC)
+  - Staff: Schedule Adjustment (`POST /api/desktop/v1/schedule/mutations`)
 
 - **PARITY COMPLETE — READ ONLY**:
   - Attendance: Time Correction
@@ -357,12 +373,11 @@ The initial Stage 11 audit referenced commit `1ea191f3ebedccda6a2249f3ee8f1b53d5
   - Settings: Desktop CRM Settings
 
 - **BLOCKED — HOSTED ENDPOINT REQUIRED (STAGE 12)**:
-  - Bookings: Reschedule Booking (Therapist Reassignment) — requires `POST /api/desktop/v1/bookings/:id/assign-therapist`
-  - Staff: Approve Onboarding Application — requires `POST /api/desktop/v1/staff/onboarding/review`
-  - Staff: Reject Onboarding Application — requires `POST /api/desktop/v1/staff/onboarding/review`
-  - Staff: Assign System Role — requires `POST /api/desktop/v1/staff/:staffId/role`
-  - Staff: Staff Shift / Schedule — requires routing through `/api/desktop/v1/schedule/mutations`
-  - Staff: Offboarding Notice — requires `POST /api/desktop/v1/staff/:staffId/offboard`
+  - Bookings: Reschedule Booking (Therapist Reassignment) — requires `POST /api/desktop/v1/bookings/:id/assign-therapist` (Runtime: FAIL-CLOSED / NO WRITE)
+  - Staff: Approve Onboarding Application — requires `POST /api/desktop/v1/staff/onboarding/review` (Runtime: FAIL-CLOSED / NO WRITE)
+  - Staff: Reject Onboarding Application — requires `POST /api/desktop/v1/staff/onboarding/review` (Runtime: FAIL-CLOSED / NO WRITE)
+  - Staff: Assign System Role — requires `POST /api/desktop/v1/staff/:staffId/role` (Runtime: FAIL-CLOSED / NO WRITE)
+  - Staff: Offboarding Notice — requires `POST /api/desktop/v1/staff/:staffId/offboard` (Runtime: READ-ONLY INFORMATIONAL / NO WRITE)
 
 - **OUT OF SCOPE**:
   - Dormant financial modules (Owner, Payments, Finance, Reports, Reconciliation, Payroll, Marketing).
