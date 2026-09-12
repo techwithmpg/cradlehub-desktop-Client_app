@@ -1,121 +1,108 @@
 # Stage 11 — Evidence
 
-**Target:** CradleHub Windows desktop CRM client  
-**Stage / Task:** Stage 11 — Canonical Modal Parity  
-**Status:** `READY FOR INDEPENDENT REVIEW — NOT ACCEPTED / NOT MERGED`  
-**Branch:** `stage/11-canonical-modal-parity`  
-**BASE_SHA:** `3596493f07aaa61dc9c5e0cc1d7c1b5f31a75ac7`  
-**Hosted Canonical Reference:** `E:\cradlehub` (commit `1ea191f3ebedccda6a2249f3ee8f1b53d5e6791a`, READ-ONLY)
+**Target:** CradleHub Windows desktop CRM client
+**Stage / Task:** Stage 11 — Canonical Modal Parity (Correction Pass)
+**Status:** `READY FOR INDEPENDENT REVIEW — NOT ACCEPTED / NOT MERGED`
+**Branch:** `stage/11-canonical-modal-parity`
+**BASE_SHA:** `3596493f07aaa61dc9c5e0cc1d7c1b5f31a75ac7`
+**Starting Correction HEAD:** `dd7d0183486c721cc099f166d69dff5febdb0f31`
+**Authoritative Hosted Reference:** `ed8ae75d2d6fc9f3b8144dcabbe014f676e83a99` (`https://github.com/techwithmpg/Cradlehub.git` `origin/main`, READ-ONLY)
 
 ---
 
-## 1. Executive Summary & Purpose
+## 1. Correction Rationale & Scope Reconciliation
 
-Stage 11 establishes functional parity between the operational modal workflows of the CradleHub Windows Desktop Client and the authoritative hosted CradleHub web application (`https://www.cradlewellnessliving.com`).
+### 1.1 Why the Previous Hosted Reference Was Corrected
 
-All modals, dialogs, confirmation dialogs, and drawer sheets across the active CRM modules were audited against the canonical hosted codebase. For every applicable workflow, the hosted contract defines:
+The initial Stage 11 audit recorded `1ea191f3ebedccda6a2249f3ee8f1b53d5e6791a` as canonical because the auxiliary local checkout happened to be sitting on that commit. That commit was NOT the authoritative head of `origin/main`. Independent review identified the discrepancy, and `git -C "E:\cradlehub" fetch --all --prune` verified that current hosted `origin/main` is `ed8ae75d2d6fc9f3b8144dcabbe014f676e83a99`.
 
-- The authoritative trigger and permission requirements.
-- The required and optional form fields.
-- Client-side and server-side validation rules.
-- Available options (e.g. cancellation reasons, roles, capabilities).
-- Authoritative backend endpoints and payload contracts.
+All modal contracts, schema validations, and operational requirements have been audited directly against `ed8ae75d2d6fc9f3b8144dcabbe014f676e83a99`.
 
-The Desktop client preserves the canonical function, fields, and error boundaries while rendering through the desktop design system (tokens, borders, spacing, dark mode adaptation, and keyboard accessibility).
+### 1.2 Core Scope Boundaries
 
-### Scope Boundaries Maintained
-
-- **Strictly Active Modules**: Only the 8 authorized first-release modules were audited and maintained:
-  1. Today (`src/components/today/**`)
-  2. Bookings (`src/components/bookings/**`)
-  3. Attendance (`src/components/attendance/**`)
-  4. Customers (`src/components/customers/**`)
-  5. Schedule (`src/components/schedule/**`)
-  6. Home Service (`src/components/home-service/**`)
-  7. Staff (`src/components/staff/**`)
-  8. Settings (`src/components/CanonicalShell.tsx` module placeholder)
-- **Zero Financial Modules Reopened**: Owner, Payments, Finance, Reports, Reconciliation, and Payroll remain dormant and excluded from modal additions.
-- **Zero Backend Mutation**: No schema changes, no migrations, no alterations to hosted code in `E:\cradlehub`.
+- **Strictly Active Modules (8)**: Today, Bookings, Attendance, Customers, Schedule, Home Service, Staff, Settings.
+- **Zero Dormant Modules Reopened**: Owner, Payments, Finance, Reports, Reconciliation, and Payroll remain dormant and strictly excluded.
+- **Zero Backend Mutation**: No schema migrations or modifications were made to the hosted repository (`E:\cradlehub` is read-only).
 - **Zero Privileged Secrets**: All client API requests authenticate via user session Bearer tokens; no Supabase service role keys exist in the renderer.
-- **Fail-Closed Offline Security**: In the absence of network connectivity or valid authentication, all modal actions fail closed with clear, actionable error messaging.
+- **Fail-Closed Security**: In the absence of network connectivity or valid authentication, modal actions fail closed with actionable error messaging.
 
 ---
 
-## 2. Canonical Modal Parity Matrix Summary
+## 2. Canonical Modal Parity Matrix Reconciliation
 
-The comprehensive audit and matrix is recorded in [`docs/20-design/STAGE_11_MODAL_PARITY_MATRIX.md`](file:///E:/Cradle-Destop-Client/docs/20-design/STAGE_11_MODAL_PARITY_MATRIX.md).
+The detailed matrix is recorded in [`docs/20-design/STAGE_11_MODAL_PARITY_MATRIX.md`](file:///E:/Cradle-Destop-Client/docs/20-design/STAGE_11_MODAL_PARITY_MATRIX.md).
 
-| Module           | Canonical Modal / Workflow  | Desktop Status              | Implementation Notes                                                                                                               |
-| :--------------- | :-------------------------- | :-------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
-| **Today**        | In-Spa Booking Actions      | Complete                    | Handled via inline card actions with status confirmation; cancel/reschedule delegates to Bookings inspector.                       |
-| **Bookings**     | New Booking Modal           | Complete                    | Implemented in Stage 02/08B with walk-in, phone, and future booking options and write boundaries.                                  |
-| **Bookings**     | Cancel Booking Modal        | **Implemented in Stage 11** | Replaced placeholder notice with canonical `CancelBookingModal` calling `POST /api/desktop/v1/bookings/:bookingId/cancel`.         |
-| **Bookings**     | Reschedule Booking Modal    | **Implemented in Stage 11** | Replaced placeholder notice with canonical `RescheduleBookingModal` calling `POST /api/desktop/v1/bookings/:bookingId/reschedule`. |
-| **Attendance**   | Review Queue Override       | Complete                    | Direct operational review with audit comments and status derivation.                                                               |
-| **Customers**    | Customer Lookup / Details   | Complete                    | Read-only inspector profile and debounced search via `POST /api/desktop/v1/customers`.                                             |
-| **Schedule**     | Shift Adjust / Action Modal | Complete                    | Modals for shift viewing and adjustments conform to canonical shift models.                                                        |
-| **Home Service** | Dispatch Details Modal      | Complete                    | Dispatch detail inspection and driver assignment conform to dispatch contract.                                                     |
-| **Staff**        | Application Approval Modal  | Complete                    | Full staff candidate review with tier and branch assignment.                                                                       |
-| **Staff**        | Role & Capability Modals    | Complete                    | Role assignment and service capability modals conform to hosted role types.                                                        |
-| **Settings**     | Desktop Settings            | Truthfully Unavailable      | Remains truthfully unavailable; no desktop settings service exists.                                                                |
+### 2.1 Reconciled Summary Table
+
+| Module           | Canonical Workflow                 | Desktop Status               | Reconciled API / Boundary                                            | Notes                                                                                                                          |
+| :--------------- | :--------------------------------- | :--------------------------- | :------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- |
+| **Today**        | Quick Booking                      | Complete                     | `POST /api/inhouse-booking` or RPC                                   | Financial fields suppressed (`showFinancialFields={false}`).                                                                   |
+| **Today**        | Stage Transitions                  | Complete                     | `POST /api/desktop/v1/today/mutations`                               | Inline action execution with loading and error boundaries.                                                                     |
+| **Bookings**     | New Booking Modal                  | Complete                     | `createBranchBooking` (`bookings-service.ts`)                        | Implemented with walk-in, phone, and future booking options.                                                                   |
+| **Bookings**     | Cancel Booking Modal               | Complete                     | `POST /api/desktop/v1/bookings/:bookingId/cancel`                    | Dropdown reason required, optional note, destructive red styling.                                                              |
+| **Bookings**     | Reschedule: Date, Time & Address   | Complete (Desktop Supported) | `POST /api/desktop/v1/bookings/:bookingId/reschedule`                | Strict change detection, CRM reason required for time/address changes, canonical metadata prefill.                             |
+| **Bookings**     | Reschedule: Therapist Reassignment | Blocked (Stage 12)           | Missing Hosted Endpoint                                              | Web uses Next.js server actions; no desktop API endpoint exists. Reassignment notice displayed; existing assignment preserved. |
+| **Attendance**   | Review Queue Resolution            | Complete                     | `POST /api/desktop/v1/attendance/mutations`                          | Operational review with audit comments and status derivation.                                                                  |
+| **Attendance**   | Time Correction                    | Complete (Read-Only)         | `POST /api/desktop/v1/attendance/mutations`                          | Desktop review queue resolves issues; clock adjustment handled server-side.                                                    |
+| **Attendance**   | Device Recovery & QR               | Intentionally Unavailable    | N/A                                                                  | Desktop utilizes physical hardware badge scanning in-spa.                                                                      |
+| **Customers**    | Customer Directory & Inspection    | Complete (Read-Only)         | `GET /api/desktop/v1/customers`, `GET /api/desktop/v1/customers/:id` | Corrected matrix to reflect `GET` (not `POST`, and not `/api/branch-customers`).                                               |
+| **Customers**    | Waitlist Booking Prefill           | Complete                     | `NewBookingModal` with customer prefill                              | Opens `NewBookingModal` with customer preselected.                                                                             |
+| **Schedule**     | Block Time Modal                   | Complete                     | `POST /api/desktop/v1/schedule/mutations`                            | Creates blocked schedule window for therapist.                                                                                 |
+| **Schedule**     | Adjust Working Hours / Day Off     | Complete                     | `POST /api/desktop/v1/schedule/mutations`                            | Daily schedule override upsert.                                                                                                |
+| **Schedule**     | Full Schedule Review               | Complete (Read-Only)         | `GET /api/desktop/v1/schedule/staff/:staffId`                        | Read-only weekly schedule inspector modal.                                                                                     |
+| **Schedule**     | Check Availability                 | Complete (Read-Only)         | `GET /api/desktop/v1/schedule/staff-availability`                    | Staff availability lookup.                                                                                                     |
+| **Home Service** | Dispatch Details Modal             | Complete                     | `POST /api/desktop/v1/home-service/mutations` (`assign_driver`)      | Canonical dispatch details inspection and driver assignment.                                                                   |
+| **Home Service** | Reassign Therapist in Dispatch     | Complete                     | `POST /api/desktop/v1/home-service/mutations` (`assign_therapist`)   | Backed by server-side recommendation & assignment API.                                                                         |
+| **Staff**        | Service Capabilities Modal         | Complete                     | RPC `replace_staff_service_capabilities`                             | Server-enforced RPC under authenticated session.                                                                               |
+| **Staff**        | Application Approval / Rejection   | Blocked (Stage 12)           | Supabase RLS client update                                           | Requires dedicated server-authoritative Desktop endpoint (Stage 12).                                                           |
+| **Staff**        | Assign System Role                 | Blocked (Stage 12)           | Supabase RLS client update                                           | Requires dedicated server-authoritative Desktop endpoint (Stage 12).                                                           |
+| **Staff**        | Staff Shift / Schedule             | Blocked (Stage 12)           | Supabase RLS table upsert                                            | Requires routing through `/api/desktop/v1/schedule/mutations` in Stage 12.                                                     |
+| **Staff**        | Offboarding Notice                 | Blocked (Stage 12)           | Supabase RLS client update                                           | Requires dedicated server-authoritative Desktop endpoint (Stage 12).                                                           |
+| **Staff**        | Add Staff Guidance Modal           | Complete (Read-Only)         | N/A                                                                  | Informational modal directing operators to web onboarding URL.                                                                 |
+| **Settings**     | System / Branch Settings           | Intentionally Unavailable    | N/A                                                                  | Settings remains truthfully unavailable in Desktop CRM first release.                                                          |
 
 ---
 
-## 3. Substantive Implementation Details
+## 3. Substantive Contract Corrections & Implementations
 
-### 3.1 Bookings Service Endpoints (`src/lib/bookings-service.ts`)
+### 3.1 Bookings Reschedule Parity Repair (`src/components/bookings/RescheduleBookingModal.tsx`)
 
-Added authoritative client functions for booking cancellation and rescheduling:
+Following direct audit of hosted `src/components/features/bookings/reschedule-booking-modal.tsx` and `src/app/api/desktop/v1/bookings/[bookingId]/reschedule/route.ts`:
 
-1. **`BOOKING_CANCELLATION_REASONS`**:
-   Canonical CRM reason list matching hosted web application:
-   - `customer_requested` ("Customer requested cancellation")
-   - `customer_unavailable` ("Customer unavailable")
-   - `duplicate_booking` ("Duplicate booking")
-   - `scheduling_conflict` ("Scheduling conflict")
-   - `staff_unavailable` ("Staff unavailable")
-   - `payment_issue` ("Payment issue")
-   - `invalid_booking` ("Invalid booking")
-   - `other` ("Other")
+1. **Change Detection Rule**:
+   - A booking is considered changed ONLY when one of the authoritative mutable booking properties changes (`date`, `startTime`, or `homeServiceAddress`/`homeServiceAccessNote`).
+   - Entering only a CRM note does NOT qualify as a booking reschedule; the Save button remains disabled.
+2. **Conditional CRM Reason Requirement**:
+   - Hosted behavior requires a CRM reason when changing operationally meaningful properties such as `time` or `address`.
+   - If `time` or `address` changes, `note.trim()` is strictly required before submission.
+   - For a `date`-only change, CRM note remains optional.
+3. **Home Service Address Validation**:
+   - If the booking is Home Service and the address is modified, the updated address must remain non-empty.
+4. **Canonical Metadata Prefill**:
+   - Prefills from canonical structure: `metadata.home_service_address.full_address` and `metadata.home_service_address.access_note`.
+   - Bounded fallback to legacy `metadata.home_service` ensures backward compatibility with existing Desktop fixture data.
+5. **Operational Summary Context**:
+   - Displays Customer Name, Service & Duration, Current Schedule, Mode (In-spa or Home Service), Therapist, and Location / Current Address.
+6. **Therapist Reassignment Boundary**:
+   - Hosted web executes therapist reassignment via Next.js server actions (`getTherapistRecommendationsAction`, `assignBookingTherapistAction`).
+   - Hosted `/api/desktop/v1/bookings/` routes currently expose no therapist assignment endpoint.
+   - To respect the project security boundary (no client-side direct table mutations and no fabricated recommendations), therapist reassignment is classified as `BLOCKED — HOSTED ENDPOINT REQUIRED` (Stage 12).
+   - The modal explicitly displays the current therapist with a clear notice: _"Therapist reassignment requires an authoritative Desktop backend action (Stage 12). Existing therapist assignment remains preserved."_
 
-2. **`cancelBranchBooking(input, client?, customFetch?)`**:
-   - Endpoint: `POST ${baseUrl}/api/desktop/v1/bookings/:bookingId/cancel`
-   - Authorization: Bearer JWT from current user session.
-   - Payload: `{ cancellationReason, note }`.
-   - Security: Tokens are never exposed in error responses.
+### 3.2 Customer Endpoint Reconciliation
 
-3. **`rescheduleBranchBooking(input, client?, customFetch?)`**:
-   - Endpoint: `POST ${baseUrl}/api/desktop/v1/bookings/:bookingId/reschedule`
-   - Authorization: Bearer JWT from current user session.
-   - Payload: `{ date, startTime, note, homeServiceAddress, homeServiceAccessNote }`.
-   - Handles both in-spa and home-service address adjustments.
+Corrected documentation across the matrix and evidence to state exact authoritative endpoints:
 
-### 3.2 Canonical Cancel Booking Modal (`src/components/bookings/CancelBookingModal.tsx`)
+- Directory List: `GET /api/desktop/v1/customers?branchId=:branchId&tab=:tab&q=:q&page=:page&pageSize=:pageSize`
+- Detail Profile: `GET /api/desktop/v1/customers/:customerId?branchId=:branchId`
+- Neither operation uses `POST`, nor does Desktop call `/api/branch-customers`.
 
-- **Component**: `<CancelBookingModal isOpen={isOpen} onClose={onClose} booking={booking} onBookingCancelled={...} />`
-- **Features**:
-  - Read-only summary panel: Customer Name, Service, Scheduled Date, Scheduled Time.
-  - Reason selector dropdown populated with canonical reasons.
-  - Optional internal context/note textarea with character limit.
-  - Red warning theme for destructive action confirmation.
-  - Keyboard accessibility: Escape key listener, focusable inputs, `role="dialog"`, `aria-labelledby="cancel-booking-modal-title"`.
-  - Inner dialog component lifecycle to avoid setState in effects.
+### 3.3 Staff Security Boundary Classification
 
-### 3.3 Canonical Reschedule Booking Modal (`src/components/bookings/RescheduleBookingModal.tsx`)
+Evaluated Staff mutations against project security boundaries:
 
-- **Component**: `<RescheduleBookingModal isOpen={isOpen} onClose={onClose} booking={booking} onBookingRescheduled={...} />`
-- **Features**:
-  - Current schedule summary: Customer Name, Service & duration, Current date/time, Location.
-  - Date input and Start Time input prefilled with existing booking values.
-  - Conditional home service section: prefilled address and access notes when booking delivery type is home service.
-  - CRM internal note input for audit trail.
-  - Dirty checking: Save button remains disabled until at least one field is modified.
-  - Keyboard accessibility: Escape key listener, `role="dialog"`, `aria-labelledby="reschedule-booking-modal-title"`.
-
-### 3.4 Wireup in Bookings Inspector & View
-
-- **`BookingInspectorCard.tsx`**: Quick action buttons for "Reschedule" and "Cancel" trigger the respective modal dialogs; calls `onBookingUpdated` callback on mutation success.
-- **`BookingsView.tsx`**: Passes `onBookingUpdated={handleRefresh}` to trigger data refresh upon cancellation or reschedule.
+- `StaffCapabilityModal`: Uses database RPC `replace_staff_service_capabilities` under authenticated session (**PARITY COMPLETE**).
+- Application Review, System Role, Staff Schedule, and Offboarding currently rely on client-driven Supabase table updates. While protected by RLS, these lack a dedicated server-authoritative Desktop REST endpoint (`/api/desktop/v1/staff/...`) and are truthfully classified as **`BLOCKED — HOSTED ENDPOINT REQUIRED`** for Stage 12.
 
 ---
 
@@ -125,42 +112,69 @@ Added authoritative client functions for booking cancellation and rescheduling:
 
 | Test Suite                                     | Tests Run | Result   | Duration   |
 | :--------------------------------------------- | :-------- | :------- | :--------- |
-| `tests/bookings-service.test.ts`               | 45        | **PASS** | 89ms       |
-| `tests/bookings-components.test.tsx`           | 26        | **PASS** | 1761ms     |
-| **Full Repository Test Suite (23 test files)** | **473**   | **PASS** | **19.24s** |
+| `tests/bookings-service.test.ts`               | 45        | **PASS** | 20ms       |
+| `tests/bookings-components.test.tsx`           | 31        | **PASS** | 2042ms     |
+| **Full Repository Test Suite (23 test files)** | **478**   | **PASS** | **27.53s** |
 
-Baseline test count: 450 tests.  
-Stage 11 final test count: **473 tests (+23 new tests)**.
+- Baseline test count: 450 tests.
+- Initial Stage 11 test count: 473 tests (+23 new tests).
+- Stage 11 correction test count: **478 tests (+5 new tests, +28 net)**.
 
 ### 4.2 Quality Checks
 
 1. **Typecheck (`pnpm run typecheck`)**:
-   - Clean execution: `tsc --noEmit` exited with code `0` (0 errors).
+   - Execution: `tsc --noEmit` exited with code `0` (0 errors).
 2. **Lint (`pnpm run lint`)**:
-   - Clean execution: `eslint . --max-warnings 0` exited with code `0` (0 errors, 0 warnings).
+   - Execution: `eslint . --max-warnings 0` exited with code `0` (0 errors, 0 warnings).
 3. **Format Check (`pnpm run format:check`)**:
-   - Clean execution: `prettier --check .` exited with code `0` (all matched files use Prettier style).
+   - Execution: `prettier --check .` exited with code `0` (all files formatted).
 4. **Vite Production Build (`pnpm run build`)**:
-   - Clean execution: `tsc --noEmit && vite build` exited with code `0`.
-   - Distribution assets emitted: `dist/index.html`, `dist/assets/index-BBxms6Hu.css`, `dist/assets/index-BYXosstk.js`.
+   - Execution: `tsc --noEmit && vite build` exited with code `0`.
+   - Emitted assets: `dist/index.html`, `dist/assets/index-*.css`, `dist/assets/index-*.js`.
 5. **Git Whitespace & Formatting (`git diff --check`)**:
-   - Clean execution: exited with code `0` (no whitespace errors, no unresolved merge markers).
+   - Execution: exited with code `0` (no whitespace errors, no merge markers).
 
 ---
 
-## 5. Evidence Classification
+## 5. Evidence Classification & Risk Disclosure
 
-- **Source Code & Unit Test Evidence**: Verified in local repository via Vitest and TypeScript compiler.
-- **JSDOM Simulation**: Dialog open/close, focus, keyboard triggers, form submissions, and error states verified in JSDOM environment.
-- **Native Windows Runtime Evidence**: Marked `PENDING OWNER INSPECTION`. Real Windows WebView rendering and live OS-level interaction require manual owner visual verification.
+### 5.1 Evidence Classification
+
+- **REPOSITORY-RECORDED PRODUCTION EVIDENCE**: Does not prove deployed production behavior.
+- **LOCAL TEST EVIDENCE**: Verified via Vitest in JSDOM environment; does not prove native Windows runtime.
+- **OWNER-PROVIDED MANUAL RUNTIME EVIDENCE**: Remains **`PENDING OWNER INSPECTION`** (1024×768, 1366×768, 1440×900) until the owner executes the native Windows binary.
+
+### 5.2 Factual Risk Statement
+
+Stage 11 adds authenticated Desktop calls to existing hosted booking mutation endpoints. Native runtime and deployed-host behavior remain pending owner verification.
 
 ---
 
-## 6. Conclusion & Handoff
+## 6. Changed Files Discipline (Correction Pass)
+
+Changed files since starting correction HEAD `dd7d0183486c721cc099f166d69dff5febdb0f31`:
+
+1. `src/components/bookings/RescheduleBookingModal.tsx`:
+   - Updated change-detection logic (note alone does not satisfy `hasChanges`).
+   - Added conditional CRM reason requirement for time and address changes.
+   - Enforced non-empty address when home service address is modified.
+   - Updated prefill to canonical `home_service_address` metadata.
+   - Added full operational summary items and clear therapist reassignment backend boundary notice.
+2. `tests/bookings-components.test.tsx`:
+   - Added 5 new automated tests covering disabled state on note-only change, CRM reason requirement on time change, non-empty home service address requirement, date-only change submission, and canonical metadata prefill.
+3. `docs/20-design/STAGE_11_MODAL_PARITY_MATRIX.md`:
+   - Updated canonical reference to hosted `origin/main` (`ed8ae75d2d6fc9f3b8144dcabbe014f676e83a99`).
+   - Reconciled contracts, endpoints, and statuses across all 8 modules.
+4. `docs/30-delivery/STAGE_11_EVIDENCE.md`:
+   - Fully updated evidence artifact with reconciled test counts, factual risk wording, and evidence classifications.
+
+---
+
+## 7. Conclusion & Handoff
 
 ```text
-STATUS: READY FOR INDEPENDENT REVIEW
+STATUS: READY FOR INDEPENDENT RE-REVIEW
 NOT ACCEPTED
 NOT MERGED
-NEXT STAGE NOT AUTHORIZED
+STAGE 12 NOT AUTHORIZED
 ```
