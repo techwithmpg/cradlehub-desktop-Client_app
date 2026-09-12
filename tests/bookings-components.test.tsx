@@ -779,13 +779,50 @@ describe('Stage 02 Bookings UI Components', () => {
       expect(container.firstChild).toBeNull();
     });
 
-    it('prefills current date and time and renders home service fields when applicable', () => {
+    it('keeps Save button disabled when no operational booking field is changed', () => {
+      const mockBooking = createMockBooking();
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+
+      const submitBtn = screen.getByRole('button', {
+        name: 'Save Booking Changes',
+      }) as HTMLButtonElement;
+      expect(submitBtn.disabled).toBe(true);
+    });
+
+    it('keeps Save button disabled when only a CRM note is entered without operational changes', () => {
+      const mockBooking = createMockBooking();
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+
+      const noteInput = screen.getByLabelText(/CRM Reason/i);
+      fireEvent.change(noteInput, {
+        target: { value: 'Customer called with a generic question' },
+      });
+
+      const submitBtn = screen.getByRole('button', {
+        name: 'Save Booking Changes',
+      }) as HTMLButtonElement;
+      expect(submitBtn.disabled).toBe(true);
+    });
+
+    it('prefills canonical home_service_address metadata structure and existing therapist', () => {
       const mockBooking = createMockBooking({
         delivery_type: 'home_service',
         metadata: {
-          home_service: {
-            address: 'Unit 402, Amber Tower',
-            access_notes: 'Buzz code 1234',
+          home_service_address: {
+            full_address: 'Unit 402, Amber Tower, Pasig',
+            access_note: 'Buzz code 1234',
           },
         },
       });
@@ -801,11 +838,120 @@ describe('Stage 02 Bookings UI Components', () => {
       expect(screen.getByTestId('reschedule-booking-modal')).toBeDefined();
       expect(screen.getByDisplayValue('2026-09-05')).toBeDefined();
       expect(screen.getByDisplayValue('10:00')).toBeDefined();
-      expect(screen.getByDisplayValue('Unit 402, Amber Tower')).toBeDefined();
+      expect(
+        screen.getByDisplayValue('Unit 402, Amber Tower, Pasig'),
+      ).toBeDefined();
       expect(screen.getByDisplayValue('Buzz code 1234')).toBeDefined();
+      expect(screen.getAllByText('Anna Cruz').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/Reassignment Unavailable/i)).toBeDefined();
     });
 
-    it('submits reschedule with updated fields and calls callbacks on success', async () => {
+    it('requires CRM reason when time is changed', async () => {
+      const mockBooking = createMockBooking();
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+
+      const timeInput = screen.getByLabelText(/start time/i);
+      fireEvent.change(timeInput, { target: { value: '14:00' } });
+
+      const submitBtn = screen.getByRole('button', {
+        name: 'Save Booking Changes',
+      });
+      expect((submitBtn as HTMLButtonElement).disabled).toBe(false);
+
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Add a CRM reason before saving this change.'),
+        ).toBeDefined();
+      });
+    });
+
+    it('requires non-empty address when home service address is modified', async () => {
+      const mockBooking = createMockBooking({
+        delivery_type: 'home_service',
+        metadata: {
+          home_service_address: {
+            full_address: 'Original Address 123',
+          },
+        },
+      });
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={vi.fn()}
+          booking={mockBooking}
+        />,
+      );
+
+      const addressInput = screen.getByLabelText(/Home Service Address/i);
+      fireEvent.change(addressInput, { target: { value: '   ' } });
+
+      const noteInput = screen.getByLabelText(/CRM Reason/i);
+      fireEvent.change(noteInput, {
+        target: { value: 'Customer moved to a new condo' },
+      });
+
+      const submitBtn = screen.getByRole('button', {
+        name: 'Save Booking Changes',
+      });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Enter the updated home-service address.'),
+        ).toBeDefined();
+      });
+    });
+
+    it('allows date-only change without requiring a CRM note and submits successfully', async () => {
+      const mockBooking = createMockBooking({ id: 'b-date-only-99' });
+      const onClose = vi.fn();
+      const onBookingRescheduled = vi.fn();
+      const reschedSpy = vi
+        .spyOn(bookingsService, 'rescheduleBranchBooking')
+        .mockResolvedValue({
+          ok: true,
+          message: 'Booking rescheduled successfully.',
+        });
+
+      render(
+        <RescheduleBookingModal
+          isOpen={true}
+          onClose={onClose}
+          booking={mockBooking}
+          onBookingRescheduled={onBookingRescheduled}
+        />,
+      );
+
+      const dateInput = screen.getByLabelText(/new date/i);
+      fireEvent.change(dateInput, { target: { value: '2026-09-20' } });
+
+      const submitBtn = screen.getByRole('button', {
+        name: 'Save Booking Changes',
+      });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(reschedSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            bookingId: 'b-date-only-99',
+            date: '2026-09-20',
+            startTime: '10:00',
+          }),
+        );
+        expect(onBookingRescheduled).toHaveBeenCalledOnce();
+        expect(onClose).toHaveBeenCalledOnce();
+      });
+    });
+
+    it('submits reschedule with updated time and CRM reason and calls callbacks on success', async () => {
       const mockBooking = createMockBooking({ id: 'b-resched-77' });
       const onClose = vi.fn();
       const onBookingRescheduled = vi.fn();
@@ -831,6 +977,11 @@ describe('Stage 02 Bookings UI Components', () => {
       const timeInput = screen.getByLabelText(/start time/i);
       fireEvent.change(timeInput, { target: { value: '14:30' } });
 
+      const noteInput = screen.getByLabelText(/CRM Reason/i);
+      fireEvent.change(noteInput, {
+        target: { value: 'Customer requested afternoon slot' },
+      });
+
       const submitBtn = screen.getByRole('button', {
         name: 'Save Booking Changes',
       });
@@ -842,6 +993,7 @@ describe('Stage 02 Bookings UI Components', () => {
             bookingId: 'b-resched-77',
             date: '2026-09-12',
             startTime: '14:30',
+            note: 'Customer requested afternoon slot',
           }),
         );
         expect(onBookingRescheduled).toHaveBeenCalledOnce();
@@ -849,7 +1001,7 @@ describe('Stage 02 Bookings UI Components', () => {
       });
     });
 
-    it('displays error message when reschedule fails', async () => {
+    it('displays error message when reschedule fails and keeps dialog open', async () => {
       const mockBooking = createMockBooking();
       vi.spyOn(bookingsService, 'rescheduleBranchBooking').mockResolvedValue({
         ok: false,
@@ -877,6 +1029,7 @@ describe('Stage 02 Bookings UI Components', () => {
         expect(
           screen.getByText('Requested time slot is no longer available.'),
         ).toBeDefined();
+        expect(screen.getByTestId('reschedule-booking-modal')).toBeDefined();
       });
     });
 
