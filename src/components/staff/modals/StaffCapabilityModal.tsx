@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BranchServiceOption, StaffMember } from '../../../types/staff';
 import { updateStaffCapabilities } from '../../../lib/staff-service';
 
@@ -35,15 +35,21 @@ export const StaffCapabilityModal: React.FC<StaffCapabilityModalProps> = ({
     setError(null);
   }
 
+  const requestClose = useCallback(() => {
+    if (!isSaving) {
+      onClose();
+    }
+  }, [isSaving, onClose]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !isSaving) {
-        onClose();
+      if (e.key === 'Escape' && isOpen) {
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSaving, onClose]);
+  }, [isOpen, requestClose]);
 
   const filteredServices = useMemo(() => {
     let list = branchServices;
@@ -98,7 +104,7 @@ export const StaffCapabilityModal: React.FC<StaffCapabilityModalProps> = ({
       aria-modal="true"
       aria-labelledby="capability-modal-title"
       data-testid="staff-capability-modal"
-      onClick={onClose}
+      onClick={requestClose}
     >
       <div
         className="bookings-modal-content"
@@ -131,7 +137,7 @@ export const StaffCapabilityModal: React.FC<StaffCapabilityModalProps> = ({
           <button
             type="button"
             className="bookings-modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Close dialog"
             disabled={isSaving}
           >
@@ -268,7 +274,7 @@ export const StaffCapabilityModal: React.FC<StaffCapabilityModalProps> = ({
           <button
             type="button"
             className="btn-secondary-compact text-xs"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isSaving}
             data-testid="cancel-capability-modal"
           >

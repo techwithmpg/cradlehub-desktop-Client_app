@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   StaffBlockedTime,
   StaffMember,
@@ -61,15 +61,21 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
     }
   }
 
+  const requestClose = useCallback(() => {
+    if (!isSaving) {
+      onClose();
+    }
+  }, [isSaving, onClose]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !isSaving) {
-        onClose();
+      if (e.key === 'Escape' && isOpen) {
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSaving, onClose]);
+  }, [isOpen, requestClose]);
 
   if (!isOpen || !staff) return null;
 
@@ -218,7 +224,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
       aria-modal="true"
       aria-labelledby="schedule-modal-title"
       data-testid="staff-schedule-modal"
-      onClick={onClose}
+      onClick={requestClose}
     >
       <div
         className="bookings-modal-content"
@@ -250,7 +256,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
           <button
             type="button"
             className="bookings-modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isSaving}
             aria-label="Close schedule adjustment"
           >
@@ -474,7 +480,7 @@ export const StaffScheduleModal: React.FC<StaffScheduleModalProps> = ({
             type="button"
             className="btn-secondary-compact text-xs"
             data-testid="schedule-modal-cancel-btn"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isSaving}
           >
             Cancel
