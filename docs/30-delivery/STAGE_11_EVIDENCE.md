@@ -118,15 +118,57 @@ The detailed matrix is recorded in [`docs/20-design/STAGE_11_MODAL_PARITY_MATRIX
 
 ### 3.6 Staff Service Capabilities RPC Authority Verification (`StaffCapabilityModal.tsx`)
 
-- **Audit Findings**: Audited hosted migration `supabase/migrations/20260806132402_service_catalog_unification_repair.sql`.
-- **Security Proof**:
-  - Defined as `SECURITY DEFINER` with fixed `search_path = public, auth`.
-  - Authenticates caller via `auth.uid()`, rejecting unauthenticated calls (`UNAUTHORIZED`).
-  - Verifies caller branch matches target staff branch (`BRANCH_MISMATCH`).
-  - Enforces caller role in `('owner', 'manager', 'assistant_manager', 'store_manager', 'crm')`.
-  - Protects privileged target staff (prevents non-owners from editing owner/manager records).
-  - Validates that every assigned service exists, is active, and is assigned to the target branch (`INVALID_SERVICES`).
-  - Revokes `EXECUTE` from `PUBLIC` and `anon`; grants only to `authenticated`.
+- **Authoritative Source**: Audited directly from hosted migration `supabase/migrations/20260806132402_service_catalog_unification_repair.sql` on canonical hosted `main` (`ed8ae75d2d6fc9f3b8144dcabbe014f676e83a99`).
+- **Exact Hosted RPC Signature**:
+  ```sql
+  CREATE OR REPLACE FUNCTION public.replace_staff_service_capabilities(
+    p_target_staff_id uuid,
+    p_service_ids uuid[] default '{}'::uuid[]
+  )
+  RETURNS TABLE(service_id uuid)
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public, pg_temp
+  ```
+  _(Note: There is **no** `p_branch_id` parameter; branch association is verified server-side from actor context and target staff record)._
+- **Desktop Helper Call Signature**:
+  ```typescript
+  export async function updateStaffCapabilities(
+    staffId: string,
+    serviceIds: string[],
+    client?: SupabaseClient,
+  ): Promise<{ ok: true; message: string } | { ok: false; error: string }>;
+  ```
+  Sends:
+  ```typescript
+  supabase.rpc('replace_staff_service_capabilities', {
+    p_target_staff_id: staffId,
+    p_service_ids: uniqueIds,
+  });
+  ```
+- **Security & Authority Attributes**:
+  - `SECURITY DEFINER` with fixed `SET search_path = public, pg_temp`.
+  - Authenticates actor via `auth.uid()`, with explicit `service_role` handling when invoked outside an end-user session.
+  - Role check: verifies actor role is in `('owner', 'manager', 'assistant_manager', 'store_manager', 'crm')`.
+  - Target staff check: target staff must exist and be active (`target_staff.is_active = true`).
+  - Branch match check: for non-owners, ensures `actor.branch_id = target_staff.branch_id`.
+  - Privileged-target protection: non-owners cannot mutate capabilities of owner/manager/assistant_manager staff.
+  - Service assignability check: verifies all requested services exist and are assignable to the target branch via `public.is_branch_service_assignable(target_branch_id, service_id)`.
+  - Atomic transaction: replaces rows in `public.staff_services` within an atomic transaction.
+- **Grants & Privileges**:
+  - `REVOKE ALL ON FUNCTION public.replace_staff_service_capabilities(uuid, uuid[]) FROM public;`
+  - `REVOKE ALL ON FUNCTION public.replace_staff_service_capabilities(uuid, uuid[]) FROM anon;`
+  - `GRANT EXECUTE ON FUNCTION public.replace_staff_service_capabilities(uuid, uuid[]) TO authenticated;`
+  - `GRANT EXECUTE ON FUNCTION public.replace_staff_service_capabilities(uuid, uuid[]) TO service_role;`
+    _(Note: Granted to `authenticated` and `service_role`. Safe because Desktop never possesses or exposes a service-role key)._
+- **Exact Source Exception Terminology**:
+  - `crm_staff_services_not_authenticated` (errcode `28000`)
+  - `crm_staff_services_not_authorized` (errcode `42501`)
+  - `crm_staff_services_target_not_found` (errcode `P0002`)
+  - `crm_staff_services_target_inactive` (errcode `P0001`)
+  - `crm_staff_services_branch_mismatch` (errcode `42501`)
+  - `crm_staff_services_privileged_target` (errcode `42501`)
+  - `crm_staff_services_invalid_service` (errcode `22023`)
 - **Classification**: Confirmed **`PARITY COMPLETE`**.
 
 ### 3.7 Staff Profile Inline Editing (`StaffInspectorCard.tsx`)
@@ -138,6 +180,62 @@ The detailed matrix is recorded in [`docs/20-design/STAGE_11_MODAL_PARITY_MATRIX
 - Direct database mutation helpers (`reviewOnboardingRequest`, `updateStaffSystemRole`, `adjustStaffSchedule`, `updateStaffProfile`) are preserved in `src/lib/staff-service.ts` per Section 15 to avoid breaking uncertain external dependencies or existing service tests.
 - Static audit (`git grep -n`) proves that **zero active Desktop components call these functions**.
 
+### 3.9 Substantive Modal Lifecycle Corrections (In-Flight Close Guard)
+
+- **Problem Identified**: In both `StaffScheduleModal.tsx` and `StaffCapabilityModal.tsx`, the outer backdrop element (`bookings-modal-backdrop`) previously invoked `onClick={onClose}` unconditionally without checking `isSaving`. As a result, a user could initiate an authoritative mutation/RPC call and click the backdrop or trigger close during flight, prematurely dismissing the UI before the server responded.
+- **Correction Applied**: Introduced a unified `requestClose` guard:
+  ```typescript
+  const requestClose = () => {
+    if (!isSaving) {
+      onClose();
+    }
+  };
+  ```
+  Applied consistently to:
+  - Outer modal backdrop click (`onClick={requestClose}`)
+  - Modal header close icon (`onClick={requestClose}`)
+  - Modal footer cancel button (`onClick={requestClose}`)
+  - Keyboard `Escape` event handler (`if (e.key === 'Escape' && isOpen && !isSaving) requestClose()`)
+- **Error Retention**: If the mutation/RPC fails, `isSaving` is cleared, the modal remains open, and the authoritative error banner is displayed.
+- **Truthful Completion**: On verified server success, the callback (`onScheduleAdjusted()` or `onCapabilitiesSaved()`) fires, followed by modal closure.
+
+### 3.10 Exact Test IDs in Source Code
+
+Audited directly against Desktop components:
+
+- **Approval Modal (`StaffApplicationApprovalModal.tsx`)**:
+  - Modal container: `staff-application-approval-modal`
+  - Approve button: `approve-application-submit-btn`
+  - Cancel button: `cancel-approval-modal-btn`
+  - Unavailable notice: `staff-approval-unavailable-notice`
+- **Role Modal (`StaffRoleModal.tsx`)**:
+  - Modal container: `staff-role-modal`
+  - Save button: `save-role-modal`
+  - Cancel button: `cancel-role-modal`
+  - Unavailable notice: `staff-role-unavailable-notice`
+- **Offboarding Modal (`StaffOffboardingNoticeModal.tsx`)**:
+  - Modal container: `staff-offboarding-modal`
+  - Close button: `close-offboarding-modal`
+- **Rejection Modal (`StaffInspectorCard.tsx`)**:
+  - Modal container: `reject-app-modal`
+  - Confirm reject button: `confirm-reject-btn`
+  - Unavailable notice: `staff-rejection-unavailable-notice`
+- **Profile Editing (`StaffInspectorCard.tsx`)**:
+  - Edit form container: `edit-profile-form`
+  - Save profile button: `save-profile-btn`
+  - Unavailable notice: `staff-profile-unavailable-notice`
+- **Schedule Modal (`StaffScheduleModal.tsx`)**:
+  - Modal container: `staff-schedule-modal`
+  - Submit button: `schedule-modal-submit-btn`
+  - Cancel button: `schedule-modal-cancel-btn`
+  - Error banner: `staff-schedule-error-banner`
+  - Remove override button: `staff-schedule-remove-override-btn`
+  - Remove block button: `staff-schedule-remove-block-btn`
+- **Capability Modal (`StaffCapabilityModal.tsx`)**:
+  - Modal container: `staff-capability-modal`
+  - Save button: `save-capability-modal`
+  - Cancel button: `cancel-capability-modal`
+
 ---
 
 ## 4. Verification Evidence & Quality Gates
@@ -146,18 +244,19 @@ The detailed matrix is recorded in [`docs/20-design/STAGE_11_MODAL_PARITY_MATRIX
 
 | Test Suite                                     | Tests Run | Result   | Duration   |
 | :--------------------------------------------- | :-------- | :------- | :--------- |
-| `tests/staff-components.test.tsx`              | 28        | **PASS** | 1.83s      |
-| `tests/staff-service.test.ts`                  | 62        | **PASS** | 20ms       |
-| `tests/schedule-components.test.tsx`           | 21        | **PASS** | 1.51s      |
-| `tests/schedule-service.test.ts`               | 22        | **PASS** | 19ms       |
-| `tests/bookings-components.test.tsx`           | 31        | **PASS** | 1.64s      |
-| `tests/bookings-service.test.ts`               | 45        | **PASS** | 20ms       |
-| **Full Repository Test Suite (23 test files)** | **488**   | **PASS** | **20.46s** |
+| `tests/staff-components.test.tsx`              | 32        | **PASS** | 2.08s      |
+| `tests/staff-service.test.ts`                  | 62        | **PASS** | 29ms       |
+| `tests/schedule-components.test.tsx`           | 21        | **PASS** | 2.32s      |
+| `tests/schedule-service.test.ts`               | 22        | **PASS** | 25ms       |
+| `tests/bookings-components.test.tsx`           | 31        | **PASS** | 2.46s      |
+| `tests/bookings-service.test.ts`               | 45        | **PASS** | 28ms       |
+| **Full Repository Test Suite (23 test files)** | **492**   | **PASS** | **23.72s** |
 
 - Baseline test count (Stage 10): 450 tests.
 - Initial Stage 11 test count: 473 tests (+23 tests).
 - Stage 11 first correction test count: 478 tests (+5 tests).
-- Stage 11 final fail-closed staff modal correction test count: **488 tests (+10 new tests, +38 net)**.
+- Stage 11 fail-closed staff modal correction test count: 488 tests (+10 tests).
+- Stage 11 final evidence & lifecycle correction test count: **492 tests (+4 new in-flight lifecycle tests, +42 net)**.
 
 ### 4.2 Quality Checks
 
@@ -210,13 +309,17 @@ Changed files since starting correction HEAD `b459ffb116f5b04ed77fcb53cd5d91be00
    - Disconnected `adjustStaffSchedule` direct mutation helper.
    - Wired to authoritative hosted `scheduleService.mutateSchedule(...)` (`POST /api/desktop/v1/schedule/mutations`).
    - Implemented exact payload mappings for `upsert_override`, `create_blocked_time`, `delete_override`, and `delete_blocked_time`.
-6. `tests/staff-components.test.tsx`:
-   - Added 10 automated regression tests covering fail-closed security boundaries and authoritative schedule mutation routing.
-   - Total suite count increased from 18 to 28 passing tests.
-7. `docs/20-design/STAGE_11_MODAL_PARITY_MATRIX.md`:
+   - Added `requestClose` guard preventing backdrop clicks, close buttons, and Escape from dismissing modal during in-flight mutations.
+6. `src/components/staff/modals/StaffCapabilityModal.tsx`:
+   - Added `requestClose` guard preventing backdrop clicks, close buttons, and Escape from dismissing modal during in-flight RPC calls.
+   - Preserved error banner retention on RPC failure.
+7. `tests/staff-components.test.tsx`:
+   - Added 14 automated regression tests covering fail-closed security boundaries, authoritative schedule mutation routing, and in-flight lifecycle protection.
+   - Total suite count increased from 18 to 32 passing tests.
+8. `docs/20-design/STAGE_11_MODAL_PARITY_MATRIX.md`:
    - Updated Staff workflows (1 through 7) and Section 4 summary to reconcile truthful fail-closed and authoritative routing statuses.
-8. `docs/30-delivery/STAGE_11_EVIDENCE.md`:
-   - Fully updated evidence artifact with reconciled test counts, static audit proofs, RPC authority proofs, and factual risk disclosures.
+9. `docs/30-delivery/STAGE_11_EVIDENCE.md`:
+   - Fully updated evidence artifact with reconciled test counts (492 passed), static audit proofs, exact RPC signature and grant proofs, lifecycle protection proofs, and factual risk disclosures.
 
 ---
 

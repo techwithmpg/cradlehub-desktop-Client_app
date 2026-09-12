@@ -272,8 +272,9 @@ The initial Stage 11 audit referenced commit `1ea191f3ebedccda6a2249f3ee8f1b53d5
 - **Desktop Source File**: `src/components/staff/modals/StaffCapabilityModal.tsx`
 - **Trigger**: Capabilities tab "Manage"
 - **Fields**: Multi-select service checklist.
-- **Authoritative API**: Supabase RPC `replace_staff_service_capabilities` under authenticated session.
-- **Authority Verification**: Audited in hosted migration `supabase/migrations/20260806132402_service_catalog_unification_repair.sql`. Function is `SECURITY DEFINER`, verifies `auth.uid()`, enforces caller role (`owner`, `manager`, `assistant_manager`, `store_manager`, `crm`), validates branch match, prevents privilege escalation, checks branch service assignability, and revokes public/anon access.
+- **Authoritative API**: Supabase RPC `replace_staff_service_capabilities(p_target_staff_id, p_service_ids)` under authenticated session.
+- **Authority Verification**: Audited in hosted migration `supabase/migrations/20260806132402_service_catalog_unification_repair.sql`. Function is `SECURITY DEFINER` with fixed `search_path = public, pg_temp`. Authenticates via `auth.uid()`, enforces caller role (`owner`, `manager`, `assistant_manager`, `store_manager`, `crm`), validates branch match, prevents privilege escalation, checks branch service assignability, revokes public/anon access, and grants execute to `authenticated` and `service_role`.
+- **Lifecycle Protection**: `requestClose` guard prevents backdrop clicks and Escape key from closing modal during in-flight RPC execution; surfaces server errors with modal remaining open.
 - **Desktop Status**: **PARITY COMPLETE**
 
 #### Workflow 2: Approve Onboarding Application
@@ -314,6 +315,7 @@ The initial Stage 11 audit referenced commit `1ea191f3ebedccda6a2249f3ee8f1b53d5
   - Block Time: `action: "create_blocked_time"` (`startTime`, `endTime`, `reason: "break"|"leave"|"training"|"other"`)
   - Clear Override: `action: "delete_override"` (`overrideId`)
   - Remove Block: `action: "delete_blocked_time"` (`blockId`)
+- **Lifecycle Protection**: `requestClose` guard prevents backdrop clicks and Escape key from closing modal during in-flight mutation; surfaces server errors with modal remaining open.
 - **Desktop Status**: **PARITY COMPLETE**
 
 #### Workflow 6: Offboarding Notice
