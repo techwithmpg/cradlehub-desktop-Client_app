@@ -6,9 +6,7 @@ import type {
   StaffOnboardingRequest,
   StaffPrimaryTab,
   StaffScheduleOverride,
-  UpdateStaffProfileInput,
 } from '../../types/staff';
-import { updateStaffProfile } from '../../lib/staff-service';
 import { ModuleInspectorFrame, ModuleInspectorEmptyState } from '../workspace';
 
 export type StaffInspectorTab = 'overview' | 'services' | 'access';
@@ -68,9 +66,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   onOpenCapabilityModal,
   onOpenRoleModal,
   onOpenOffboardingModal,
-  onStaffUpdated,
   onOpenApprovalModal,
-  onRejectApplication,
   onOpenProfileEdit,
   onCheckAvailability,
   onClose,
@@ -92,7 +88,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   );
   const [editTier, setEditTier] = useState(staff?.tier || 'Standard');
   const [editIsHead, setEditIsHead] = useState(staff?.is_head || false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   const [prevStaffId, setPrevStaffId] = useState<string | null>(
@@ -161,42 +157,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!staff) return;
-    if (!editFullName.trim()) {
-      setEditError('Full name is required.');
-      return;
-    }
-
-    setIsSaving(true);
-    setEditError(null);
-
-    const input: UpdateStaffProfileInput = {
-      staffId: staff.id,
-      fullName: editFullName.trim(),
-      nickname: editNickname.trim() || null,
-      phone: editPhone.trim() || null,
-      staffType: editStaffType.trim(),
-      tier: editTier.trim(),
-      isHead: editIsHead,
-    };
-
-    const result = await updateStaffProfile(input);
-    if (!result.ok) {
-      setEditError(result.error);
-      setIsSaving(false);
-      return;
-    }
-
-    setIsSaving(false);
-    setIsEditingProfile(false);
-    onStaffUpdated({
-      id: staff.id,
-      full_name: editFullName.trim(),
-      nickname: editNickname.trim() || null,
-      phone: editPhone.trim() || null,
-      staff_type: editStaffType.trim(),
-      tier: editTier.trim(),
-      is_head: editIsHead,
-    });
+    setEditError(
+      'Profile editing requires an authoritative Desktop staff endpoint (Stage 12). Direct database updates are disabled in Desktop client.',
+    );
   };
 
   const handleStartEditing = () => {
@@ -225,11 +188,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   };
 
   const handleConfirmReject = () => {
-    if (application && onRejectApplication) {
-      onRejectApplication(application.id, rejectReason.trim() || undefined);
-      setShowRejectModal(false);
-      setRejectReason('');
-    }
+    // Fail-closed: Staff application rejection requires authoritative Desktop endpoint (Stage 12)
+    setShowRejectModal(false);
+    setRejectReason('');
   };
 
   // ==========================================
@@ -408,6 +369,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
 
                 <button
                   type="button"
+                  data-testid="inspector-reject-app-btn"
                   className="quick-action-btn secondary text-red-600 hover:text-red-700 hover:bg-red-50"
                   onClick={() => setShowRejectModal(true)}
                 >
@@ -433,6 +395,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
         {showRejectModal && (
           <div
             className="bookings-modal-backdrop"
+            data-testid="reject-app-modal"
             onClick={() => setShowRejectModal(false)}
             role="dialog"
             aria-modal="true"
@@ -460,6 +423,20 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                   <span className="font-semibold">{application.full_name}</span>
                   ?
                 </p>
+
+                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <span>⚠️</span> UNAVAILABLE IN DESKTOP — AUTHORITATIVE
+                    ENDPOINT REQUIRED
+                  </div>
+                  <p className="leading-relaxed">
+                    Staff application rejection requires the authoritative
+                    Desktop staff-review service (Stage 12). This action is
+                    temporarily unavailable in the Desktop client to prevent
+                    unverified client database mutations.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-[var(--cs-text-secondary)] mb-1">
                     Reason (Optional)
@@ -469,6 +446,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                     placeholder="State reason for rejection..."
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
+                    disabled
                   />
                 </div>
               </div>
@@ -478,14 +456,17 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                   className="btn-secondary-compact text-xs"
                   onClick={() => setShowRejectModal(false)}
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="button"
-                  className="bookings-header-primary-btn text-xs py-1.5 px-3 bg-red-600 hover:bg-red-700"
+                  data-testid="confirm-reject-btn"
+                  className="bookings-header-primary-btn text-xs py-1.5 px-3 bg-red-600 opacity-50 cursor-not-allowed"
+                  disabled={true}
                   onClick={handleConfirmReject}
+                  title="Staff rejection requires an authoritative Desktop backend endpoint (Stage 12)"
                 >
-                  Confirm Rejection
+                  Confirm Rejection (Unavailable)
                 </button>
               </div>
             </div>
@@ -1221,6 +1202,18 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                   </button>
                 </div>
 
+                <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <span>⚠️</span> UNAVAILABLE IN DESKTOP — AUTHORITATIVE
+                    ENDPOINT REQUIRED
+                  </div>
+                  <p>
+                    Staff profile editing requires the authoritative Desktop
+                    staff service (Stage 12). Direct database updates are
+                    disabled in the Desktop client.
+                  </p>
+                </div>
+
                 {editError && (
                   <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
                     {editError}
@@ -1335,11 +1328,12 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="bookings-header-primary-btn text-xs py-1.5 px-3"
-                    disabled={isSaving}
+                    className="bookings-header-primary-btn text-xs py-1.5 px-3 opacity-50 cursor-not-allowed"
+                    disabled={true}
                     data-testid="save-profile-btn"
+                    title="Staff profile editing requires an authoritative Desktop backend endpoint (Stage 12)"
                   >
-                    {isSaving ? 'Saving...' : 'Save Profile'}
+                    Save Profile (Unavailable)
                   </button>
                 </div>
               </form>

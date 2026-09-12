@@ -16,7 +16,6 @@ import {
   fetchBranchScheduleWeek,
   fetchBranchStaff,
   filterStaff,
-  reviewOnboardingRequest,
 } from '../../lib/staff-service';
 import { StaffHeader } from './StaffHeader';
 import { StaffSummaryCard } from './StaffKpiSummary';
@@ -261,28 +260,11 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     setSuccessNotice(`Role updated to ${newRole}.`);
   }, []);
 
-  const handleRejectApplication = useCallback(
-    async (requestId: string, reason?: string) => {
-      const result = await reviewOnboardingRequest({
-        requestId,
-        action: 'reject',
-        rejectionReason: reason,
-      });
-      if (result.ok) {
-        setOnboardingRequests((current) =>
-          current.map((r) =>
-            r.id === requestId
-              ? { ...r, status: 'rejected', rejection_reason: reason || null }
-              : r,
-          ),
-        );
-        setSuccessNotice('Application rejected.');
-      } else {
-        setError(result.error);
-      }
-    },
-    [],
-  );
+  const handleRejectApplication = useCallback(() => {
+    setError(
+      'Staff rejection requires an authoritative Desktop staff-review endpoint (Stage 12). Direct database updates are disabled.',
+    );
+  }, []);
 
   // KPI calculations for Roster
   const kpis = useMemo(() => {
@@ -548,6 +530,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         branchId={authContext.branchId}
         initialDate={scheduleModalData?.date}
         existingBlocks={scheduleModalData?.existingBlocks}
+        existingOverrides={scheduleOverrides}
         onScheduleAdjusted={handleRefresh}
       />
 

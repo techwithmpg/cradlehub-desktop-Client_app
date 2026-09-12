@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import type {
   BranchServiceOption,
-  ReviewOnboardingInput,
   StaffOnboardingRequest,
 } from '../../../types/staff';
-import { reviewOnboardingRequest } from '../../../lib/staff-service';
 
 interface StaffApplicationApprovalModalProps {
   isOpen: boolean;
@@ -30,15 +28,7 @@ const TIER_OPTIONS = ['Junior', 'Senior', 'Master', 'Standard'];
 
 export const StaffApplicationApprovalModal: React.FC<
   StaffApplicationApprovalModalProps
-> = ({
-  isOpen,
-  onClose,
-  request,
-  branchId,
-  branchName,
-  branchServices,
-  onApproved,
-}) => {
+> = ({ isOpen, onClose, request, branchId, branchName, branchServices }) => {
   const getInitialRoleAndType = (req: StaffOnboardingRequest | null) => {
     if (!req) return { staffType: 'therapist', systemRole: 'staff' };
     const pref = req.preferred_role.toLowerCase();
@@ -62,8 +52,7 @@ export const StaffApplicationApprovalModal: React.FC<
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(
     new Set(),
   );
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   const [prevRequestId, setPrevRequestId] = useState<string | null>(
     request?.id || null,
@@ -75,18 +64,17 @@ export const StaffApplicationApprovalModal: React.FC<
     setSystemRole(defaults.systemRole);
     setTier('Junior');
     setSelectedServiceIds(new Set());
-    setError(null);
   }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !isSaving) {
+      if (e.key === 'Escape' && isOpen) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSaving, onClose]);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !request) return null;
 
@@ -97,33 +85,6 @@ export const StaffApplicationApprovalModal: React.FC<
       else next.add(id);
       return next;
     });
-  };
-
-  const handleApprove = async () => {
-    setIsSaving(true);
-    setError(null);
-
-    const input: ReviewOnboardingInput = {
-      requestId: request.id,
-      staffId: request.staff_id || undefined,
-      action: 'approve',
-      branchId,
-      systemRole,
-      staffType,
-      tier,
-      serviceIds: Array.from(selectedServiceIds),
-    };
-
-    const result = await reviewOnboardingRequest(input);
-    if (!result.ok) {
-      setError(result.error);
-      setIsSaving(false);
-      return;
-    }
-
-    setIsSaving(false);
-    onApproved();
-    onClose();
   };
 
   return (
@@ -152,7 +113,6 @@ export const StaffApplicationApprovalModal: React.FC<
             type="button"
             className="modal-close-icon-btn"
             onClick={onClose}
-            disabled={isSaving}
             aria-label="Close approval modal"
           >
             &times;
@@ -266,6 +226,19 @@ export const StaffApplicationApprovalModal: React.FC<
             </div>
           )}
 
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+            <div className="font-semibold flex items-center gap-1.5">
+              <span>⚠️</span> UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT
+              REQUIRED
+            </div>
+            <p className="leading-relaxed">
+              Staff onboarding approval requires the authoritative Desktop
+              staff-review service (Stage 12). This action is temporarily
+              unavailable in the Desktop client to prevent unverified client
+              database mutations.
+            </p>
+          </div>
+
           {error && (
             <div
               className="p-2.5 rounded bg-red-50 border border-red-200 text-red-700 text-xs"
@@ -281,18 +254,19 @@ export const StaffApplicationApprovalModal: React.FC<
           <button
             type="button"
             className="btn-secondary text-xs"
+            data-testid="cancel-approval-modal-btn"
             onClick={onClose}
-            disabled={isSaving}
           >
-            Cancel
+            Close
           </button>
           <button
             type="button"
-            className="btn-primary text-xs"
-            onClick={handleApprove}
-            disabled={isSaving}
+            className="btn-primary text-xs opacity-50 cursor-not-allowed"
+            data-testid="approve-application-submit-btn"
+            disabled={true}
+            title="Staff approval requires an authoritative Desktop backend endpoint (Stage 12)"
           >
-            {isSaving ? 'Activating Staff...' : 'Confirm & Activate Staff'}
+            Approve Application (Unavailable)
           </button>
         </div>
       </div>

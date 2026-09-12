@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import type { StaffMember } from '../../../types/staff';
-import { updateStaffSystemRole } from '../../../lib/staff-service';
 
 interface StaffRoleModalProps {
   isOpen: boolean;
@@ -53,11 +52,9 @@ export const StaffRoleModal: React.FC<StaffRoleModalProps> = ({
   onClose,
   staff,
   actorRole,
-  onRoleUpdated,
 }) => {
   const [selectedRole, setSelectedRole] = useState(staff?.system_role || '');
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   const [prevStaffId, setPrevStaffId] = useState<string | null>(
     staff?.id || null,
@@ -65,46 +62,21 @@ export const StaffRoleModal: React.FC<StaffRoleModalProps> = ({
   if (staff && staff.id !== prevStaffId) {
     setPrevStaffId(staff.id);
     setSelectedRole(staff.system_role);
-    setError(null);
   }
 
   const isOwner = actorRole.toLowerCase() === 'owner';
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !isSaving) {
+      if (e.key === 'Escape' && isOpen) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSaving, onClose]);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !staff) return null;
-
-  const handleSave = async () => {
-    if (!selectedRole) return;
-    setIsSaving(true);
-    setError(null);
-
-    const targetOption = AVAILABLE_ROLES.find((r) => r.role === selectedRole);
-    if (targetOption?.requiresOwner && !isOwner) {
-      setError('Assigning management or owner roles requires owner authority.');
-      setIsSaving(false);
-      return;
-    }
-
-    const result = await updateStaffSystemRole(staff.id, selectedRole);
-    if (!result.ok) {
-      setError(result.error);
-      setIsSaving(false);
-      return;
-    }
-
-    setIsSaving(false);
-    onRoleUpdated(staff.id, selectedRole);
-    onClose();
-  };
 
   return (
     <div
@@ -132,7 +104,6 @@ export const StaffRoleModal: React.FC<StaffRoleModalProps> = ({
             type="button"
             className="modal-close-icon-btn"
             onClick={onClose}
-            disabled={isSaving}
             aria-label="Close role editor"
           >
             &times;
@@ -198,6 +169,18 @@ export const StaffRoleModal: React.FC<StaffRoleModalProps> = ({
             })}
           </div>
 
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+            <div className="font-semibold flex items-center gap-1.5">
+              <span>⚠️</span> UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT
+              REQUIRED
+            </div>
+            <p className="leading-relaxed">
+              System role assignment requires an authoritative Desktop backend
+              endpoint (Stage 12). This action is temporarily unavailable in the
+              Desktop client to prevent unverified client-driven role elevation.
+            </p>
+          </div>
+
           {error && (
             <div
               className="p-2.5 rounded bg-red-50 border border-red-200 text-red-700 text-xs"
@@ -215,18 +198,17 @@ export const StaffRoleModal: React.FC<StaffRoleModalProps> = ({
             className="btn-secondary text-xs"
             data-testid="cancel-role-modal"
             onClick={onClose}
-            disabled={isSaving}
           >
-            Cancel
+            Close
           </button>
           <button
             type="button"
-            className="btn-primary text-xs"
+            className="btn-primary text-xs opacity-50 cursor-not-allowed"
             data-testid="save-role-modal"
-            onClick={handleSave}
-            disabled={isSaving || selectedRole === staff.system_role}
+            disabled={true}
+            title="System role assignment requires an authoritative Desktop backend endpoint (Stage 12)"
           >
-            {isSaving ? 'Updating Role...' : 'Save Role'}
+            Save Role (Unavailable)
           </button>
         </div>
       </div>
