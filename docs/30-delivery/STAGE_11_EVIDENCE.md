@@ -183,58 +183,64 @@ The detailed matrix is recorded in [`docs/20-design/STAGE_11_MODAL_PARITY_MATRIX
 ### 3.9 Substantive Modal Lifecycle Corrections (In-Flight Close Guard)
 
 - **Problem Identified**: In both `StaffScheduleModal.tsx` and `StaffCapabilityModal.tsx`, the outer backdrop element (`bookings-modal-backdrop`) previously invoked `onClick={onClose}` unconditionally without checking `isSaving`. As a result, a user could initiate an authoritative mutation/RPC call and click the backdrop or trigger close during flight, prematurely dismissing the UI before the server responded.
-- **Correction Applied**: Introduced a unified `requestClose` guard:
+- **Correction Applied**: Introduced a canonical `requestClose` guard (memoized via `useCallback`):
   ```typescript
-  const requestClose = () => {
+  const requestClose = useCallback(() => {
     if (!isSaving) {
       onClose();
     }
-  };
+  }, [isSaving, onClose]);
   ```
   Applied consistently to:
   - Outer modal backdrop click (`onClick={requestClose}`)
   - Modal header close icon (`onClick={requestClose}`)
   - Modal footer cancel button (`onClick={requestClose}`)
-  - Keyboard `Escape` event handler (`if (e.key === 'Escape' && isOpen && !isSaving) requestClose()`)
+  - Keyboard `Escape` event handler (invokes `requestClose()`; `requestClose` refuses closure while `isSaving`)
 - **Error Retention**: If the mutation/RPC fails, `isSaving` is cleared, the modal remains open, and the authoritative error banner is displayed.
 - **Truthful Completion**: On verified server success, the callback (`onScheduleAdjusted()` or `onCapabilitiesSaved()`) fires, followed by modal closure.
 
 ### 3.10 Exact Test IDs in Source Code
 
-Audited directly against Desktop components:
+Audited directly against Desktop components (`git grep -n "data-testid" src/components/staff/`):
 
 - **Approval Modal (`StaffApplicationApprovalModal.tsx`)**:
   - Modal container: `staff-application-approval-modal`
-  - Approve button: `approve-application-submit-btn`
-  - Cancel button: `cancel-approval-modal-btn`
-  - Unavailable notice: `staff-approval-unavailable-notice`
+  - Approve CTA: `approve-application-submit-btn`
+  - Cancel CTA: `cancel-approval-modal-btn`
+  - _(Notice banner has no dedicated `data-testid`; behavior verified by rendered text and disabled button state)._
 - **Role Modal (`StaffRoleModal.tsx`)**:
   - Modal container: `staff-role-modal`
-  - Save button: `save-role-modal`
-  - Cancel button: `cancel-role-modal`
-  - Unavailable notice: `staff-role-unavailable-notice`
+  - Save Role CTA: `save-role-modal`
+  - Cancel CTA: `cancel-role-modal`
+  - _(Notice banner has no dedicated `data-testid`; behavior verified by rendered text and disabled button state)._
 - **Offboarding Modal (`StaffOffboardingNoticeModal.tsx`)**:
   - Modal container: `staff-offboarding-modal`
   - Close button: `close-offboarding-modal`
 - **Rejection Modal (`StaffInspectorCard.tsx`)**:
+  - Inspector trigger button: `inspector-reject-app-btn`
   - Modal container: `reject-app-modal`
-  - Confirm reject button: `confirm-reject-btn`
-  - Unavailable notice: `staff-rejection-unavailable-notice`
+  - Confirm Rejection CTA: `confirm-reject-btn`
+  - _(Notice banner has no dedicated `data-testid`; behavior verified by rendered text and disabled button state)._
 - **Profile Editing (`StaffInspectorCard.tsx`)**:
   - Edit form container: `edit-profile-form`
-  - Save profile button: `save-profile-btn`
-  - Unavailable notice: `staff-profile-unavailable-notice`
+  - Form fields: `edit-staff-name`, `edit-staff-nickname`, `edit-staff-phone`, `edit-staff-type`, `edit-staff-tier`, `edit-staff-is-head`
+  - Save Profile CTA: `save-profile-btn`
+  - _(Notice banner has no dedicated `data-testid`; behavior verified by rendered text and disabled button state)._
 - **Schedule Modal (`StaffScheduleModal.tsx`)**:
   - Modal container: `staff-schedule-modal`
-  - Submit button: `schedule-modal-submit-btn`
-  - Cancel button: `schedule-modal-cancel-btn`
-  - Error banner: `staff-schedule-error-banner`
-  - Remove override button: `staff-schedule-remove-override-btn`
-  - Remove block button: `staff-schedule-remove-block-btn`
+  - Adjustment type radio selectors:
+    - `adj-type-working_hours`
+    - `adj-type-day_off`
+    - `adj-type-blocked_time`
+    - `adj-type-remove_override`
+    - `adj-type-remove_block`
+  - Inputs & controls: `schedule-modal-date`, `schedule-modal-start-time`, `schedule-modal-end-time`, `schedule-modal-block-select`, `schedule-modal-block-reason`, `schedule-modal-reason`
+  - Action buttons: `schedule-modal-submit-btn`, `schedule-modal-cancel-btn`
+  - _(Error banner has no dedicated `data-testid`; rendered with `role="alert"` and verified by authoritative error text)._
 - **Capability Modal (`StaffCapabilityModal.tsx`)**:
   - Modal container: `staff-capability-modal`
-  - Save button: `save-capability-modal`
-  - Cancel button: `cancel-capability-modal`
+  - Save Capabilities CTA: `save-capability-modal`
+  - Cancel CTA: `cancel-capability-modal`
 
 ---
 
