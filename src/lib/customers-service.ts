@@ -1,3 +1,4 @@
+import { measureReadOperation } from './read-performance';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getSupabaseClient } from './supabase';
 import { getHostedApiBaseUrl } from './bookings-service';
@@ -151,7 +152,7 @@ export function isFetchCustomerDetailSuccess(
  * Fetch branch customers, segments, search results, KPIs, and waitlist follow-ups
  * from the authoritative hosted Desktop Customers API.
  */
-export async function fetchBranchCustomers(
+async function fetchBranchCustomersUnmeasured(
   params: FetchCustomersParams,
   customFetch?: typeof fetch,
 ): Promise<FetchCustomersResult> {
@@ -233,7 +234,7 @@ export async function fetchBranchCustomers(
 /**
  * Fetch single customer detail profile and branch-filtered booking history.
  */
-export async function fetchCustomerDetail(
+async function fetchCustomerDetailUnmeasured(
   customerId: string,
   branchId: string,
   customFetch?: typeof fetch,
@@ -297,3 +298,17 @@ export async function fetchCustomerDetail(
     };
   }
 }
+
+// Named read boundaries preserve the underlying service arguments and results.
+export const fetchBranchCustomers = (
+  ...args: Parameters<typeof fetchBranchCustomersUnmeasured>
+) =>
+  measureReadOperation('customers.list', () =>
+    fetchBranchCustomersUnmeasured(...args),
+  );
+export const fetchCustomerDetail = (
+  ...args: Parameters<typeof fetchCustomerDetailUnmeasured>
+) =>
+  measureReadOperation('customers.detail', () =>
+    fetchCustomerDetailUnmeasured(...args),
+  );

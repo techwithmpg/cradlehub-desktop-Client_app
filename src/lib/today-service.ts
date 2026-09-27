@@ -1,3 +1,4 @@
+import { measureReadOperation } from './read-performance';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getHostedApiBaseUrl } from './bookings-service';
@@ -304,7 +305,7 @@ async function requestJson<T>(
  * Fetches authoritative Today snapshot for the authenticated branch operator.
  * Branch is resolved authoritatively on the server; no branch parameter is sent.
  */
-export async function fetchToday(
+async function fetchTodayUnmeasured(
   client?: SupabaseClient,
   customFetch?: typeof fetch,
 ): Promise<DesktopTodayData> {
@@ -335,3 +336,7 @@ export function mutateToday(
     },
   );
 }
+
+// Named read boundaries preserve the underlying service arguments and results.
+export const fetchToday = (...args: Parameters<typeof fetchTodayUnmeasured>) =>
+  measureReadOperation('today.snapshot', () => fetchTodayUnmeasured(...args));

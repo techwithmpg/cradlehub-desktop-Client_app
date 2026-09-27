@@ -1,3 +1,4 @@
+import { measureReadOperation } from './read-performance';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getSupabaseClient } from './supabase';
@@ -277,7 +278,7 @@ async function getAccessToken(client?: SupabaseClient): Promise<string> {
   return session.access_token;
 }
 
-export async function fetchAttendanceWorkspace(
+async function fetchAttendanceWorkspaceUnmeasured(
   client?: SupabaseClient,
   customFetch?: typeof fetch,
 ): Promise<AttendanceWorkspaceResponse> {
@@ -634,7 +635,7 @@ export function isAttendanceHistoryResponse(
   );
 }
 
-export async function fetchAttendanceHistory(
+async function fetchAttendanceHistoryUnmeasured(
   fromDate: string,
   toDate: string,
   client?: SupabaseClient,
@@ -708,3 +709,17 @@ export async function fetchAttendanceHistory(
 
   return result.data;
 }
+
+// Named read boundaries preserve the underlying service arguments and results.
+export const fetchAttendanceWorkspace = (
+  ...args: Parameters<typeof fetchAttendanceWorkspaceUnmeasured>
+) =>
+  measureReadOperation('attendance.workspace', () =>
+    fetchAttendanceWorkspaceUnmeasured(...args),
+  );
+export const fetchAttendanceHistory = (
+  ...args: Parameters<typeof fetchAttendanceHistoryUnmeasured>
+) =>
+  measureReadOperation('attendance.history', () =>
+    fetchAttendanceHistoryUnmeasured(...args),
+  );
