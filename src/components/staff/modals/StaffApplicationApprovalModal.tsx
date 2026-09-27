@@ -21,6 +21,10 @@ interface StaffApplicationApprovalModalProps {
   branchId: string;
   branchName: string;
   branchServices: BranchServiceOption[];
+  branchServicesReady?: boolean;
+  branchServicesLoading?: boolean;
+  branchServicesError?: string | null;
+  onRetryServices?: () => void;
 
   actorRole: string;
   onApproved: () => void;
@@ -32,6 +36,10 @@ function ApprovalDialog({
   branchId,
   branchName,
   branchServices,
+  branchServicesReady = false,
+  branchServicesLoading = false,
+  branchServicesError,
+  onRetryServices,
   actorRole,
   onApproved,
 }: Omit<StaffApplicationApprovalModalProps, 'isOpen' | 'request'> & {
@@ -60,7 +68,14 @@ function ApprovalDialog({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (busy.current || !roles.some((role) => role.value === systemRole))
+    if (
+      busy.current ||
+      !branchServicesReady ||
+      !roles.some((role) => role.value === systemRole) ||
+      serviceIds.some(
+        (id) => !branchServices.some((service) => service.id === id),
+      )
+    )
       return;
 
     busy.current = true;
@@ -133,7 +148,10 @@ function ApprovalDialog({
               Preferred role / function: {request.preferred_role}
             </p>
 
-            <fieldset disabled={pending} className="space-y-3">
+            <fieldset
+              disabled={pending || !branchServicesReady}
+              className="space-y-3"
+            >
               <div>
                 <label htmlFor="approval-system-role">System Role</label>
                 <select
@@ -197,6 +215,34 @@ function ApprovalDialog({
               )}
             </fieldset>
 
+            {!branchServicesReady && (
+              <div
+                role={branchServicesLoading ? 'status' : 'alert'}
+                className="text-xs"
+              >
+                <p>
+                  {branchServicesLoading
+                    ? 'Verifying service assignments for this branch…'
+                    : branchServicesError ||
+                      'Service assignments could not be verified for this branch. Reload the Staff workspace before approving this application.'}
+                </p>
+                {onRetryServices && !branchServicesLoading && (
+                  <button
+                    type="button"
+                    className="bookings-retry-btn"
+                    disabled={pending}
+                    onClick={onRetryServices}
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            )}
+            {branchServicesReady && branchServices.length === 0 && (
+              <p className="text-xs">
+                No assignable services are available for this branch.
+              </p>
+            )}
             {roles.length === 0 && (
               <p role="alert">
                 No assignable roles are available for your account.
@@ -224,7 +270,7 @@ function ApprovalDialog({
               type="submit"
               className="btn-primary text-xs"
               data-testid="approve-application-submit-btn"
-              disabled={pending || !systemRole}
+              disabled={pending || !systemRole || !branchServicesReady}
             >
               {pending ? 'Approving…' : 'Approve Application'}
             </button>

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { AuthContext } from '../../types/auth';
 import type {
   BranchServiceOption,
@@ -35,6 +41,7 @@ import { StaffAddGuidanceModal } from './modals/StaffAddGuidanceModal';
 import { StaffOffboardingNoticeModal } from './modals/StaffOffboardingNoticeModal';
 import {
   ModuleWorkspace,
+  ModuleErrorBanner,
   ModuleLoadingState,
   ModuleMainGrid,
   ModulePrimaryColumn,
@@ -67,6 +74,17 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   const [onboardingRequests, setOnboardingRequests] = useState<
     StaffOnboardingRequest[]
   >([]);
+  const [branchServicesReady, setBranchServicesReady] = useState(false);
+  const [branchServicesLoading, setBranchServicesLoading] = useState(true);
+  const [branchServicesError, setBranchServicesError] = useState<string | null>(
+    null,
+  );
+  const [applicationsReady, setApplicationsReady] = useState(false);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const [applicationsError, setApplicationsError] = useState<string | null>(
+    null,
+  );
+  const workspaceRead = useRef(0);
   const [scheduleOverrides, setScheduleOverrides] = useState<
     StaffScheduleOverride[]
   >([]);
@@ -127,32 +145,58 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
 
   // Load all initial workspace data
   const loadWorkspaceData = useCallback(async () => {
+    const readId = ++workspaceRead.current;
     setError(null);
     setScheduleError(null);
-    try {
-      const [staffRes, servicesRes, onboardingRes, scheduleRes] =
-        await Promise.all([
-          fetchBranchStaff(authContext.branchId),
-          fetchBranchAssignableServices(authContext.branchId),
-          fetchBranchOnboardingRequests(authContext.branchId),
-          fetchBranchScheduleWeek(authContext.branchId, currentMonday),
-        ]);
+    setBranchServicesReady(false);
+    setBranchServicesLoading(true);
+    setBranchServicesError(null);
+    setBranchServices([]);
+    setApplicationsReady(false);
+    setApplicationsLoading(true);
+    setApplicationsError(null);
+    setOnboardingRequests([]);
+    const [staffRead, servicesRead, applicationsRead, scheduleRead] =
+      await Promise.allSettled([
+        fetchBranchStaff(authContext.branchId),
+        fetchBranchAssignableServices(authContext.branchId),
+        fetchBranchOnboardingRequests(authContext.branchId),
+        fetchBranchScheduleWeek(authContext.branchId, currentMonday),
+      ]);
+    if (workspaceRead.current !== readId) return;
+    if (staffRead.status === 'fulfilled') {
+      if (staffRead.value.ok) setStaffList(staffRead.value.data);
+      else setError(staffRead.value.message);
+    } else setError('Failed to load staff workspace. Please try again.');
 
-      if (!staffRes.ok) {
-        setError(staffRes.message);
-      } else {
-        setStaffList(staffRes.data);
-      }
-
-      setBranchServices(servicesRes);
-      setOnboardingRequests(onboardingRes);
-      setScheduleOverrides(scheduleRes.overrides);
-      setScheduleBlocks(scheduleRes.blockedTimes);
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : 'Failed to load staff workspace.';
-      setError(msg);
+    setBranchServicesLoading(false);
+    if (servicesRead.status === 'fulfilled' && servicesRead.value.ok) {
+      setBranchServices(servicesRead.value.data);
+      setBranchServicesReady(true);
+    } else {
+      setBranchServicesError(
+        servicesRead.status === 'fulfilled' && !servicesRead.value.ok
+          ? servicesRead.value.message
+          : 'Service assignments could not be verified for this branch. Reload the Staff workspace.',
+      );
     }
+    setApplicationsLoading(false);
+    if (applicationsRead.status === 'fulfilled' && applicationsRead.value.ok) {
+      setOnboardingRequests(applicationsRead.value.data);
+      setApplicationsReady(true);
+    } else {
+      setApprovalModalRequest(null);
+      setApplicationsError(
+        applicationsRead.status === 'fulfilled' && !applicationsRead.value.ok
+          ? applicationsRead.value.message
+          : 'Applications could not be loaded for this branch. Reload the Staff workspace.',
+      );
+    }
+    if (scheduleRead.status === 'fulfilled') {
+      setScheduleOverrides(scheduleRead.value.overrides);
+      setScheduleBlocks(scheduleRead.value.blockedTimes);
+    } else
+      setScheduleError('Failed to load branch schedule. Please try again.');
   }, [authContext.branchId, currentMonday]);
 
   useEffect(() => {
@@ -199,14 +243,14 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
 
   // Selection Coherence for Applications (Isolated to Applications tab)
   const selectedApplication = useMemo(() => {
-    if (onboardingRequests.length === 0) return null;
+    if (!applicationsReady || onboardingRequests.length === 0) return null;
     if (selectedApplicationId === '') return null;
     if (selectedApplicationId === null) return onboardingRequests[0];
     const found = onboardingRequests.find(
       (r) => r.id === selectedApplicationId,
     );
     return found || onboardingRequests[0];
-  }, [onboardingRequests, selectedApplicationId]);
+  }, [applicationsReady, onboardingRequests, selectedApplicationId]);
 
   // Handle KPI Strip clicks (sets status filter)
   const handleKpiClick = useCallback(
@@ -363,6 +407,14 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         </div>
       )}
 
+      {branchServicesError && (
+        <ModuleErrorBanner
+          message={branchServicesError}
+          onRetry={() => void handleRefresh()}
+          testId="staff-services-error"
+        />
+      )}
+
       {/* Loading Skeleton */}
       {isLoading ? (
         <ModuleLoadingState
@@ -443,7 +495,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 )}
 
                 {/* TAB 3: Applications Content */}
-                {activeTab === 'applications' && (
+                {activeTab === 'applications' && applicationsReady && (
                   <StaffApplicationsContent
                     requests={onboardingRequests}
                     selectedRequestId={selectedApplication?.id || null}
@@ -453,6 +505,24 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     }}
                   />
                 )}
+
+                {activeTab === 'applications' &&
+                  !applicationsReady &&
+                  (applicationsLoading ? (
+                    <ModuleLoadingState
+                      ariaLabel="Loading applications"
+                      testId="staff-applications-loading"
+                    />
+                  ) : (
+                    <ModuleErrorBanner
+                      message={
+                        applicationsError ||
+                        'Applications could not be verified. Reload the Staff workspace.'
+                      }
+                      onRetry={() => void handleRefresh()}
+                      testId="staff-applications-error"
+                    />
+                  ))}
 
                 {/* TAB 4: Performance Content */}
                 {activeTab === 'performance' && <StaffPerformanceContent />}
@@ -508,7 +578,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 onOpenOffboardingModal={(m) => setOffboardingModalStaff(m)}
                 onStaffUpdated={handleStaffUpdated}
                 onMutationPendingChange={setInspectorMutationPending}
-                onOpenApprovalModal={(req) => setApprovalModalRequest(req)}
+                onOpenApprovalModal={(req) => {
+                  if (applicationsReady) setApprovalModalRequest(req);
+                }}
                 onRejectApplication={handleRejectApplication}
                 onOpenProfileEdit={(m) => {
                   setSelectedStaffId(m.id);
@@ -572,12 +644,24 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
       />
 
       <StaffApplicationApprovalModal
-        isOpen={Boolean(approvalModalRequest)}
+        isOpen={Boolean(approvalModalRequest) && applicationsReady}
         onClose={() => setApprovalModalRequest(null)}
-        request={approvalModalRequest}
+        request={
+          applicationsReady
+            ? (onboardingRequests.find(
+                (request) =>
+                  request.id === approvalModalRequest?.id &&
+                  request.status === 'submitted',
+              ) ?? null)
+            : null
+        }
         branchId={authContext.branchId}
         branchName={authContext.branchName}
         branchServices={branchServices}
+        branchServicesReady={branchServicesReady}
+        branchServicesLoading={branchServicesLoading}
+        branchServicesError={branchServicesError}
+        onRetryServices={() => void handleRefresh()}
         actorRole={authContext.canonicalRole}
         onApproved={() => {
           setSuccessNotice('Application approved successfully.');

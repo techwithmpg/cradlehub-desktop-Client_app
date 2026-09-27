@@ -83,7 +83,6 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
 }) => {
   const [internalTab, setInternalTab] = useState<StaffInspectorTab>('overview');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   // Reject modal state for application review inside inspector
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -115,7 +114,6 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
     setPrevStaffId(staff.id);
     setIsEditingProfile(false);
     setEditError(null);
-    setActionNotice(null);
   }
 
   const handleCloseStaff = onCloseStaffSelection || onClose;
@@ -676,19 +674,6 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
         </div>
 
         <div className="inspector-body-scrollable">
-          {actionNotice && (
-            <div className="p-3 bg-[var(--cs-surface-warm)] border-b border-[var(--cs-border)] text-xs text-[var(--cs-text)] flex justify-between items-center">
-              <span>{actionNotice}</span>
-              <button
-                type="button"
-                className="text-[var(--cs-text-muted)] hover:text-[var(--cs-text)] ml-2"
-                onClick={() => setActionNotice(null)}
-              >
-                &times;
-              </button>
-            </div>
-          )}
-
           {/* THIS WEEK Section */}
           <div className="inspector-section">
             <h4 className="inspector-section-heading">This Week Overview</h4>
@@ -823,15 +808,13 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
               <button
                 type="button"
                 className="btn-secondary-compact text-xs"
-                onClick={() => {
-                  if (onCheckAvailability) {
-                    onCheckAvailability(staff);
-                  } else {
-                    setActionNotice(
-                      `Checked availability for ${staff.full_name}: active in branch operational schedule.`,
-                    );
-                  }
-                }}
+                disabled={!onCheckAvailability}
+                title={
+                  !onCheckAvailability
+                    ? 'Availability checking is not connected in the current Staff contract.'
+                    : undefined
+                }
+                onClick={() => onCheckAvailability?.(staff)}
               >
                 Check Availability
               </button>
@@ -1259,19 +1242,6 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
 
       {/* 3. Tab Body */}
       <div className="inspector-body-scrollable">
-        {actionNotice && (
-          <div className="p-3 bg-[var(--cs-surface-warm)] border-b border-[var(--cs-border)] text-xs text-[var(--cs-text)] flex justify-between items-center">
-            <span>{actionNotice}</span>
-            <button
-              type="button"
-              className="text-[var(--cs-text-muted)] hover:text-[var(--cs-text)] ml-2"
-              onClick={() => setActionNotice(null)}
-            >
-              &times;
-            </button>
-          </div>
-        )}
-
         {/* TAB 1: OVERVIEW */}
         {internalTab === 'overview' && (
           <div className="inspector-tab-pane overview-pane">
@@ -1625,15 +1595,13 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                 <button
                   type="button"
                   className="btn-secondary-compact text-xs"
-                  onClick={() => {
-                    if (onCheckAvailability) {
-                      onCheckAvailability(staff);
-                    } else {
-                      setActionNotice(
-                        `Checked availability for ${staff.full_name}: active in branch schedule.`,
-                      );
-                    }
-                  }}
+                  disabled={!onCheckAvailability}
+                  title={
+                    !onCheckAvailability
+                      ? 'Availability checking is not connected in the current Staff contract.'
+                      : undefined
+                  }
+                  onClick={() => onCheckAvailability?.(staff)}
                   data-testid="inspector-check-availability-btn"
                 >
                   Check Availability

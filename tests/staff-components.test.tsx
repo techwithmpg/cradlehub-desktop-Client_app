@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { StaffContextInspector } from '../src/components/staff/StaffInspectorCard';
 import { StaffView } from '../src/components/staff/StaffView';
 import { CanonicalShell } from '../src/components/CanonicalShell';
 import * as staffService from '../src/lib/staff-service';
@@ -158,12 +159,14 @@ describe('Staff Workspace Component Suite', () => {
         invitedStaff: 1,
       },
     });
-    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue(
-      mockBranchServices,
-    );
-    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue(
-      mockOnboardingRequests,
-    );
+    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue({
+      ok: true,
+      data: mockBranchServices,
+    });
+    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue({
+      ok: true,
+      data: mockOnboardingRequests,
+    });
     vi.spyOn(staffService, 'fetchBranchScheduleWeek').mockResolvedValue({
       overrides: [],
       blockedTimes: [],
@@ -954,12 +957,14 @@ describe('Staff Hosted Authority Workflows (Stage 12B)', () => {
         invitedStaff: 1,
       },
     });
-    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue(
-      mockBranchServices,
-    );
-    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue(
-      mockOnboardingRequests,
-    );
+    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue({
+      ok: true,
+      data: mockBranchServices,
+    });
+    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue({
+      ok: true,
+      data: mockOnboardingRequests,
+    });
     vi.spyOn(staffService, 'fetchBranchScheduleWeek').mockResolvedValue({
       overrides: [],
       blockedTimes: [],
@@ -1000,6 +1005,7 @@ describe('Staff Hosted Authority Workflows (Stage 12B)', () => {
         branchId="branch-1"
         branchName="Cradle Alabang"
         branchServices={mockBranchServices}
+        branchServicesReady
         actorRole={actorRole}
         onApproved={onApproved}
       />,
@@ -1286,6 +1292,282 @@ describe('Staff Hosted Authority Workflows (Stage 12B)', () => {
     expect(document.activeElement).toBe(trigger);
     trigger.remove();
   });
+  it.each([
+    { loading: true, error: null, ready: false },
+    {
+      loading: false,
+      error: 'Service catalogue failed to load.',
+      ready: false,
+    },
+    { loading: false, error: null, ready: undefined },
+  ])(
+    'unverified catalogue prevents approval even through form submission: %j',
+    async ({ loading, error, ready }) => {
+      const spy = vi.spyOn(staffService, 'reviewOnboardingRequest');
+      const retry = vi.fn();
+      render(
+        <StaffApplicationApprovalModal
+          isOpen
+          request={mockApplicant}
+          branchId="branch-1"
+          branchName="Cradle Alabang"
+          branchServices={[]}
+          branchServicesReady={ready}
+          branchServicesLoading={loading}
+          branchServicesError={error}
+          onRetryServices={retry}
+          actorRole="manager"
+          onApproved={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+      const submit = screen.getByTestId('approve-application-submit-btn');
+      expect((submit as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(submit);
+      fireEvent.submit(submit.closest('form')!);
+      expect(spy).not.toHaveBeenCalled();
+      expect(
+        screen.queryByText(
+          'No assignable services are available for this branch.',
+        ),
+      ).toBeNull();
+      if (loading)
+        expect(screen.getByRole('status').textContent).toContain(
+          'Verifying service assignments',
+        );
+      else {
+        expect(screen.getByRole('alert').textContent).toContain(
+          error || 'could not be verified',
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+        expect(retry).toHaveBeenCalledOnce();
+      }
+    },
+  );
+  it('verified empty catalogue permits explicit empty capability selection', async () => {
+    const spy = vi
+      .spyOn(staffService, 'reviewOnboardingRequest')
+      .mockResolvedValue({
+        ok: true,
+        data: { staffId: 's-1' },
+        message: 'Approved',
+      });
+    const onApproved = vi.fn();
+    render(
+      <StaffApplicationApprovalModal
+        isOpen
+        request={mockApplicant}
+        branchId="branch-1"
+        branchName="Cradle Alabang"
+        branchServices={[]}
+        branchServicesReady
+        actorRole="manager"
+        onApproved={onApproved}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText('No assignable services are available for this branch.'),
+    ).toBeDefined();
+    fireEvent.click(screen.getByTestId('approve-application-submit-btn'));
+    await waitFor(() => expect(onApproved).toHaveBeenCalledOnce());
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceIds: [] }),
+    );
+  });
+  it('failed service catalogue blocks approval; retry reloads verified choices and permits exact selection', async () => {
+    vi.mocked(staffService.fetchBranchAssignableServices)
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 'QUERY_FAILED',
+        message: 'Service assignments could not be verified.',
+      })
+      .mockResolvedValue({ ok: true, data: mockBranchServices });
+    const spy = vi
+      .spyOn(staffService, 'reviewOnboardingRequest')
+      .mockResolvedValue({
+        ok: true,
+        data: { staffId: 's-1' },
+        message: 'Approved',
+      });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-services-error')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Approve & Configure' }),
+    );
+    const dialog = screen.getByTestId('staff-application-approval-modal');
+    fireEvent.click(
+      within(dialog).getByTestId('approve-application-submit-btn'),
+    );
+    expect(spy).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole('alert').textContent).toContain(
+      'could not be verified',
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Retry' }));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByTestId(
+            'approve-application-submit-btn',
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    expect(screen.queryByTestId('staff-services-error')).toBeNull();
+    fireEvent.click(screen.getByLabelText(mockBranchServices[0].name));
+    fireEvent.click(screen.getByTestId('approve-application-submit-btn'));
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ serviceIds: [mockBranchServices[0].id] }),
+      ),
+    );
+  });
+  it('application failure renders error instead of false empty state; successful retry restores actions', async () => {
+    vi.mocked(staffService.fetchBranchOnboardingRequests)
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 'QUERY_FAILED',
+        message: 'Unable to load applications.',
+      })
+      .mockResolvedValue({ ok: true, data: mockOnboardingRequests });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    const error = screen.getByTestId('staff-applications-error');
+    expect(error.textContent).toContain('Unable to load applications');
+    expect(screen.queryByText('No applications found')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Approve & Configure' }),
+    ).toBeNull();
+    expect(screen.queryByTestId('inspector-reject-app-btn')).toBeNull();
+    fireEvent.click(
+      within(error).getByRole('button', { name: 'Retry operation' }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Approve & Configure' }),
+      ).toBeDefined(),
+    );
+    expect(screen.queryByTestId('staff-applications-error')).toBeNull();
+    expect(screen.getByTestId('inspector-reject-app-btn')).toBeDefined();
+  });
+  it('clears stale application actions during refresh and keeps them unavailable after failure', async () => {
+    const pending =
+      deferred<
+        Awaited<ReturnType<typeof staffService.fetchBranchOnboardingRequests>>
+      >();
+    vi.mocked(staffService.fetchBranchOnboardingRequests)
+      .mockResolvedValueOnce({ ok: true, data: mockOnboardingRequests })
+      .mockReturnValueOnce(pending.promise);
+    const spy = vi.spyOn(staffService, 'reviewOnboardingRequest');
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Approve & Configure' }),
+    );
+    expect(
+      screen.getByTestId('staff-application-approval-modal'),
+    ).toBeDefined();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Refresh Staff Roster' }),
+    );
+    expect(screen.queryByTestId('staff-application-approval-modal')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Approve & Configure' }),
+    ).toBeNull();
+    expect(screen.queryByTestId('inspector-reject-app-btn')).toBeNull();
+    expect(screen.getByTestId('staff-applications-loading')).toBeDefined();
+    pending.resolve({
+      ok: false,
+      code: 'NETWORK_ERROR',
+      message: 'Applications reload failed.',
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-applications-error')).toBeDefined(),
+    );
+    expect(screen.queryByText('No applications found')).toBeNull();
+    expect(screen.queryByTestId('staff-application-approval-modal')).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it('verified empty applications display the existing legitimate empty state', async () => {
+    vi.mocked(staffService.fetchBranchOnboardingRequests).mockResolvedValue({
+      ok: true,
+      data: [],
+    });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    expect(screen.getByText('No applications found')).toBeDefined();
+    expect(screen.queryByTestId('staff-applications-error')).toBeNull();
+  });
+  it.each(['roster', 'schedule'] as const)(
+    'disconnected availability action in %s cannot manufacture a result',
+    (tab) => {
+      render(
+        <StaffContextInspector
+          activeTab={tab}
+          staff={mockStaff}
+          onCloseStaffSelection={vi.fn()}
+          onOpenScheduleModal={vi.fn()}
+          onOpenCapabilityModal={vi.fn()}
+          onOpenRoleModal={vi.fn()}
+          onOpenOffboardingModal={vi.fn()}
+          onStaffUpdated={vi.fn()}
+        />,
+      );
+      const button = screen.getByRole('button', {
+        name: 'Check Availability',
+      }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+      expect(button.title).toBe(
+        'Availability checking is not connected in the current Staff contract.',
+      );
+      fireEvent.click(button);
+      expect(
+        screen.queryByText(
+          /Checked availability|active in branch (operational )?schedule/i,
+        ),
+      ).toBeNull();
+    },
+  );
+  it.each(['roster', 'schedule'] as const)(
+    'connected availability action in %s delegates to the supplied callback',
+    (tab) => {
+      const callback = vi.fn();
+      render(
+        <StaffContextInspector
+          activeTab={tab}
+          staff={mockStaff}
+          onCloseStaffSelection={vi.fn()}
+          onOpenScheduleModal={vi.fn()}
+          onOpenCapabilityModal={vi.fn()}
+          onOpenRoleModal={vi.fn()}
+          onOpenOffboardingModal={vi.fn()}
+          onStaffUpdated={vi.fn()}
+          onCheckAvailability={callback}
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Check Availability' }),
+      );
+      expect(callback).toHaveBeenCalledWith(mockStaff);
+      expect(
+        screen.queryByText(
+          /Checked availability|active in branch (operational )?schedule/i,
+        ),
+      ).toBeNull();
+    },
+  );
 });
 
 describe('Staff Schedule Authoritative Mutation Suite (Stage 11)', () => {

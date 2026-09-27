@@ -69,6 +69,13 @@ export interface BranchServiceOption {
   duration_minutes?: number | null;
 }
 
+export type StaffReadResult<T> =
+  { ok: true; data: T[] } | { ok: false; code: string; message: string };
+
+export type FetchBranchServicesResult = StaffReadResult<BranchServiceOption>;
+export type FetchOnboardingRequestsResult =
+  StaffReadResult<StaffOnboardingRequest>;
+
 export interface StaffOnboardingRequest {
   id: string;
   full_name: string;

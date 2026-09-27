@@ -77,7 +77,7 @@ The Staff service has one small internal hosted helper; reschedule also uses `re
 
 The existing base URL validation requires HTTPS, no embedded URL credentials, and the exact expected hosted origin. No actor role/authority headers or privileged credentials are sent. The bearer token identifies the caller; hosted code resolves authorization.
 
-Sensitive direct renderer table writes for onboarding approval/rejection, profile and system role have been removed. Deactivation and booking reschedule/reassignment use the hosted endpoints. The added TypeScript AST boundary test checks direct `update`/`insert`/`upsert`/`delete` chains on `staff`, `staff_onboarding_requests` and `bookings` in renderer services. Mock boundary tests assert no table/RPC calls for these five hosted Staff functions. Accepted roster/service/onboarding/schedule reads and schedule mutation contracts remain intact.
+Sensitive direct renderer table writes for onboarding approval/rejection, profile and system role have been removed. Deactivation and booking reschedule/reassignment use the hosted endpoints. The added TypeScript AST boundary test checks direct `update`/`insert`/`upsert`/`delete` chains on `staff`, `staff_onboarding_requests` and `bookings` in renderer services. Mock boundary tests assert no table/RPC calls for these five hosted Staff functions. Accepted roster and schedule reads, schedule mutation contracts and the capability RPC remain intact. The correction section below records the subsequent catalogue and onboarding read contract changes.
 
 The accepted `replace_staff_service_capabilities` call remains unchanged and uses the caller-authenticated Supabase client. Its hosted PostgreSQL function is `SECURITY DEFINER` and performs internal actor-aware authorization using `auth.uid()` and server-resolved actor, role, branch and target/service constraints. This is not a claim that ordinary table RLS authorizes the function operation. No service-role client is used by Desktop.
 
@@ -85,7 +85,7 @@ Tauri capability result: unchanged. `src-tauri/capabilities/desktop-api.json` st
 
 Security scans searched `SUPABASE_SERVICE_ROLE_KEY`, `service_role`, `service-role`, `supabaseServiceRole`, `admin client`, `createAdminClient` and secret-key prefixes. Renderer source, Tauri source/configuration and environment files contain no privileged credential or admin client. Repository-wide keyword matches are explanatory governance/evidence and negative test assertions, not credentials. Environment values were not printed. Generated bundle inspection found one literal `sb_secret_` prefix in the Supabase SDK's key-format classifier (`startsWith`), with no secret credential value or privileged client. No service-role key or admin-client implementation was found in the generated bundle. This distinguishes dependency vocabulary from secret exposure.
 
-## Tests and gates
+## Initial implementation tests and gates (pre-correction)
 
 Node `24.14.0` and pnpm `10.33.2` were used; dependencies and lockfiles were unchanged.
 
@@ -141,3 +141,68 @@ Phone clearing remains unsupported by the hosted profile contract and is explain
 Rollback is a reviewed Git revert of the Stage 12B implementation commit, identified by the final handoff HEAD_SHA. No database rollback is required or performed because this run changed no schema or production data. Restoring the accepted baseline returns these UI mutations to their prior unavailable state.
 
 Push this stage branch for independent GitHub review and owner runtime confirmation, then stop. This evidence does not authorize merge, hosted changes, manual deployment, packaging, identity, notifications, SQLite/cache, or another stage.
+
+## Correction and independent re-review
+
+- Stage: 12B correction only, on the same `stage/12b-desktop-wiring-security` branch.
+- PRE_CORRECTION_HEAD: `3054a61eea16d053ee2a1ecb2933e5b50ad794dc`.
+- BASE_SHA remains `683b5c11651c972e6290b6796d01b3b449c105a4`.
+- HOSTED_AUTHORITY_SHA remains `03242a0bfbcfe6c4b1b03ba624510004cae7cc6a`; hosted checkout was inspected and remained clean at this anchor.
+- Correction HEAD_SHA is resolved after commit/push and reported in the handoff; it is not self-encoded in this file.
+
+The independent review returned **CHANGES REQUIRED**. The pre-correction implementation had three defects: the approval service read could hide failure as empty data and fall back to global active services; onboarding reads also hid failures as empty applications; two disconnected availability actions generated a success-like operational claim without any availability query. The initial test results above describe that reviewed revision and do not establish that these defects were absent.
+
+### Exact correction files
+
+```text
+docs/30-delivery/STAGE_12B_EVIDENCE.md
+src/components/staff/StaffInspectorCard.tsx
+src/components/staff/StaffView.tsx
+src/components/staff/modals/StaffApplicationApprovalModal.tsx
+src/lib/staff-service.ts
+src/types/staff.ts
+tests/staff-components.test.tsx
+tests/staff-service.test.ts
+```
+
+### Corrected read and action behavior
+
+`fetchBranchAssignableServices` now returns an explicit success/failure result. Verified empty is `{ ok: true, data: [] }`; query/RLS/network errors and malformed eligibility payloads return `ok: false` with a code and truthful message. The broad global `services` fallback is removed entirely.
+
+The minimal read queries `branch_services` with `branch_id` and active membership filters, joining `services` and its optional category name. It verifies the returned branch identifier, matching service ID, relation shape, active flags and delivery flags. A wrong-branch or malformed eligibility row fails the complete catalogue read closed. Globally inactive services and inactive branch rows are excluded. In-spa availability qualifies an active service; home-only availability additionally requires verified enabled `branch_booking_rules.home_service_enabled` for the same branch. Visibility is not filtered, matching the hosted `staff_assignment` audience. Relation objects and the single-element array compatibility form are supported. No standalone global service query occurs.
+
+**REPOSITORY-RECORDED PRODUCTION EVIDENCE:** Eligibility was checked against hosted `src/lib/services/service-catalog.ts`, `src/lib/services/service-eligibility.ts`, `src/lib/queries/branch-booking-rules.ts`, and schema types at HOSTED_AUTHORITY_SHA. The hosted subsystem was not copied into Desktop. Its hosted rule resolver can default absent rows; this Desktop read conservatively treats a missing/unreadable rules row as unverified when home-only eligibility depends on it, because the authenticated read cannot distinguish true absence from a row hidden by RLS. It does not silently assume an enabled Home Service mode. Reads requiring no home-only decision do not query booking rules. No new client authorization claim or schema fallback is introduced.
+
+StaffView explicitly tracks catalogue loading, readiness and error, independently of list length. Approval defaults to unverified, disables submit and rejects direct form submission until the catalogue is verified, and displays verification/error text with Retry through the existing workspace reload. A verified empty catalogue or intentional zero selections may submit an explicit empty service list; there is no invented mandatory-capability rule. Selected IDs must still belong to the verified choices. Existing hosted mutation, pending, duplicate-submit and focus behavior is preserved.
+
+`fetchBranchOnboardingRequests` now also returns explicit success/failure results and validates required fields, branch identity, status and payload shape. A legitimate empty applications read is successful; a failed/malformed read is not empty success. Nullable phone/preferred-role values remain displayable without inventing identifiers.
+
+At reload start, StaffView marks dependencies unverified and clears actionable application rows. Failed application reloads keep actions unavailable, close the saved approval target and show the canonical error/Retry banner. The Applications list is rendered only after successful verification, so its normal empty-state copy cannot represent a failed read. Successful retry restores authoritative rows and clears errors. The modal resolves its target from current verified submitted applications. A read generation guard prevents an older overlapping refresh from restoring stale readiness over a newer result.
+
+Both Staff inspector availability controls remain visible but disabled when no `onCheckAvailability` callback is supplied, with the title: `Availability checking is not connected in the current Staff contract.` A supplied callback receives the selected staff member. Neither path generates an availability claim. The now-unused `actionNotice` state and render blocks were removed. No availability API was added, and a callback unit test is not proof of production availability.
+
+### Correction verification
+
+Node `24.14.0` and pnpm `10.33.2` were reused. No dependencies, test configuration or security boundary tests were weakened or changed.
+
+| Command                                                                                                                                                                                                | Correction result                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| `pnpm exec vitest run tests/staff-service.test.ts tests/staff-components.test.tsx tests/bookings-service.test.ts tests/bookings-components.test.tsx tests/auth-service.test.ts tests/boundary.test.ts` | PASS: 6 files, 356 tests             |
+| `pnpm test`                                                                                                                                                                                            | PASS: 23 files, 657 tests            |
+| `pnpm typecheck`                                                                                                                                                                                       | PASS                                 |
+| `pnpm lint`                                                                                                                                                                                            | PASS, zero warnings                  |
+| `pnpm format:check`                                                                                                                                                                                    | PASS                                 |
+| `pnpm build`                                                                                                                                                                                           | PASS: frontend TypeScript/Vite build |
+| `git diff --check`                                                                                                                                                                                     | PASS                                 |
+
+Formatting was finalized with the repository-pinned Prettier `3.9.6`; an earlier `pnpm exec prettier` invocation resolved a global `3.6.2`, which produced two formatting discrepancies. The required repository `pnpm format:check` passed after scoped formatting with the pinned version. The sandboxed Vite build was blocked by `spawn EPERM`; the unchanged build command passed outside the sandbox. Vite reported a nonfatal chunk-size warning; no build/test configuration was weakened.
+
+The 48 added test cases verify scoped catalogue membership, legitimate emptiness, query/RLS/network failures, no global fallback, wrong-branch rejection, global/branch activity, delivery eligibility, required Home Service rules failures, malformed relations/payloads, application failure versus emptiness, catalogue fail-closed form submission, verified empty approval, selected service IDs, retry recovery, stale action removal, and both availability contexts. Earlier Stage 12B hosted Staff/Booking, bearer/origin, malformed-response, duplicate/focus and security tests remain in the passing regression suites. These are mocked tests and repository checks; no live production query or workflow verification is claimed.
+
+Source security scans found no service-role key, privileged admin client or arbitrary mutation origin. The direct-sensitive-write AST regression remains passing and unchanged. Booking implementation, Tauri capability, accepted capability RPC, deactivation status derivation and hosted source are unchanged in this correction. Generated bundle scanning again distinguishes the Supabase SDK's literal `sb_secret_` format-check prefix from a credential; no privileged credential value was found.
+
+Native runtime was not independently observed by the agent in this correction. The prior port-1420 block remains the recorded native attempt; no unknown owner process was stopped and no fabricated viewport evidence was added. 1440×900, 1366×768 and 1024×768 remain **NOT OBSERVED**. Owner runtime confirmation is required.
+
+Production mutations: **NO**. Schema/migrations: **NONE**. Local DB/cache: **NONE**. Hosted changes: **NONE**. The deactivation read-model ambiguity and unsupported phone-clearing limitation above remain unchanged.
+
+Rollback of this correction is a reviewed revert of its commit identified by the final NEW_HEAD_SHA. No data rollback is needed or performed. Push the correction without force to the same branch, verify local/remote equality and clean working tree, and stop for independent GitHub re-review. No merge or new stage is authorized by these results.

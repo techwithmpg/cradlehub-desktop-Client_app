@@ -12,6 +12,8 @@ import {
 import type {
   BranchServiceOption,
   FetchStaffResult,
+  FetchBranchServicesResult,
+  FetchOnboardingRequestsResult,
   ReviewOnboardingInput,
   StaffBlockedTime,
   StaffFilters,
@@ -562,92 +564,210 @@ export async function fetchBranchStaff(
   }
 }
 
-/**
- * Fetches active services eligible for staff assignment in the branch.
- */
+/** Branch-scoped assignment choices; a failed read never becomes an empty catalogue. */
 export async function fetchBranchAssignableServices(
   branchId: string,
   client?: SupabaseClient,
-): Promise<BranchServiceOption[]> {
-  const supabase = client ?? getSupabaseClient();
-  const { data, error } = await supabase
-    .from('services')
-    .select('id, name, category, duration_minutes')
-    .eq('branch_id', branchId.trim())
-    .eq('is_active', true)
-    .order('name', { ascending: true });
-
-  if (error || !Array.isArray(data)) {
-    // If services by branch_id returns empty or table doesn't have branch_id, query general active services
-    const fallback = await supabase
-      .from('services')
-      .select('id, name, category, duration_minutes')
-      .eq('is_active', true)
-      .order('name', { ascending: true });
-
-    if (!fallback.error && Array.isArray(fallback.data)) {
-      return fallback.data.map((s) => ({
-        id: String(s.id),
-        name: String(s.name),
-        category: s.category ? String(s.category) : null,
-        duration_minutes:
-          typeof s.duration_minutes === 'number' ? s.duration_minutes : null,
-      }));
+): Promise<FetchBranchServicesResult> {
+  if (!branchId?.trim())
+    return {
+      ok: false,
+      code: 'INVALID_BRANCH',
+      message: 'Branch identifier is missing.',
+    };
+  const invalid = {
+    ok: false as const,
+    code: 'INVALID_PAYLOAD',
+    message:
+      'Service assignments could not be verified for this branch. Reload the Staff workspace.',
+  };
+  try {
+    const supabase = client ?? getSupabaseClient();
+    const { data, error } = await supabase
+      .from('branch_services')
+      .select(
+        'branch_id, service_id, is_active, available_in_spa, available_home_service, services (id, name, is_active, duration_minutes, service_categories (name))',
+      )
+      .eq('branch_id', branchId.trim())
+      .eq('is_active', true);
+    if (error) return staffDependencyError(error, 'Service assignments');
+    if (!Array.isArray(data)) return invalid;
+    const candidates: Array<{
+      option: BranchServiceOption;
+      inSpa: boolean;
+      home: boolean;
+    }> = [];
+    for (const row of data) {
+      if (
+        !isRecord(row) ||
+        row.branch_id !== branchId.trim() ||
+        typeof row.service_id !== 'string' ||
+        !row.service_id.trim() ||
+        typeof row.is_active !== 'boolean' ||
+        typeof row.available_in_spa !== 'boolean' ||
+        typeof row.available_home_service !== 'boolean'
+      )
+        return invalid;
+      const service = Array.isArray(row.services)
+        ? row.services.length === 1
+          ? row.services[0]
+          : null
+        : row.services;
+      if (
+        !isRecord(service) ||
+        service.id !== row.service_id ||
+        typeof service.name !== 'string' ||
+        !service.name.trim() ||
+        typeof service.is_active !== 'boolean' ||
+        (service.duration_minutes !== null &&
+          (typeof service.duration_minutes !== 'number' ||
+            !Number.isFinite(service.duration_minutes)))
+      )
+        return invalid;
+      if (!row.is_active || !service.is_active) continue;
+      const category = Array.isArray(service.service_categories)
+        ? service.service_categories[0]
+        : service.service_categories;
+      candidates.push({
+        option: {
+          id: row.service_id,
+          name: service.name.trim(),
+          category:
+            isRecord(category) && typeof category.name === 'string'
+              ? category.name
+              : null,
+          duration_minutes: service.duration_minutes as number | null,
+        },
+        inSpa: row.available_in_spa,
+        home: row.available_home_service,
+      });
     }
-    return [];
+    let homeEnabled = false;
+    if (candidates.some((item) => !item.inSpa && item.home)) {
+      const rules = await supabase
+        .from('branch_booking_rules')
+        .select('branch_id, home_service_enabled')
+        .eq('branch_id', branchId.trim())
+        .maybeSingle();
+      if (rules.error)
+        return staffDependencyError(rules.error, 'Branch Home Service rules');
+      // Missing rules are unverified in this client read; never assume an enabled mode.
+      if (
+        !isRecord(rules.data) ||
+        rules.data.branch_id !== branchId.trim() ||
+        typeof rules.data.home_service_enabled !== 'boolean'
+      )
+        return invalid;
+      homeEnabled = rules.data.home_service_enabled;
+    }
+    const options = new Map<string, BranchServiceOption>();
+    for (const item of candidates) {
+      if (item.inSpa || (homeEnabled && item.home))
+        options.set(item.option.id, item.option);
+    }
+    return {
+      ok: true,
+      data: [...options.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  } catch (error) {
+    return staffDependencyError(error, 'Service assignments');
   }
-
-  return data.map((s) => ({
-    id: String(s.id),
-    name: String(s.name),
-    category: s.category ? String(s.category) : null,
-    duration_minutes:
-      typeof s.duration_minutes === 'number' ? s.duration_minutes : null,
-  }));
 }
 
-/**
- * Fetches branch staff onboarding applications.
- */
+function staffDependencyError(
+  error: unknown,
+  subject: string,
+): { ok: false; code: string; message: string } {
+  const classified = classifyStaffError(error);
+  return {
+    ok: false,
+    code: classified.code,
+    message: `${subject} could not be loaded for this branch. Reload the Staff workspace or sign in again if your session has expired.`,
+  };
+}
+
+/** Branch applications: failed or malformed reads remain failures. */
 export async function fetchBranchOnboardingRequests(
   branchId: string,
   client?: SupabaseClient,
-): Promise<StaffOnboardingRequest[]> {
-  const supabase = client ?? getSupabaseClient();
-  const { data, error } = await supabase
-    .from('staff_onboarding_requests')
-    .select('*')
-    .eq('requested_branch_id', branchId.trim())
-    .order('created_at', { ascending: false });
-
-  if (error || !Array.isArray(data)) {
-    return [];
+): Promise<FetchOnboardingRequestsResult> {
+  if (!branchId?.trim())
+    return {
+      ok: false,
+      code: 'INVALID_BRANCH',
+      message: 'Branch identifier is missing.',
+    };
+  const invalid = {
+    ok: false as const,
+    code: 'INVALID_PAYLOAD',
+    message:
+      'Applications returned invalid data for this branch. Reload the Staff workspace.',
+  };
+  try {
+    const supabase = client ?? getSupabaseClient();
+    const { data, error } = await supabase
+      .from('staff_onboarding_requests')
+      .select('*')
+      .eq('requested_branch_id', branchId.trim())
+      .order('created_at', { ascending: false });
+    if (error) return staffDependencyError(error, 'Applications');
+    if (!Array.isArray(data)) return invalid;
+    const requests: StaffOnboardingRequest[] = [];
+    for (const row of data) {
+      if (
+        !isRecord(row) ||
+        typeof row.id !== 'string' ||
+        !row.id.trim() ||
+        row.requested_branch_id !== branchId.trim() ||
+        typeof row.full_name !== 'string' ||
+        !row.full_name.trim() ||
+        typeof row.email !== 'string' ||
+        (row.phone !== null && typeof row.phone !== 'string') ||
+        (row.preferred_role !== null &&
+          typeof row.preferred_role !== 'string') ||
+        typeof row.created_at !== 'string' ||
+        !row.created_at.trim() ||
+        typeof row.status !== 'string' ||
+        !['submitted', 'under_review', 'approved', 'rejected'].includes(
+          row.status,
+        )
+      )
+        return invalid;
+      for (const field of [
+        'staff_id',
+        'reviewed_at',
+        'reviewed_by_staff_id',
+        'rejection_reason',
+      ]) {
+        if (row[field] != null && typeof row[field] !== 'string')
+          return invalid;
+      }
+      if (row.metadata != null && !isRecord(row.metadata)) return invalid;
+      requests.push({
+        id: row.id,
+        full_name: row.full_name,
+        email: row.email,
+        phone: row.phone ?? '',
+        preferred_role: row.preferred_role ?? '',
+        experience_years:
+          typeof row.experience_years === 'number'
+            ? row.experience_years
+            : null,
+        requested_branch_id: row.requested_branch_id as string,
+        status: row.status as StaffOnboardingRequest['status'],
+        staff_id: row.staff_id as string | null | undefined,
+        created_at: row.created_at,
+        reviewed_at: row.reviewed_at as string | null | undefined,
+        reviewed_by_staff_id: row.reviewed_by_staff_id as
+          string | null | undefined,
+        rejection_reason: row.rejection_reason as string | null | undefined,
+        metadata: row.metadata as Record<string, unknown> | null | undefined,
+      });
+    }
+    return { ok: true, data: requests };
+  } catch (error) {
+    return staffDependencyError(error, 'Applications');
   }
-
-  return data.map((row) => ({
-    id: String(row.id),
-    full_name: String(row.full_name || ''),
-    email: String(row.email || ''),
-    phone: String(row.phone || ''),
-    preferred_role: String(row.preferred_role || ''),
-    experience_years:
-      typeof row.experience_years === 'number' ? row.experience_years : null,
-    requested_branch_id: String(row.requested_branch_id),
-    status: row.status as StaffOnboardingRequest['status'],
-    staff_id: row.staff_id ? String(row.staff_id) : null,
-    created_at: String(row.created_at || ''),
-    reviewed_at: row.reviewed_at ? String(row.reviewed_at) : null,
-    reviewed_by_staff_id: row.reviewed_by_staff_id
-      ? String(row.reviewed_by_staff_id)
-      : null,
-    rejection_reason: row.rejection_reason
-      ? String(row.rejection_reason)
-      : null,
-    metadata:
-      row.metadata && typeof row.metadata === 'object'
-        ? (row.metadata as Record<string, unknown>)
-        : null,
-  }));
 }
 
 /**
