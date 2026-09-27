@@ -7,6 +7,8 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { StaffCapabilitiesContent } from '../src/components/staff/StaffCapabilitiesView';
+import { StaffContextInspector } from '../src/components/staff/StaffInspectorCard';
 import { StaffView } from '../src/components/staff/StaffView';
 import { CanonicalShell } from '../src/components/CanonicalShell';
 import * as staffService from '../src/lib/staff-service';
@@ -158,12 +160,14 @@ describe('Staff Workspace Component Suite', () => {
         invitedStaff: 1,
       },
     });
-    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue(
-      mockBranchServices,
-    );
-    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue(
-      mockOnboardingRequests,
-    );
+    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue({
+      ok: true,
+      data: mockBranchServices,
+    });
+    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue({
+      ok: true,
+      data: mockOnboardingRequests,
+    });
     vi.spyOn(staffService, 'fetchBranchScheduleWeek').mockResolvedValue({
       overrides: [],
       blockedTimes: [],
@@ -630,8 +634,14 @@ describe('Staff Workspace Component Suite', () => {
     expect(screen.getByTestId('staff-row-staff-15')).toBeDefined();
   });
 
-  it('switches internal inspector tabs and verifies inline profile editing fails closed', async () => {
-    const updateProfileSpy = vi.spyOn(staffService, 'updateStaffProfile');
+  it('switches internal inspector tabs and saves profile only after hosted success', async () => {
+    const updateProfileSpy = vi
+      .spyOn(staffService, 'updateStaffProfile')
+      .mockResolvedValue({
+        ok: true,
+        data: { staff: { id: 's-1' } },
+        message: 'Saved',
+      });
 
     render(<StaffView authContext={mockAuthContext} />);
 
@@ -662,23 +672,84 @@ describe('Staff Workspace Component Suite', () => {
     const nameInput = screen.getByTestId('edit-staff-name');
     expect(nameInput).toBeDefined();
 
-    // Verify unavailable notice is shown
+    expect(screen.queryByText(/UNAVAILABLE IN DESKTOP/)).toBeNull();
     expect(
-      screen.getByText(
-        /UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT REQUIRED/,
-      ),
-    ).toBeDefined();
-
-    // Verify Save Profile button is disabled
-    const saveBtn = screen.getByTestId('save-profile-btn') as HTMLButtonElement;
-    expect(saveBtn.disabled).toBe(true);
-
-    // Update name and attempt click
+      Array.from(
+        (screen.getByTestId('edit-staff-tier') as HTMLSelectElement).options,
+      ).map((option) => option.value),
+    ).toEqual(['n/a', 'junior', 'mid', 'senior', 'head']);
+    expect(
+      Array.from(
+        (screen.getByTestId('edit-staff-type') as HTMLSelectElement).options,
+      ).map((option) => option.value),
+    ).toContain('salon_head');
     fireEvent.change(nameInput, { target: { value: 'Maria Santos-Reyes' } });
-    fireEvent.click(saveBtn);
+    fireEvent.click(screen.getByTestId('save-profile-btn'));
+    await waitFor(() => expect(updateProfileSpy).toHaveBeenCalledOnce());
+    expect(updateProfileSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fullName: 'Maria Santos-Reyes',
+        phone: undefined,
+        tier: 'senior',
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId('edit-profile-form')).toBeNull(),
+    );
+    expect(staffService.fetchBranchStaff).toHaveBeenCalledTimes(2);
+  });
 
-    // Verify direct mutation was NOT called
-    expect(updateProfileSpy).not.toHaveBeenCalled();
+  it('profile does not patch local state while pending, preserves entered values on denial and blocks phone clearing', async () => {
+    let resolve!: (value: { ok: false; code: string; error: string }) => void;
+    const promise = new Promise<{ ok: false; code: string; error: string }>(
+      (done) => {
+        resolve = done;
+      },
+    );
+    const spy = vi
+      .spyOn(staffService, 'updateStaffProfile')
+      .mockReturnValue(promise);
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('inspector-edit-profile-btn'));
+    fireEvent.change(screen.getByTestId('edit-staff-name'), {
+      target: { value: 'Changed Name' },
+    });
+    fireEvent.change(screen.getByTestId('edit-staff-phone'), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByTestId('save-profile-btn'));
+    expect(
+      screen.getByText(/Clearing a saved phone is not supported/),
+    ).toBeDefined();
+    expect(spy).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId('edit-staff-phone'), {
+      target: { value: '09171234567' },
+    });
+    fireEvent.click(screen.getByTestId('save-profile-btn'));
+    fireEvent.click(screen.getByTestId('save-profile-btn'));
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    fireEvent.click(screen.getByTestId('staff-row-s-2'));
+    expect(screen.getByTestId('edit-profile-form')).toBeDefined();
+    expect(spy).toHaveBeenCalledOnce();
+    expect(
+      (screen.getByTestId('edit-staff-name') as HTMLInputElement).disabled,
+    ).toBe(true);
+    expect(staffService.fetchBranchStaff).toHaveBeenCalledOnce();
+    expect(
+      within(screen.getByTestId('staff-row-s-1')).queryByText('Changed Name'),
+    ).toBeNull();
+    resolve({ ok: false, code: 'FORBIDDEN', error: 'Profile forbidden' });
+    await waitFor(() =>
+      expect(screen.getByText('Profile forbidden')).toBeDefined(),
+    );
+    expect(
+      (screen.getByTestId('edit-staff-name') as HTMLInputElement).value,
+    ).toBe('Changed Name');
+    expect(screen.getByTestId('edit-profile-form')).toBeDefined();
+    expect(staffService.fetchBranchStaff).toHaveBeenCalledOnce();
   });
 
   it('switches between all 6 primary workspace tabs', async () => {
@@ -757,7 +828,11 @@ describe('Staff Workspace Component Suite', () => {
     fireEvent.click(screen.getByTestId('inspector-tab-overview'));
     fireEvent.click(screen.getByTestId('inspector-offboard-btn'));
     expect(screen.getByTestId('staff-offboarding-modal')).toBeDefined();
-    expect(screen.getByText('OFFBOARDING CONTRACT REQUIRED')).toBeDefined();
+    expect(
+      screen.getByText(
+        'This disables the staff account while retaining the staff record.',
+      ),
+    ).toBeDefined();
     fireEvent.click(screen.getByTestId('close-offboarding-modal'));
     expect(screen.queryByTestId('staff-offboarding-modal')).toBeNull();
   });
@@ -848,7 +923,7 @@ describe('Staff Workspace Component Suite', () => {
   });
 });
 
-describe('Staff Fail-Closed Security & Parity Suite (Stage 11)', () => {
+describe('Staff Hosted Authority Workflows (Stage 12B)', () => {
   const mockApplicant: StaffOnboardingRequest = mockOnboardingRequests[0];
 
   const mockStaff: StaffMember = {
@@ -883,12 +958,14 @@ describe('Staff Fail-Closed Security & Parity Suite (Stage 11)', () => {
         invitedStaff: 1,
       },
     });
-    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue(
-      mockBranchServices,
-    );
-    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue(
-      mockOnboardingRequests,
-    );
+    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue({
+      ok: true,
+      data: mockBranchServices,
+    });
+    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue({
+      ok: true,
+      data: mockOnboardingRequests,
+    });
     vi.spyOn(staffService, 'fetchBranchScheduleWeek').mockResolvedValue({
       overrides: [],
       blockedTimes: [],
@@ -899,155 +976,599 @@ describe('Staff Fail-Closed Security & Parity Suite (Stage 11)', () => {
     cleanup();
   });
 
-  it('proves Staff approval modal fails closed without calling reviewOnboardingRequest and has disabled submit', () => {
-    const reviewSpy = vi.spyOn(staffService, 'reviewOnboardingRequest');
-    const onApprovedSpy = vi.fn();
-    const onCloseSpy = vi.fn();
-
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  }
+  const success = {
+    ok: true as const,
+    data: { staff: { id: 's-1', is_active: false } },
+    message: 'Saved',
+  };
+  const failure = {
+    ok: false as const,
+    code: 'FORBIDDEN',
+    error: 'Authoritative denial',
+  };
+  function approval(
+    actorRole = 'manager',
+    onApproved = vi.fn(),
+    onClose = vi.fn(),
+  ) {
     render(
       <StaffApplicationApprovalModal
-        isOpen={true}
-        onClose={onCloseSpy}
+        isOpen
+        onClose={onClose}
+        request={mockApplicant}
+        branchId="branch-1"
+        branchName="Cradle Alabang"
+        branchServices={mockBranchServices}
+        branchServicesReady
+        actorRole={actorRole}
+        onApproved={onApproved}
+      />,
+    );
+    return { onApproved, onClose };
+  }
+  it.each(['owner', 'manager', 'assistant_manager', 'store_manager', 'crm'])(
+    'filters canonical approval roles for %s and submits no staffType',
+    async (actor) => {
+      const spy = vi
+        .spyOn(staffService, 'reviewOnboardingRequest')
+        .mockResolvedValue({
+          ok: true,
+          data: { staffId: 's-1', branchId: 'branch-1', systemRole: 'staff' },
+          message: 'Approved',
+        });
+      const callbacks = approval(actor);
+      const roles = Array.from(
+        (screen.getByLabelText('System Role') as HTMLSelectElement).options,
+      ).map((option) => option.value);
+      expect(roles).not.toContain('csr');
+      expect(roles).not.toContain('csr_head');
+      expect(roles.includes('owner')).toBe(actor === 'owner');
+      expect(roles.includes('digital_marketer')).toBe(actor !== 'crm');
+      expect(screen.queryByLabelText(/Staff Type/)).toBeNull();
+      expect(
+        Array.from(
+          (screen.getByLabelText('Skill Tier') as HTMLSelectElement).options,
+        ).map((option) => option.value),
+      ).toEqual(['n/a', 'junior', 'mid', 'senior', 'head']);
+      expect(screen.queryByText(/UNAVAILABLE IN DESKTOP/)).toBeNull();
+      fireEvent.click(screen.getByTestId('approve-application-submit-btn'));
+      await waitFor(() => expect(callbacks.onApproved).toHaveBeenCalledOnce());
+      expect(spy).toHaveBeenCalledWith({
+        requestId: mockApplicant.id,
+        action: 'approve',
+        branchId: 'branch-1',
+        systemRole: 'staff',
+        tier: 'junior',
+        serviceIds: [],
+      });
+      expect(callbacks.onClose).toHaveBeenCalledOnce();
+    },
+  );
+  it('approval pending blocks double submission, controls, Escape, and premature success; failure stays open', async () => {
+    const pending = deferred<typeof failure>();
+    const spy = vi
+      .spyOn(staffService, 'reviewOnboardingRequest')
+      .mockReturnValue(pending.promise);
+    const callbacks = approval();
+    const button = screen.getByTestId('approve-application-submit-btn');
+    fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(spy).toHaveBeenCalledOnce();
+    expect(callbacks.onClose).not.toHaveBeenCalled();
+    expect(callbacks.onApproved).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Skill Tier').matches(':disabled')).toBe(true);
+    pending.resolve(failure);
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toBe(
+        'Authoritative denial',
+      ),
+    );
+    expect(callbacks.onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(callbacks.onClose).toHaveBeenCalledOnce();
+  });
+  it('approval selects exact service ids and refreshes Staff and Applications on success', async () => {
+    vi.spyOn(staffService, 'reviewOnboardingRequest').mockResolvedValue({
+      ok: true,
+      data: { staffId: 's-1', branchId: 'branch-1', systemRole: 'staff' },
+      message: 'Approved',
+    });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Approve & Configure' }),
+    );
+    fireEvent.click(screen.getByLabelText(mockBranchServices[0].name));
+    fireEvent.click(screen.getByTestId('approve-application-submit-btn'));
+    await waitFor(() =>
+      expect(staffService.fetchBranchStaff).toHaveBeenCalledTimes(2),
+    );
+    expect(staffService.fetchBranchOnboardingRequests).toHaveBeenCalledTimes(2);
+    expect(staffService.reviewOnboardingRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceIds: [mockBranchServices[0].id] }),
+    );
+  });
+  it('rejection enables optional bounded reason, blocks dismissal while pending, shows failure, then refreshes on success', async () => {
+    const pending = deferred<typeof failure>();
+    const spy = vi
+      .spyOn(staffService, 'reviewOnboardingRequest')
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue({
+        ok: true,
+        data: { requestId: mockApplicant.id, staffId: null },
+        message: 'Rejected',
+      });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    fireEvent.click(screen.getByTestId('inspector-reject-app-btn'));
+    const reason = screen.getByLabelText(
+      'Reason (Optional)',
+    ) as HTMLTextAreaElement;
+    expect(reason.disabled).toBe(false);
+    expect(reason.maxLength).toBe(500);
+    fireEvent.change(reason, { target: { value: 'Wrong application' } });
+    fireEvent.click(screen.getByTestId('confirm-reject-btn'));
+    fireEvent.click(screen.getByTestId('confirm-reject-btn'));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.click(screen.getByTestId('reject-app-modal'));
+    expect(spy).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('reject-app-modal')).toBeDefined();
+    pending.resolve(failure);
+    await waitFor(() =>
+      expect(screen.getByText('Authoritative denial')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('confirm-reject-btn'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('reject-app-modal')).toBeNull(),
+    );
+    expect(staffService.fetchBranchOnboardingRequests).toHaveBeenCalledTimes(2);
+  });
+  it.each(['owner', 'manager', 'crm'])(
+    'role choices for %s preserve current state and disable no-op',
+    (actor) => {
+      render(
+        <StaffRoleModal
+          isOpen
+          onClose={vi.fn()}
+          staff={mockStaff}
+          actorRole={actor}
+          onRoleUpdated={vi.fn()}
+        />,
+      );
+      expect(screen.getByText('Current Role: staff')).toBeDefined();
+      const values = screen
+        .getAllByRole('radio')
+        .map((radio) => (radio as HTMLInputElement).value);
+      expect(values.includes('owner')).toBe(actor === 'owner');
+      expect(values.includes('digital_marketer')).toBe(actor !== 'crm');
+      expect(
+        (screen.getByTestId('save-role-modal') as HTMLButtonElement).disabled,
+      ).toBe(true);
+    },
+  );
+  it('role keeps denial visible, blocks pending dismissal, then calls success only after response', async () => {
+    const pending = deferred<typeof failure>();
+    const spy = vi
+      .spyOn(staffService, 'updateStaffSystemRole')
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(success);
+    const onClose = vi.fn(),
+      onRoleUpdated = vi.fn();
+    render(
+      <StaffRoleModal
+        isOpen
+        onClose={onClose}
+        staff={mockStaff}
+        actorRole="manager"
+        onRoleUpdated={onRoleUpdated}
+      />,
+    );
+    fireEvent.click(screen.getByRole('radio', { name: 'Driver' }));
+    fireEvent.click(screen.getByTestId('save-role-modal'));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onRoleUpdated).not.toHaveBeenCalled();
+    pending.resolve(failure);
+    await waitFor(() =>
+      expect(screen.getByText('Authoritative denial')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('save-role-modal'));
+    await waitFor(() =>
+      expect(onRoleUpdated).toHaveBeenCalledWith('s-1', 'driver'),
+    );
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+  it('disables self-role changes and self-deactivation', () => {
+    const { unmount } = render(
+      <StaffRoleModal
+        isOpen
+        onClose={vi.fn()}
+        staff={mockStaff}
+        actorRole="owner"
+        actorStaffId="s-1"
+        onRoleUpdated={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/cannot change your own/)).toBeDefined();
+    expect(
+      (screen.getByTestId('save-role-modal') as HTMLButtonElement).disabled,
+    ).toBe(true);
+    unmount();
+    render(
+      <StaffOffboardingNoticeModal
+        isOpen
+        onClose={vi.fn()}
+        staff={mockStaff}
+        actorStaffId="s-1"
+      />,
+    );
+    expect(screen.getByText(/cannot deactivate your own/)).toBeDefined();
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Deactivate Staff Access',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+  it('deactivation retains record wording, blocks pending dismissal and duplicate submits, propagates failure, then success', async () => {
+    const pending = deferred<typeof failure>();
+    const spy = vi
+      .spyOn(staffService, 'deactivateStaff')
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(success);
+    const onClose = vi.fn(),
+      onDeactivated = vi.fn();
+    render(
+      <StaffOffboardingNoticeModal
+        isOpen
+        onClose={onClose}
+        staff={mockStaff}
+        actorStaffId="actor"
+        onDeactivated={onDeactivated}
+      />,
+    );
+    expect(
+      screen.getByText(
+        'This disables the staff account while retaining the staff record.',
+      ),
+    ).toBeDefined();
+    const submit = screen.getByRole('button', {
+      name: 'Deactivate Staff Access',
+    });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(spy).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onDeactivated).not.toHaveBeenCalled();
+    pending.resolve(failure);
+    await waitFor(() =>
+      expect(screen.getByText('Authoritative denial')).toBeDefined(),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Deactivate Staff Access' }),
+    );
+    await waitFor(() => expect(onDeactivated).toHaveBeenCalledOnce());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+  it('traps Tab and restores focus on idle dialog close', () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+    const onClose = vi.fn();
+    const { unmount } = render(
+      <StaffOffboardingNoticeModal
+        isOpen
+        onClose={onClose}
+        staff={mockStaff}
+      />,
+    );
+    const last = screen.getByRole('button', {
+      name: 'Deactivate Staff Access',
+    });
+    last.focus();
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(document.activeElement).toBe(
+      screen.getByLabelText('Close deactivation modal'),
+    );
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+    unmount();
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
+  it.each([
+    { loading: true, error: null, ready: false },
+    {
+      loading: false,
+      error: 'Service catalogue failed to load.',
+      ready: false,
+    },
+    { loading: false, error: null, ready: undefined },
+  ])(
+    'unverified catalogue prevents approval even through form submission: %j',
+    async ({ loading, error, ready }) => {
+      const spy = vi.spyOn(staffService, 'reviewOnboardingRequest');
+      const retry = vi.fn();
+      render(
+        <StaffApplicationApprovalModal
+          isOpen
+          request={mockApplicant}
+          branchId="branch-1"
+          branchName="Cradle Alabang"
+          branchServices={[]}
+          branchServicesReady={ready}
+          branchServicesLoading={loading}
+          branchServicesError={error}
+          onRetryServices={retry}
+          actorRole="manager"
+          onApproved={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+      const submit = screen.getByTestId('approve-application-submit-btn');
+      expect((submit as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(submit);
+      fireEvent.submit(submit.closest('form')!);
+      expect(spy).not.toHaveBeenCalled();
+      expect(
+        screen.queryByText(
+          'No assignable services are available for this branch.',
+        ),
+      ).toBeNull();
+      if (loading)
+        expect(screen.getByRole('status').textContent).toContain(
+          'Verifying service assignments',
+        );
+      else {
+        expect(screen.getByRole('alert').textContent).toContain(
+          error || 'could not be verified',
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+        expect(retry).toHaveBeenCalledOnce();
+      }
+    },
+  );
+  it('verified empty catalogue permits explicit empty capability selection', async () => {
+    const spy = vi
+      .spyOn(staffService, 'reviewOnboardingRequest')
+      .mockResolvedValue({
+        ok: true,
+        data: { staffId: 's-1' },
+        message: 'Approved',
+      });
+    const onApproved = vi.fn();
+    render(
+      <StaffApplicationApprovalModal
+        isOpen
         request={mockApplicant}
         branchId="branch-1"
         branchName="Cradle Alabang"
         branchServices={[]}
-        onApproved={onApprovedSpy}
-      />,
-    );
-
-    // 1. Truthful unavailable notice is displayed
-    expect(
-      screen.getByText(
-        /UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT REQUIRED/,
-      ),
-    ).toBeDefined();
-    expect(
-      screen.getByText(
-        /Staff onboarding approval requires the authoritative Desktop staff-review service/i,
-      ),
-    ).toBeDefined();
-
-    // 2. Submit / Approve CTA is disabled
-    const approveBtn = screen.getByTestId(
-      'approve-application-submit-btn',
-    ) as HTMLButtonElement;
-    expect(approveBtn.disabled).toBe(true);
-
-    // 3. Attempting click does not execute mutation or simulated success
-    fireEvent.click(approveBtn);
-    expect(reviewSpy).not.toHaveBeenCalled();
-    expect(onApprovedSpy).not.toHaveBeenCalled();
-
-    // 4. Modal is keyboard accessible (escape / cancel)
-    fireEvent.click(screen.getByTestId('cancel-approval-modal-btn'));
-    expect(onCloseSpy).toHaveBeenCalled();
-  });
-
-  it('proves Staff rejection in Applications tab fails closed without calling reviewOnboardingRequest', async () => {
-    const reviewSpy = vi.spyOn(staffService, 'reviewOnboardingRequest');
-
-    render(<StaffView authContext={mockAuthContext} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('staff-row-s-1')).toBeDefined();
-    });
-
-    // Switch to Applications tab
-    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
-    await waitFor(() => {
-      expect(screen.getByTestId('staff-applications-view')).toBeDefined();
-    });
-
-    // Select application row to populate inspector
-    fireEvent.click(screen.getByTestId('application-row-req-1'));
-
-    // Open reject modal in Inspector
-    const rejectBtn = screen.getByTestId('inspector-reject-app-btn');
-    fireEvent.click(rejectBtn);
-
-    // Verify Reject modal opens with fail-closed warning
-    expect(screen.getByTestId('reject-app-modal')).toBeDefined();
-    expect(
-      screen.getByText(
-        /UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT REQUIRED/,
-      ),
-    ).toBeDefined();
-
-    // Confirm button is disabled
-    const confirmRejectBtn = screen.getByTestId(
-      'confirm-reject-btn',
-    ) as HTMLButtonElement;
-    expect(confirmRejectBtn.disabled).toBe(true);
-
-    // Click confirm reject
-    fireEvent.click(confirmRejectBtn);
-
-    // Assert reviewOnboardingRequest was NOT called
-    expect(reviewSpy).not.toHaveBeenCalled();
-  });
-
-  it('proves Staff role modal fails closed without calling updateStaffSystemRole and has disabled submit', () => {
-    const updateRoleSpy = vi.spyOn(staffService, 'updateStaffSystemRole');
-    const onRoleUpdatedSpy = vi.fn();
-    const onCloseSpy = vi.fn();
-
-    render(
-      <StaffRoleModal
-        isOpen={true}
-        onClose={onCloseSpy}
-        staff={mockStaff}
+        branchServicesReady
         actorRole="manager"
-        onRoleUpdated={onRoleUpdatedSpy}
+        onApproved={onApproved}
+        onClose={vi.fn()}
       />,
     );
-
-    // 1. Truthful unavailable notice is displayed
     expect(
-      screen.getByText(
-        /UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT REQUIRED/,
-      ),
+      screen.getByText('No assignable services are available for this branch.'),
     ).toBeDefined();
-
-    // 2. Save Role button is disabled
-    const saveRoleBtn = screen.getByTestId(
-      'save-role-modal',
-    ) as HTMLButtonElement;
-    expect(saveRoleBtn.disabled).toBe(true);
-
-    // 3. Click does not trigger mutation or callback
-    fireEvent.click(saveRoleBtn);
-    expect(updateRoleSpy).not.toHaveBeenCalled();
-    expect(onRoleUpdatedSpy).not.toHaveBeenCalled();
-
-    // 4. Modal is dismissible via keyboard / close
-    fireEvent.click(screen.getByTestId('cancel-role-modal'));
-    expect(onCloseSpy).toHaveBeenCalled();
-  });
-
-  it('proves Staff offboarding modal is read-only informational with no mutations', () => {
-    const onCloseSpy = vi.fn();
-    render(
-      <StaffOffboardingNoticeModal
-        isOpen={true}
-        onClose={onCloseSpy}
-        staff={mockStaff}
-      />,
+    fireEvent.click(screen.getByTestId('approve-application-submit-btn'));
+    await waitFor(() => expect(onApproved).toHaveBeenCalledOnce());
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceIds: [] }),
     );
-
-    // Informational contract notice displayed
-    expect(screen.getByTestId('staff-offboarding-modal')).toBeDefined();
-    expect(screen.getByText('OFFBOARDING CONTRACT REQUIRED')).toBeDefined();
-    expect(
-      screen.getByText(
-        /offboarding mutations are blocked pending backend contract deployment/i,
-      ),
-    ).toBeDefined();
-
-    // Close button dismisses
-    fireEvent.click(screen.getByTestId('close-offboarding-modal'));
-    expect(onCloseSpy).toHaveBeenCalled();
   });
+  it('failed service catalogue blocks approval; retry reloads verified choices and permits exact selection', async () => {
+    vi.mocked(staffService.fetchBranchAssignableServices)
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 'QUERY_FAILED',
+        message: 'Service assignments could not be verified.',
+      })
+      .mockResolvedValue({ ok: true, data: mockBranchServices });
+    const spy = vi
+      .spyOn(staffService, 'reviewOnboardingRequest')
+      .mockResolvedValue({
+        ok: true,
+        data: { staffId: 's-1' },
+        message: 'Approved',
+      });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-services-error')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Approve & Configure' }),
+    );
+    const dialog = screen.getByTestId('staff-application-approval-modal');
+    fireEvent.click(
+      within(dialog).getByTestId('approve-application-submit-btn'),
+    );
+    expect(spy).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole('alert').textContent).toContain(
+      'could not be verified',
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Retry' }));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByTestId(
+            'approve-application-submit-btn',
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    expect(screen.queryByTestId('staff-services-error')).toBeNull();
+    fireEvent.click(screen.getByLabelText(mockBranchServices[0].name));
+    fireEvent.click(screen.getByTestId('approve-application-submit-btn'));
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ serviceIds: [mockBranchServices[0].id] }),
+      ),
+    );
+  });
+  it('application failure renders error instead of false empty state; successful retry restores actions', async () => {
+    vi.mocked(staffService.fetchBranchOnboardingRequests)
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 'QUERY_FAILED',
+        message: 'Unable to load applications.',
+      })
+      .mockResolvedValue({ ok: true, data: mockOnboardingRequests });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    const error = screen.getByTestId('staff-applications-error');
+    expect(error.textContent).toContain('Unable to load applications');
+    expect(screen.queryByText('No applications found')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Approve & Configure' }),
+    ).toBeNull();
+    expect(screen.queryByTestId('inspector-reject-app-btn')).toBeNull();
+    fireEvent.click(
+      within(error).getByRole('button', { name: 'Retry operation' }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Approve & Configure' }),
+      ).toBeDefined(),
+    );
+    expect(screen.queryByTestId('staff-applications-error')).toBeNull();
+    expect(screen.getByTestId('inspector-reject-app-btn')).toBeDefined();
+  });
+  it('clears stale application actions during refresh and keeps them unavailable after failure', async () => {
+    const pending =
+      deferred<
+        Awaited<ReturnType<typeof staffService.fetchBranchOnboardingRequests>>
+      >();
+    vi.mocked(staffService.fetchBranchOnboardingRequests)
+      .mockResolvedValueOnce({ ok: true, data: mockOnboardingRequests })
+      .mockReturnValueOnce(pending.promise);
+    const spy = vi.spyOn(staffService, 'reviewOnboardingRequest');
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Approve & Configure' }),
+    );
+    expect(
+      screen.getByTestId('staff-application-approval-modal'),
+    ).toBeDefined();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Refresh Staff Roster' }),
+    );
+    expect(screen.queryByTestId('staff-application-approval-modal')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Approve & Configure' }),
+    ).toBeNull();
+    expect(screen.queryByTestId('inspector-reject-app-btn')).toBeNull();
+    expect(screen.getByTestId('staff-applications-loading')).toBeDefined();
+    pending.resolve({
+      ok: false,
+      code: 'NETWORK_ERROR',
+      message: 'Applications reload failed.',
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-applications-error')).toBeDefined(),
+    );
+    expect(screen.queryByText('No applications found')).toBeNull();
+    expect(screen.queryByTestId('staff-application-approval-modal')).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it('verified empty applications display the existing legitimate empty state', async () => {
+    vi.mocked(staffService.fetchBranchOnboardingRequests).mockResolvedValue({
+      ok: true,
+      data: [],
+    });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('staff-primary-tab-applications'));
+    expect(screen.getByText('No applications found')).toBeDefined();
+    expect(screen.queryByTestId('staff-applications-error')).toBeNull();
+  });
+  it.each(['roster', 'schedule'] as const)(
+    'disconnected availability action in %s cannot manufacture a result',
+    (tab) => {
+      render(
+        <StaffContextInspector
+          activeTab={tab}
+          staff={mockStaff}
+          onCloseStaffSelection={vi.fn()}
+          onOpenScheduleModal={vi.fn()}
+          onOpenCapabilityModal={vi.fn()}
+          onOpenRoleModal={vi.fn()}
+          onOpenOffboardingModal={vi.fn()}
+          onStaffUpdated={vi.fn()}
+        />,
+      );
+      const button = screen.getByRole('button', {
+        name: 'Check Availability',
+      }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+      expect(button.title).toBe(
+        'Availability checking is not connected in the current Staff contract.',
+      );
+      fireEvent.click(button);
+      expect(
+        screen.queryByText(
+          /Checked availability|active in branch (operational )?schedule/i,
+        ),
+      ).toBeNull();
+    },
+  );
+  it.each(['roster', 'schedule'] as const)(
+    'connected availability action in %s delegates to the supplied callback',
+    (tab) => {
+      const callback = vi.fn();
+      render(
+        <StaffContextInspector
+          activeTab={tab}
+          staff={mockStaff}
+          onCloseStaffSelection={vi.fn()}
+          onOpenScheduleModal={vi.fn()}
+          onOpenCapabilityModal={vi.fn()}
+          onOpenRoleModal={vi.fn()}
+          onOpenOffboardingModal={vi.fn()}
+          onStaffUpdated={vi.fn()}
+          onCheckAvailability={callback}
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Check Availability' }),
+      );
+      expect(callback).toHaveBeenCalledWith(mockStaff);
+      expect(
+        screen.queryByText(
+          /Checked availability|active in branch (operational )?schedule/i,
+        ),
+      ).toBeNull();
+    },
+  );
 });
 
 describe('Staff Schedule Authoritative Mutation Suite (Stage 11)', () => {
@@ -1522,6 +2043,7 @@ describe('Staff Capability Authoritative RPC & In-Flight Lifecycle Suite (Stage 
         onClose={onClose}
         staff={mockStaff}
         branchServices={mockBranchServices}
+        branchServicesReady
         onCapabilitiesSaved={onCapabilitiesSaved}
       />,
     );
@@ -1581,6 +2103,7 @@ describe('Staff Capability Authoritative RPC & In-Flight Lifecycle Suite (Stage 
         onClose={onClose}
         staff={mockStaff}
         branchServices={mockBranchServices}
+        branchServicesReady
         onCapabilitiesSaved={onCapabilitiesSaved}
       />,
     );
@@ -1607,5 +2130,532 @@ describe('Staff Capability Authoritative RPC & In-Flight Lifecycle Suite (Stage 
     // Modal remains open and onCapabilitiesSaved was not called
     expect(onCapabilitiesSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('Stage 12B capability catalogue guards', () => {
+  const assigned = {
+    ...mockStaffRoster[0],
+    services: [
+      { service_id: 'old-service', service_name: 'Existing assignment' },
+    ],
+  };
+  const choices = [{ id: 'new-service', name: 'Assignable service' }];
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+  });
+  const states = [
+    { ready: false, loading: true, error: null },
+    { ready: false, loading: false, error: 'Catalogue verification failed.' },
+    { ready: true, loading: false, error: null },
+  ];
+  it.each(states)(
+    'capability tab preserves staff assignments and guards Manage: %j',
+    ({ ready, loading, error }) => {
+      const open = vi.fn(),
+        retry = vi.fn();
+      render(
+        <StaffCapabilitiesContent
+          staffList={[assigned]}
+          branchServices={[]}
+          branchServicesReady={ready}
+          branchServicesLoading={loading}
+          branchServicesError={error}
+          onRetryServices={retry}
+          selectedStaffId={assigned.id}
+          onSelectStaff={vi.fn()}
+          onOpenCapabilityModal={open}
+        />,
+      );
+      expect(screen.getByRole('cell', { name: '1 service' })).toBeDefined();
+      const manage = screen.getByRole('button', {
+        name: 'Manage',
+      }) as HTMLButtonElement;
+      expect(manage.disabled).toBe(!ready);
+      fireEvent.click(manage);
+      expect(open).toHaveBeenCalledTimes(ready ? 1 : 0);
+      if (loading)
+        expect(screen.getByRole('status').textContent).toContain(
+          'Verifying branch service catalogue',
+        );
+      if (error) {
+        expect(screen.getByRole('alert').textContent).toContain(error);
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Retry operation' }),
+        );
+        expect(retry).toHaveBeenCalledOnce();
+      }
+    },
+  );
+  it.each([
+    { context: 'overview', tab: 'roster', internal: null },
+    { context: 'roster services', tab: 'roster', internal: 'Services' },
+    { context: 'capabilities', tab: 'capabilities', internal: null },
+  ] as const)(
+    'all inspector entry points in $context block when unverified and work when verified',
+    ({ tab, internal }) => {
+      const open = vi.fn();
+      const props = {
+        activeTab: tab,
+        staff: { ...assigned, services: [] },
+        onCloseStaffSelection: vi.fn(),
+        onOpenScheduleModal: vi.fn(),
+        onOpenCapabilityModal: open,
+        onOpenRoleModal: vi.fn(),
+        onOpenOffboardingModal: vi.fn(),
+        onStaffUpdated: vi.fn(),
+      };
+      const view = render(
+        <StaffContextInspector
+          {...props}
+          branchServicesReady={false}
+          branchServicesLoading
+          branchServicesError={null}
+        />,
+      );
+      if (internal)
+        fireEvent.click(screen.getByRole('tab', { name: internal }));
+      const buttons = screen
+        .getAllByRole('button')
+        .filter((button) =>
+          [
+            'Manage',
+            'Assign Capabilities',
+            'Assign Services',
+            'Capabilities',
+          ].includes(button.textContent?.trim() || ''),
+        );
+      expect(buttons.length).toBe(tab === 'roster' && !internal ? 1 : 2);
+      for (const button of buttons) {
+        expect((button as HTMLButtonElement).disabled).toBe(true);
+        expect(button.title).toContain('catalogue is verified');
+        fireEvent.click(button);
+      }
+      expect(open).not.toHaveBeenCalled();
+      view.rerender(
+        <StaffContextInspector
+          {...props}
+          branchServicesReady={false}
+          branchServicesLoading={false}
+          branchServicesError="Catalogue verification failed."
+        />,
+      );
+      for (const button of buttons)
+        expect((button as HTMLButtonElement).disabled).toBe(true);
+      view.rerender(
+        <StaffContextInspector
+          {...props}
+          branchServicesReady
+          branchServicesLoading={false}
+          branchServicesError={null}
+        />,
+      );
+      for (const button of buttons) {
+        expect((button as HTMLButtonElement).disabled).toBe(false);
+        fireEvent.click(button);
+      }
+      expect(open).toHaveBeenCalledTimes(buttons.length);
+    },
+  );
+  it('inspector retains current assignments and does not claim zero branch availability on failed read', () => {
+    render(
+      <StaffContextInspector
+        activeTab="capabilities"
+        staff={assigned}
+        branchServices={[]}
+        branchServicesReady={false}
+        branchServicesError="Catalogue verification failed."
+        onCloseStaffSelection={vi.fn()}
+        onOpenScheduleModal={vi.fn()}
+        onOpenCapabilityModal={vi.fn()}
+        onOpenRoleModal={vi.fn()}
+        onOpenOffboardingModal={vi.fn()}
+        onStaffUpdated={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Existing assignment')).toBeDefined();
+    expect(screen.getByText('1 Assigned Services')).toBeDefined();
+    expect(screen.getByText('Branch catalogue unverified')).toBeDefined();
+    expect(screen.queryByText('Branch Total: 0')).toBeNull();
+  });
+  it.each([
+    { ready: false, loading: true, error: null, services: [] },
+    {
+      ready: false,
+      loading: false,
+      error: 'Catalogue verification failed.',
+      services: [],
+    },
+    { ready: undefined, loading: false, error: null, services: choices },
+  ])(
+    'modal defends unverified state even through direct form submission: %j',
+    ({ ready, loading, error, services }) => {
+      const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+      const retry = vi.fn();
+      render(
+        <StaffCapabilityModal
+          isOpen
+          staff={assigned}
+          branchServices={services}
+          branchServicesReady={ready}
+          branchServicesLoading={loading}
+          branchServicesError={error}
+          onRetryServices={retry}
+          onClose={vi.fn()}
+          onCapabilitiesSaved={vi.fn()}
+        />,
+      );
+      expect(
+        screen.getByText(/Current staff assignments: Existing assignment/),
+      ).toBeDefined();
+      for (const button of [
+        screen.getByTestId('save-capability-modal'),
+        screen.getByRole('button', { name: 'Clear' }),
+        screen.getByRole('button', { name: 'Select All' }),
+      ]) {
+        expect((button as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.click(button);
+      }
+      expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+      fireEvent.submit(
+        screen.getByTestId('save-capability-modal').closest('form')!,
+      );
+      expect(mutation).not.toHaveBeenCalled();
+      expect(
+        screen.queryByText('No services match your search or filter.'),
+      ).toBeNull();
+      expect(
+        screen.queryByText(
+          'No assignable services are available for this branch.',
+        ),
+      ).toBeNull();
+      expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+        'Save 1 Services',
+      );
+      if (loading)
+        expect(screen.getByRole('status').textContent).toContain(
+          'Verifying service assignments',
+        );
+      else {
+        expect(screen.getByRole('alert').textContent).toContain(
+          error || 'could not be verified',
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+        expect(retry).toHaveBeenCalledOnce();
+      }
+    },
+  );
+  it('verified empty catalogue preserves existing assignments until explicit Clear and Save', async () => {
+    const mutation = vi
+      .spyOn(staffService, 'updateStaffCapabilities')
+      .mockResolvedValue({ ok: true, message: 'Saved' });
+    const saved = vi.fn();
+    render(
+      <StaffCapabilityModal
+        isOpen
+        staff={assigned}
+        branchServices={[]}
+        branchServicesReady
+        onClose={vi.fn()}
+        onCapabilitiesSaved={saved}
+      />,
+    );
+    expect(
+      screen.getByText('No assignable services are available for this branch.'),
+    ).toBeDefined();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(
+      screen.getByText(/Current staff assignments: Existing assignment/),
+    ).toBeDefined();
+    expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+      'Save 1 Services',
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select All' }));
+    expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+      'Save 1 Services',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('save-capability-modal'));
+    await waitFor(() => expect(saved).toHaveBeenCalledWith(assigned.id, []));
+    expect(mutation).toHaveBeenCalledWith(assigned.id, []);
+  });
+  it('does not trim existing out-of-catalogue IDs on open or Select All; saves only on explicit submit', async () => {
+    const mutation = vi
+      .spyOn(staffService, 'updateStaffCapabilities')
+      .mockResolvedValue({ ok: true, message: 'Saved' });
+    const saved = vi.fn();
+    render(
+      <StaffCapabilityModal
+        isOpen
+        staff={assigned}
+        branchServices={choices}
+        branchServicesReady
+        onClose={vi.fn()}
+        onCapabilitiesSaved={saved}
+      />,
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select All' }));
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('save-capability-modal'));
+    await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+    expect(mutation).toHaveBeenCalledWith(assigned.id, [
+      'old-service',
+      'new-service',
+    ]);
+  });
+  it('readiness loss blocks an already-open modal without clearing selections; verified retry restores it', () => {
+    const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+    const props = {
+      isOpen: true,
+      staff: assigned,
+      branchServices: choices,
+      onClose: vi.fn(),
+      onCapabilitiesSaved: vi.fn(),
+    };
+    const view = render(
+      <StaffCapabilityModal {...props} branchServicesReady />,
+    );
+    fireEvent.click(screen.getByRole('checkbox'));
+    view.rerender(
+      <StaffCapabilityModal
+        {...props}
+        branchServices={[]}
+        branchServicesReady={false}
+        branchServicesLoading
+      />,
+    );
+    fireEvent.submit(
+      screen.getByTestId('save-capability-modal').closest('form')!,
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+      'Save 2 Services',
+    );
+    view.rerender(<StaffCapabilityModal {...props} branchServicesReady />);
+    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(
+      true,
+    );
+  });
+  it('cancelled Clear is not carried into a later modal opening', () => {
+    const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+    const props = {
+      staff: assigned,
+      branchServices: [],
+      branchServicesReady: true,
+      onClose: vi.fn(),
+      onCapabilitiesSaved: vi.fn(),
+    };
+    const view = render(<StaffCapabilityModal {...props} isOpen />);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    view.rerender(<StaffCapabilityModal {...props} isOpen={false} />);
+    view.rerender(<StaffCapabilityModal {...props} isOpen />);
+    expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+      'Save 1 Services',
+    );
+    expect(mutation).not.toHaveBeenCalled();
+  });
+  function workspaceReads() {
+    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
+      ok: true,
+      data: mockStaffRoster,
+      kpis: {
+        totalStaff: 4,
+        activeStaff: 2,
+        awaitingStaff: 1,
+        invitedStaff: 1,
+      },
+    });
+    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue({
+      ok: true,
+      data: mockOnboardingRequests,
+    });
+    vi.spyOn(staffService, 'fetchBranchScheduleWeek').mockResolvedValue({
+      overrides: [],
+      blockedTimes: [],
+    });
+  }
+  it('failed workspace catalogue disables every entry; retry restores normal editing', async () => {
+    workspaceReads();
+    vi.spyOn(staffService, 'fetchBranchAssignableServices')
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 'QUERY_FAILED',
+        message: 'Catalogue verification failed.',
+      })
+      .mockResolvedValue({ ok: true, data: mockBranchServices });
+    const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('inspector-manage-capabilities-btn'));
+    expect(screen.queryByTestId('staff-capability-modal')).toBeNull();
+    fireEvent.click(screen.getByTestId('staff-primary-tab-capabilities'));
+    const table = screen.getByTestId('staff-capabilities-view');
+    for (const manage of within(table).getAllByRole('button', {
+      name: 'Manage',
+    })) {
+      expect((manage as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(manage);
+    }
+    expect(screen.queryByTestId('staff-capability-modal')).toBeNull();
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(table).getByRole('button', { name: 'Retry operation' }),
+    );
+    await waitFor(() =>
+      expect(
+        (
+          within(table).getAllByRole('button', {
+            name: 'Manage',
+          })[0] as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(
+      within(table).getAllByRole('button', { name: 'Manage' })[0],
+    );
+    expect(screen.getByTestId('staff-capability-modal')).toBeDefined();
+    expect(mutation).not.toHaveBeenCalled();
+  });
+  it('workspace refresh propagates loading then failure into an already-open editor', async () => {
+    workspaceReads();
+    let resolve!: (
+      result: Awaited<
+        ReturnType<typeof staffService.fetchBranchAssignableServices>
+      >,
+    ) => void;
+    vi.spyOn(staffService, 'fetchBranchAssignableServices')
+      .mockResolvedValueOnce({ ok: true, data: mockBranchServices })
+      .mockReturnValueOnce(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+    const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('inspector-manage-capabilities-btn'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Refresh Staff Roster' }),
+    );
+    const dialog = screen.getByTestId('staff-capability-modal');
+    expect(within(dialog).getByRole('status').textContent).toContain(
+      'Verifying service assignments',
+    );
+    fireEvent.submit(
+      within(dialog).getByTestId('save-capability-modal').closest('form')!,
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    resolve({
+      ok: false,
+      code: 'QUERY_FAILED',
+      message: 'Catalogue verification failed.',
+    });
+    await waitFor(() =>
+      expect(within(dialog).getByRole('alert').textContent).toContain(
+        'Catalogue verification failed',
+      ),
+    );
+    fireEvent.submit(
+      within(dialog).getByTestId('save-capability-modal').closest('form')!,
+    );
+    expect(mutation).not.toHaveBeenCalled();
+  });
+  it('verified modal keeps duplicate, toggle and dismissal guards while RPC is pending', async () => {
+    let resolve!: (
+      result: Awaited<ReturnType<typeof staffService.updateStaffCapabilities>>,
+    ) => void;
+    const mutation = vi
+      .spyOn(staffService, 'updateStaffCapabilities')
+      .mockReturnValue(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+    const close = vi.fn();
+    render(
+      <StaffCapabilityModal
+        isOpen
+        staff={assigned}
+        branchServices={choices}
+        branchServicesReady
+        onClose={close}
+        onCapabilitiesSaved={vi.fn()}
+      />,
+    );
+    const submit = screen.getByTestId('save-capability-modal');
+    fireEvent.submit(submit.closest('form')!);
+    fireEvent.submit(submit.closest('form')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect((screen.getByRole('checkbox') as HTMLInputElement).disabled).toBe(
+      true,
+    );
+    expect(mutation).toHaveBeenCalledOnce();
+    expect(mutation).toHaveBeenCalledWith(assigned.id, ['old-service']);
+    expect(close).not.toHaveBeenCalled();
+    resolve({ ok: false, error: 'Authoritative capability denial' });
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Authoritative capability denial',
+      ),
+    );
+    expect((submit as HTMLButtonElement).disabled).toBe(false);
+  });
+  it('successful capability replacement refreshes authoritative Staff data rather than trimming assignments locally', async () => {
+    workspaceReads();
+    vi.mocked(staffService.fetchBranchStaff)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: mockStaffRoster,
+        kpis: {
+          totalStaff: 4,
+          activeStaff: 2,
+          awaitingStaff: 1,
+          invitedStaff: 1,
+        },
+      })
+      .mockResolvedValue({
+        ok: true,
+        data: [{ ...assigned, full_name: 'Authoritative refreshed staff' }],
+        kpis: {
+          totalStaff: 1,
+          activeStaff: 1,
+          awaitingStaff: 0,
+          invitedStaff: 0,
+        },
+      });
+    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue({
+      ok: true,
+      data: mockBranchServices,
+    });
+    vi.spyOn(staffService, 'updateStaffCapabilities').mockResolvedValue({
+      ok: true,
+      message: 'Saved',
+    });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('inspector-manage-capabilities-btn'));
+    fireEvent.click(screen.getByTestId('save-capability-modal'));
+    await waitFor(() =>
+      expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+        'Authoritative refreshed staff',
+      ),
+    );
+    expect(staffService.fetchBranchStaff).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('status').textContent).toContain(
+      'Service capabilities updated successfully',
+    );
   });
 });

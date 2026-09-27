@@ -5,6 +5,7 @@ import { readHostedJsonResponse } from './hosted-json-response';
 import { isFetchCustomersSuccess } from './customers-service';
 import type {
   Booking,
+  BookingReassignmentReason,
   BookingCustomer,
   BookingFilters,
   BookingKpiSummary,
@@ -941,6 +942,8 @@ export interface RescheduleBookingInput {
   bookingId: string;
   date: string;
   startTime: string;
+  therapistId?: string;
+  overrideReason?: BookingReassignmentReason;
   note?: string;
   homeServiceAddress?: string;
   homeServiceAccessNote?: string;
@@ -1046,10 +1049,27 @@ export async function rescheduleBranchBooking(
     };
   }
 
-  const supabase = client ?? getSupabaseClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  let supabase: SupabaseClient;
+  try {
+    supabase = client ?? getSupabaseClient();
+  } catch {
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error: 'Booking service is not configured.',
+    };
+  }
+  let session;
+  try {
+    const result = await supabase.auth.getSession();
+    if (!result.error) session = result.data.session;
+  } catch {
+    return {
+      ok: false,
+      code: 'NETWORK_ERROR',
+      error: 'Booking reschedule requires a connection. Please try again.',
+    };
+  }
 
   if (!session?.access_token) {
     return {
@@ -1071,34 +1091,38 @@ export async function rescheduleBranchBooking(
         Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({
+        therapistId: input.therapistId,
+        overrideReason: input.therapistId ? input.overrideReason : undefined,
         date: input.date,
         startTime: input.startTime,
         note: input.note?.trim() || undefined,
         homeServiceAddress: input.homeServiceAddress?.trim() || undefined,
-        homeServiceAccessNote: input.homeServiceAccessNote?.trim() || undefined,
+        homeServiceAccessNote: input.homeServiceAccessNote?.trim(),
       }),
     });
 
-    let body: { ok?: boolean; code?: string; message?: string; error?: string };
-    try {
-      body = await response.json();
-    } catch {
-      return {
-        ok: false,
-        code: 'SERVER_ERROR',
-        error: `Server responded with status ${response.status}, but response could not be parsed.`,
-      };
-    }
-
-    if (response.ok && body?.ok === true) {
-      return { ok: true, message: 'Booking rescheduled successfully.' };
-    }
-
-    return {
-      ok: false,
-      code: body?.code || 'RESCHEDULE_FAILED',
-      error: body?.message || body?.error || 'Failed to reschedule booking.',
-    };
+    const parsed = await readHostedJsonResponse<{
+      ok: true;
+      data: Record<string, unknown>;
+    }>(response, {
+      serviceName: 'Booking service',
+      validator: (
+        value,
+      ): value is { ok: true; data: Record<string, unknown> } => {
+        if (typeof value !== 'object' || value === null || Array.isArray(value))
+          return false;
+        const envelope = value as Record<string, unknown>;
+        return (
+          envelope.ok === true &&
+          typeof envelope.data === 'object' &&
+          envelope.data !== null &&
+          !Array.isArray(envelope.data)
+        );
+      },
+    });
+    if (!parsed.ok)
+      return { ok: false, code: parsed.code, error: parsed.message };
+    return { ok: true, message: 'Booking rescheduled successfully.' };
   } catch {
     return {
       ok: false,

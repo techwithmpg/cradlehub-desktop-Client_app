@@ -1,9 +1,14 @@
 import React, { useMemo, useState } from 'react';
+import { ModuleErrorBanner } from '../workspace';
 import type { BranchServiceOption, StaffMember } from '../../types/staff';
 
 export interface StaffCapabilitiesContentProps {
   staffList: StaffMember[];
   branchServices: BranchServiceOption[];
+  branchServicesReady?: boolean;
+  branchServicesLoading?: boolean;
+  branchServicesError?: string | null;
+  onRetryServices?: () => void;
   selectedStaffId: string | null;
   onSelectStaff: (staff: StaffMember) => void;
   onOpenCapabilityModal: (staff: StaffMember) => void;
@@ -11,7 +16,16 @@ export interface StaffCapabilitiesContentProps {
 
 export const StaffCapabilitiesContent: React.FC<
   StaffCapabilitiesContentProps
-> = ({ staffList, selectedStaffId, onSelectStaff, onOpenCapabilityModal }) => {
+> = ({
+  staffList,
+  selectedStaffId,
+  onSelectStaff,
+  onOpenCapabilityModal,
+  branchServicesReady = false,
+  branchServicesLoading = false,
+  branchServicesError,
+  onRetryServices,
+}) => {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [assignmentFilter, setAssignmentFilter] = useState<
@@ -84,6 +98,20 @@ export const StaffCapabilitiesContent: React.FC<
       className="staff-capabilities-content-wrapper"
       data-testid="staff-capabilities-view"
     >
+      {!branchServicesReady &&
+        (branchServicesLoading ? (
+          <p role="status" className="p-3 text-xs">
+            Verifying branch service catalogue…
+          </p>
+        ) : (
+          <ModuleErrorBanner
+            message={
+              branchServicesError ||
+              'Service assignments cannot be edited until the branch service catalogue is verified.'
+            }
+            onRetry={onRetryServices}
+          />
+        ))}
       {/* Toolbar */}
       <div className="bookings-toolbar-container">
         <div className="bookings-search-wrapper">
@@ -303,9 +331,16 @@ export const StaffCapabilitiesContent: React.FC<
                       <button
                         type="button"
                         className="btn-secondary-compact text-xs"
+                        disabled={!branchServicesReady}
+                        title={
+                          !branchServicesReady
+                            ? 'Service assignments cannot be edited until the branch service catalogue is verified.'
+                            : undefined
+                        }
                         onClick={(e) => {
                           e.stopPropagation();
-                          onOpenCapabilityModal(member);
+                          if (branchServicesReady)
+                            onOpenCapabilityModal(member);
                         }}
                       >
                         Manage

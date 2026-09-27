@@ -1328,14 +1328,12 @@ describe('Bookings Service', () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {
         import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
-        const customFetch = vi.fn().mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            ok: true,
-            message: 'Booking rescheduled successfully.',
+        const customFetch = vi.fn().mockResolvedValue(
+          new Response(JSON.stringify({ ok: true, data: {} }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
           }),
-        } as unknown as Response);
+        );
 
         const client = {
           auth: {
@@ -1386,15 +1384,16 @@ describe('Bookings Service', () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {
         import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
-        const customFetch = vi.fn().mockResolvedValue({
-          ok: false,
-          status: 400,
-          json: async () => ({
-            ok: false,
-            code: 'SLOT_UNAVAILABLE',
-            message: 'Selected therapist has a conflicting booking.',
-          }),
-        } as unknown as Response);
+        const customFetch = vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              ok: false,
+              code: 'SLOT_UNAVAILABLE',
+              message: 'Selected therapist has a conflicting booking.',
+            }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
 
         const client = {
           auth: {
@@ -1461,13 +1460,12 @@ describe('Bookings Service', () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {
         import.meta.env.VITE_CRADLEHUB_API_URL = validConfigUrl;
-        const customFetch = vi.fn().mockResolvedValue({
-          ok: false,
-          status: 502,
-          json: async () => {
-            throw new Error('Bad Gateway HTML');
-          },
-        } as unknown as Response);
+        const customFetch = vi.fn().mockResolvedValue(
+          new Response('<html>Bad Gateway</html>', {
+            status: 502,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+        );
 
         const client = {
           auth: {
@@ -1488,11 +1486,100 @@ describe('Bookings Service', () => {
         );
 
         expect(res.ok).toBe(false);
-        expect(res.code).toBe('SERVER_ERROR');
+        expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
         expect(res.error).toContain('502');
       } finally {
         import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
       }
     });
+  });
+});
+
+describe('Stage 12B reschedule contract', () => {
+  const client = {
+    from: vi.fn(),
+    auth: {
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { access_token: 'test-token' } },
+      }),
+    },
+  } as unknown as SupabaseClient;
+  const input = {
+    bookingId: 'booking',
+    date: '2026-09-28',
+    startTime: '14:00',
+  };
+  it('sends therapist and exact reason; omits reason without therapist', async () => {
+    const fetcher = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: true, data: {} }), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+    expect(
+      (
+        await rescheduleBranchBooking(
+          {
+            ...input,
+            therapistId: 'replacement',
+            overrideReason: 'workload_balance',
+          },
+          client,
+          fetcher,
+        )
+      ).ok,
+    ).toBe(true);
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+      date: input.date,
+      startTime: input.startTime,
+      therapistId: 'replacement',
+      overrideReason: 'workload_balance',
+    });
+    await rescheduleBranchBooking(
+      { ...input, overrideReason: 'other' },
+      client,
+      fetcher,
+    );
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({
+      date: input.date,
+      startTime: input.startTime,
+    });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+  it.each([401, 403, 409, 500])(
+    'preserves authoritative HTTP %s failure',
+    async (status) => {
+      const fetcher = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            code: 'SERVER_CODE',
+            message: 'Server explains rejection',
+          }),
+          { status, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+      expect(await rescheduleBranchBooking(input, client, fetcher)).toEqual({
+        ok: false,
+        code: 'SERVER_CODE',
+        error: 'Server explains rejection',
+      });
+    },
+  );
+  it.each([
+    { ok: true },
+    { ok: true, data: [] },
+    { ok: true, data: null },
+    { ok: false },
+  ])('never claims success for malformed envelope %j', async (body) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect((await rescheduleBranchBooking(input, client, fetcher)).ok).toBe(
+      false,
+    );
   });
 });

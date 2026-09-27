@@ -1,6 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import type { Booking } from '../../types/bookings';
-import { rescheduleBranchBooking } from '../../lib/bookings-service';
+import React, { useEffect, useRef, useState } from 'react';
+import type {
+  Booking,
+  BookingReassignmentReason,
+  QuickBookingOptionStaff,
+} from '../../types/bookings';
+import { BOOKING_REASSIGNMENT_REASONS } from '../../types/bookings';
+import { useModalFocus } from '../../lib/use-modal-focus';
+import {
+  fetchBranchBookingOptions,
+  rescheduleBranchBooking,
+} from '../../lib/bookings-service';
 
 export interface RescheduleBookingModalProps {
   isOpen: boolean;
@@ -99,15 +108,36 @@ const RescheduleBookingModalDialog: React.FC<
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const busy = useRef(false);
+  const [therapistId, setTherapistId] = useState(booking.staff_id);
+  const [overrideReason, setOverrideReason] = useState<
+    BookingReassignmentReason | ''
+  >('');
+  const [candidates, setCandidates] = useState<QuickBookingOptionStaff[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(true);
+  const [candidatesError, setCandidatesError] = useState<string | null>(null);
+  const dialogRef = useModalFocus(true, isSubmitting, onClose);
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isSubmitting) {
-        onClose();
-      }
+    let active = true;
+    void fetchBranchBookingOptions(booking.branch_id)
+      .then((options) => {
+        if (active) {
+          setCandidates(options.staff);
+          setCandidatesLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCandidatesError(
+            'Therapist choices could not be loaded. You can still reschedule with the current therapist.',
+          );
+          setCandidatesLoading(false);
+        }
+      });
+    return () => {
+      active = false;
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSubmitting, onClose]);
+  }, [booking.branch_id]);
 
   const dateChanged = date !== (booking.booking_date || '');
   const timeChanged =
@@ -118,26 +148,36 @@ const RescheduleBookingModalDialog: React.FC<
     (homeServiceAddress.trim() !== initialAddress.trim() ||
       homeServiceAccessNote.trim() !== initialAccessNote.trim());
 
-  // A free-form CRM note alone is NOT an operational change; only date, time, or address changes qualify.
-  const changed = dateChanged || timeChanged || addressChanged;
-
-  // Hosted behavior requires CRM reason for time and address changes.
-  const requiresReason = timeChanged || addressChanged;
+  const therapistChanged = therapistId !== booking.staff_id;
+  const changed =
+    dateChanged || timeChanged || addressChanged || therapistChanged;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy.current) return;
     if (!date.trim() || !startTime.trim()) {
       setError('Date and start time are required.');
       return;
     }
 
     if (!changed) {
-      setError('Choose a new date, time, or address before saving.');
+      setError('Choose a new date, time, address, or therapist before saving.');
       return;
     }
 
-    if (requiresReason && !note.trim()) {
-      setError('Add a CRM reason before saving this change.');
+    if (
+      therapistChanged &&
+      (candidatesLoading ||
+        candidatesError ||
+        !candidates.some((candidate) => candidate.id === therapistId))
+    ) {
+      setError(
+        'Choose an available branch therapist after choices have loaded.',
+      );
+      return;
+    }
+    if (therapistChanged && !overrideReason) {
+      setError('Choose a reassignment reason before saving.');
       return;
     }
 
@@ -146,12 +186,17 @@ const RescheduleBookingModalDialog: React.FC<
       return;
     }
 
+    busy.current = true;
     setIsSubmitting(true);
     setError(null);
 
     try {
       const result = await rescheduleBranchBooking({
         bookingId: booking.id,
+        therapistId: therapistChanged ? therapistId : undefined,
+        overrideReason: therapistChanged
+          ? overrideReason || undefined
+          : undefined,
         date: date.trim(),
         startTime: startTime.trim(),
         note: note.trim() || undefined,
@@ -159,13 +204,12 @@ const RescheduleBookingModalDialog: React.FC<
           ? homeServiceAddress.trim() || undefined
           : undefined,
         homeServiceAccessNote: isHomeService
-          ? homeServiceAccessNote.trim() || undefined
+          ? homeServiceAccessNote.trim()
           : undefined,
       });
 
       if (!result.ok) {
         setError(result.error || 'Failed to reschedule booking.');
-        setIsSubmitting(false);
         return;
       }
 
@@ -177,12 +221,17 @@ const RescheduleBookingModalDialog: React.FC<
           ? err.message
           : 'Network error occurred while rescheduling booking.';
       setError(msg);
+    } finally {
+      busy.current = false;
       setIsSubmitting(false);
     }
   };
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
+      aria-busy={isSubmitting}
       className="modal-overlay-backdrop"
       role="dialog"
       aria-modal="true"
@@ -199,7 +248,7 @@ const RescheduleBookingModalDialog: React.FC<
               Reschedule or Adjust Booking
             </h2>
             <p className="modal-subtitle-text">
-              Adjust the scheduled date, time, address, or operational notes.
+              Adjust the scheduled date, time, address, or assigned therapist.
             </p>
           </div>
           <button
@@ -213,7 +262,10 @@ const RescheduleBookingModalDialog: React.FC<
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        >
           <div className="modal-body-content space-y-4">
             {/* Current Schedule Summary with Full Operational Context */}
             <div className="rounded-lg border border-[var(--cs-border)] bg-[var(--cs-surface-warm)] p-3 text-xs space-y-1.5">
@@ -287,6 +339,7 @@ const RescheduleBookingModalDialog: React.FC<
                 </label>
                 <input
                   id="reschedule-date"
+                  disabled={isSubmitting}
                   type="date"
                   required
                   value={date}
@@ -307,6 +360,7 @@ const RescheduleBookingModalDialog: React.FC<
                 </label>
                 <input
                   id="reschedule-time"
+                  disabled={isSubmitting}
                   type="time"
                   required
                   value={startTime}
@@ -316,24 +370,81 @@ const RescheduleBookingModalDialog: React.FC<
               </div>
             </div>
 
-            {/* Assigned Therapist Block (Authoritative Reassignment Unavailable on Desktop v1) */}
             <div className="space-y-1">
-              <label className="block text-xs font-semibold text-[var(--cs-text)]">
+              <label
+                htmlFor="reschedule-therapist"
+                className="block text-xs font-semibold text-[var(--cs-text)]"
+              >
                 Assigned Therapist
               </label>
-              <div className="flex items-center justify-between rounded-md border border-[var(--cs-border)] bg-[var(--cs-surface-warm)] px-3 py-2 text-xs">
-                <span className="text-[var(--cs-text)] font-medium">
-                  {booking.staff?.full_name || 'Unassigned'}
-                </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--cs-text-muted)] bg-[var(--cs-surface)] border border-[var(--cs-border)] px-1.5 py-0.5 rounded">
-                  Reassignment Unavailable
-                </span>
-              </div>
-              <p className="text-[11px] text-[var(--cs-text-muted)]">
-                Therapist reassignment requires an authoritative Desktop backend
-                action (Stage 12). Existing therapist assignment remains
-                preserved.
-              </p>
+              <select
+                id="reschedule-therapist"
+                className="form-input-control text-xs w-full"
+                value={therapistId}
+                disabled={
+                  isSubmitting || candidatesLoading || Boolean(candidatesError)
+                }
+                onChange={(event) => {
+                  setTherapistId(event.target.value);
+                  setOverrideReason('');
+                }}
+              >
+                <option value={booking.staff_id}>
+                  Keep current therapist —{' '}
+                  {booking.staff?.full_name || 'Current assignment'}
+                </option>
+                {candidates
+                  .filter((candidate) => candidate.id !== booking.staff_id)
+                  .map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.name}
+                    </option>
+                  ))}
+              </select>
+              {candidatesLoading && (
+                <p role="status" className="text-xs">
+                  Loading therapist choices…
+                </p>
+              )}
+              {candidatesError && (
+                <p role="alert" className="text-xs">
+                  {candidatesError}
+                </p>
+              )}
+              {!candidatesLoading &&
+                !candidatesError &&
+                candidates.filter(
+                  (candidate) => candidate.id !== booking.staff_id,
+                ).length === 0 && (
+                  <p className="text-xs">
+                    No other active branch providers are available to select.
+                  </p>
+                )}
+              {therapistChanged && (
+                <div>
+                  <label htmlFor="reschedule-reason" className="text-xs">
+                    Reassignment Reason
+                  </label>
+                  <select
+                    id="reschedule-reason"
+                    className="form-input-control text-xs w-full"
+                    value={overrideReason}
+                    disabled={isSubmitting}
+                    onChange={(event) =>
+                      setOverrideReason(
+                        event.target.value as BookingReassignmentReason | '',
+                      )
+                    }
+                  >
+                    <option value="">Choose a reason</option>
+                    {BOOKING_REASSIGNMENT_REASONS.map((reason) => (
+                      <option key={reason.value} value={reason.value}>
+                        {reason.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Home Service Delivery Details */}
@@ -348,6 +459,7 @@ const RescheduleBookingModalDialog: React.FC<
                   </label>
                   <textarea
                     id="reschedule-address"
+                    disabled={isSubmitting}
                     rows={2}
                     value={homeServiceAddress}
                     onChange={(e) => setHomeServiceAddress(e.target.value)}
@@ -365,6 +477,7 @@ const RescheduleBookingModalDialog: React.FC<
                   </label>
                   <textarea
                     id="reschedule-access-note"
+                    disabled={isSubmitting}
                     rows={2}
                     value={homeServiceAccessNote}
                     onChange={(e) => setHomeServiceAccessNote(e.target.value)}
@@ -382,27 +495,15 @@ const RescheduleBookingModalDialog: React.FC<
                 htmlFor="reschedule-note"
                 className="block text-xs font-semibold text-[var(--cs-text)]"
               >
-                CRM Reason / Internal Note{' '}
-                {requiresReason ? (
-                  <span className="text-red-700" aria-hidden="true">
-                    *
-                  </span>
-                ) : (
-                  <span className="font-normal text-[var(--cs-text-muted)]">
-                    (optional for date-only change)
-                  </span>
-                )}
+                CRM Reason / Internal Note (optional)
               </label>
               <textarea
                 id="reschedule-note"
+                disabled={isSubmitting}
                 rows={3}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder={
-                  requiresReason
-                    ? 'Reason for reschedule (required for time/address changes)'
-                    : 'Reason for reschedule (e.g. customer requested new date)'
-                }
+                placeholder="Optional note about this change"
                 maxLength={500}
                 className="w-full rounded-md border border-[var(--cs-border)] bg-[var(--cs-surface)] p-2 text-xs text-[var(--cs-text)] outline-none focus:border-[var(--color-accent)]"
               />
@@ -451,6 +552,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
 
   return (
     <RescheduleBookingModalDialog
+      key={booking.id}
       onClose={onClose}
       booking={booking}
       onBookingRescheduled={onBookingRescheduled}

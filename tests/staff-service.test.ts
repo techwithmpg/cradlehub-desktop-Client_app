@@ -1,10 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
+  updateStaffProfile,
+  reviewOnboardingRequest,
+  updateStaffSystemRole,
+  deactivateStaff,
   calculateStaffKpis,
   classifyStaffError,
   deriveStaffStatus,
   extractCapabilities,
   fetchBranchStaff,
+  fetchBranchAssignableServices,
+  fetchBranchOnboardingRequests,
   filterStaff,
   isStaffMember,
   normalizeStaffMember,
@@ -1141,58 +1147,6 @@ describe('staff-service', () => {
   });
 
   describe('Service Mutations & RPCs', () => {
-    it('updateStaffProfile validates required fields and updates staff', async () => {
-      const mockQueryBuilder: Record<string, unknown> = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockResolvedValue({
-          data: [{ id: 's-1', full_name: 'Updated Name' }],
-          error: null,
-        }),
-      };
-
-      const mockClient = {
-        from: vi.fn().mockReturnValue(mockQueryBuilder),
-      } as unknown as SupabaseClient;
-
-      const res = await (
-        await import('../src/lib/staff-service')
-      ).updateStaffProfile(
-        {
-          staffId: 's-1',
-          fullName: 'Updated Name',
-          nickname: 'Nick',
-          phone: '09171112222',
-          staffType: 'therapist',
-          tier: 'Senior',
-          isHead: true,
-        },
-        mockClient,
-      );
-
-      expect(res.ok).toBe(true);
-      if (res.ok) {
-        expect(res.staff.full_name).toBe('Updated Name');
-      }
-    });
-
-    it('updateStaffProfile rejects empty full name', async () => {
-      const res = await (
-        await import('../src/lib/staff-service')
-      ).updateStaffProfile({
-        staffId: 's-1',
-        fullName: '   ',
-        staffType: 'therapist',
-        tier: 'Senior',
-        isHead: false,
-      });
-
-      expect(res.ok).toBe(false);
-      if (!res.ok) {
-        expect(res.error).toBe('Full name is required.');
-      }
-    });
-
     it('updateStaffCapabilities calls replace_staff_service_capabilities RPC', async () => {
       const mockClient = {
         rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -1252,35 +1206,604 @@ describe('staff-service', () => {
       );
       expect(resDayOff.ok).toBe(true);
     });
+  });
+});
 
-    it('reviewOnboardingRequest updates request status and activates staff', async () => {
-      const mockQueryBuilder: Record<string, unknown> = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      };
-
-      const mockClient = {
-        from: vi.fn().mockReturnValue(mockQueryBuilder),
-        rpc: vi.fn().mockResolvedValue({ error: null }),
-      } as unknown as SupabaseClient;
-
-      const res = await (
-        await import('../src/lib/staff-service')
-      ).reviewOnboardingRequest(
-        {
-          requestId: 'req-1',
-          staffId: 's-1',
-          action: 'approve',
-          branchId: 'b-1',
-          systemRole: 'staff',
-          staffType: 'therapist',
-          tier: 'Junior',
-          serviceIds: ['srv-1'],
+describe('Stage 12B hosted Staff mutation boundary', () => {
+  const profile = {
+    staffId: 'target',
+    fullName: 'Updated Name',
+    nickname: null,
+    staffType: 'salon_head',
+    tier: 'head',
+    isHead: true,
+  };
+  const approval = {
+    requestId: 'request',
+    action: 'approve' as const,
+    branchId: 'branch',
+    systemRole: 'staff',
+    tier: 'junior',
+    serviceIds: ['service', 'service'],
+  };
+  const cases = [
+    {
+      name: 'approval',
+      path: 'onboarding/request/approve',
+      method: 'POST',
+      body: {
+        branchId: 'branch',
+        systemRole: 'staff',
+        tier: 'junior',
+        serviceIds: ['service'],
+      },
+      data: { staffId: 'target', branchId: 'branch', systemRole: 'staff' },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        reviewOnboardingRequest(approval, client, fetcher),
+    },
+    {
+      name: 'rejection',
+      path: 'onboarding/request/reject',
+      method: 'POST',
+      body: {},
+      data: { requestId: 'request', staffId: null },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        reviewOnboardingRequest(
+          { requestId: 'request', action: 'reject' },
+          client,
+          fetcher,
+        ),
+    },
+    {
+      name: 'profile',
+      path: 'target',
+      method: 'PATCH',
+      body: {
+        fullName: 'Updated Name',
+        nickname: null,
+        staffType: 'salon_head',
+        tier: 'head',
+        isHead: true,
+      },
+      data: { staff: { id: 'target' } },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        updateStaffProfile(profile, client, fetcher),
+    },
+    {
+      name: 'role',
+      path: 'target/role',
+      method: 'POST',
+      body: { systemRole: 'crm' },
+      data: { staff: { id: 'target', system_role: 'crm' } },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        updateStaffSystemRole('target', 'crm', client, fetcher),
+    },
+    {
+      name: 'deactivation',
+      path: 'target/deactivate',
+      method: 'POST',
+      body: {},
+      data: { staff: { id: 'target', is_active: false } },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        deactivateStaff('target', client, fetcher),
+    },
+  ];
+  function client(token: string | null = 'test-token') {
+    return {
+      from: vi.fn(() => {
+        throw new Error('Direct table write forbidden');
+      }),
+      rpc: vi.fn(),
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: token ? { access_token: token } : null },
+          error: null,
+        }),
+      },
+    } as unknown as SupabaseClient;
+  }
+  function response(data: unknown, status = 200) {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+  });
+  for (const item of cases) {
+    describe(item.name, () => {
+      it('sends exact native hosted request with bearer and performs no direct write', async () => {
+        const db = client();
+        const fetcher = vi
+          .fn()
+          .mockResolvedValue(response({ ok: true, data: item.data }));
+        const result = await item.run(db, fetcher);
+        expect(result.ok).toBe(true);
+        expect(fetcher).toHaveBeenCalledOnce();
+        const [url, options] = fetcher.mock.calls[0];
+        expect(url).toBe(
+          `https://www.cradlewellnessliving.com/api/desktop/v1/staff/${item.path}`,
+        );
+        expect(options.method).toBe(item.method);
+        expect(options.headers).toEqual({
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer test-token',
+        });
+        expect(JSON.parse(options.body)).toEqual(item.body);
+        expect(db.from).not.toHaveBeenCalled();
+        expect(db.rpc).not.toHaveBeenCalled();
+      });
+      it('fails closed for missing session', async () => {
+        const fetcher = vi.fn();
+        const result = await item.run(client(null), fetcher);
+        expect(result).toMatchObject({
+          ok: false,
+          code: 'AUTH_SESSION_REQUIRED',
+        });
+        expect(fetcher).not.toHaveBeenCalled();
+      });
+      it('rejects an arbitrary mutation origin', async () => {
+        vi.stubEnv('VITE_CRADLEHUB_API_URL', 'https://attacker.test');
+        const fetcher = vi.fn();
+        expect(await item.run(client(), fetcher)).toMatchObject({
+          ok: false,
+          code: 'API_CONFIG_REQUIRED',
+        });
+        expect(fetcher).not.toHaveBeenCalled();
+      });
+      it.each([
+        [401, 'UNAUTHENTICATED'],
+        [403, 'FORBIDDEN'],
+        [403, 'BRANCH_MISMATCH'],
+        [404, 'NOT_FOUND'],
+        [409, 'INVALID_STATE'],
+        [500, 'SAVE_FAILED'],
+      ])(
+        'preserves HTTP %s server code %s and message',
+        async (status, code) => {
+          const fetcher = vi
+            .fn()
+            .mockResolvedValue(
+              response(
+                { ok: false, code, message: 'Authoritative rejection' },
+                status as number,
+              ),
+            );
+          expect(await item.run(client(), fetcher)).toEqual({
+            ok: false,
+            code,
+            error: 'Authoritative rejection',
+          });
         },
-        mockClient,
       );
-
-      expect(res.ok).toBe(true);
+      it('classifies network failure without exposing tokens', async () => {
+        const fetcher = vi.fn().mockRejectedValue(new Error('test-token'));
+        const result = await item.run(client(), fetcher);
+        expect(result).toMatchObject({ ok: false, code: 'NETWORK_ERROR' });
+        expect(JSON.stringify(result)).not.toContain('test-token');
+      });
+      it.each([{ ok: true }, { ok: true, data: null }, { ok: true, data: {} }])(
+        'rejects malformed success %j',
+        async (body) => {
+          expect(
+            await item.run(client(), vi.fn().mockResolvedValue(response(body))),
+          ).toMatchObject({
+            ok: false,
+            code: 'HOSTED_RESPONSE_CONTRACT_ERROR',
+          });
+        },
+      );
+      it('rejects non-JSON instead of claiming success', async () => {
+        expect(
+          await item.run(
+            client(),
+            vi.fn().mockResolvedValue(
+              new Response('<html>login</html>', {
+                headers: { 'Content-Type': 'text/html' },
+              }),
+            ),
+          ),
+        ).toMatchObject({ ok: false, code: 'HOSTED_API_NON_JSON_RESPONSE' });
+      });
+    });
+  }
+  it('rejects overlong rejection reason before transport and accepts 500', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        response({ ok: true, data: { requestId: 'request', staffId: null } }),
+      );
+    expect(
+      await reviewOnboardingRequest(
+        {
+          requestId: 'request',
+          action: 'reject',
+          rejectionReason: 'x'.repeat(501),
+        },
+        client(),
+        fetcher,
+      ),
+    ).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(
+      (
+        await reviewOnboardingRequest(
+          {
+            requestId: 'request',
+            action: 'reject',
+            rejectionReason: 'x'.repeat(500),
+          },
+          client(),
+          fetcher,
+        )
+      ).ok,
+    ).toBe(true);
+    expect(
+      JSON.parse(fetcher.mock.calls[0][1].body).rejectionReason,
+    ).toHaveLength(500);
+  });
+  it.each(['', null, '123', 'x'.repeat(21)])(
+    'rejects supplied invalid or cleared phone %s',
+    async (phone) => {
+      const fetcher = vi.fn();
+      expect(
+        await updateStaffProfile({ ...profile, phone }, client(), fetcher),
+      ).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+      expect(fetcher).not.toHaveBeenCalled();
+    },
+  );
+  it('maps valid changed phone and nickname clearing exactly', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        response({ ok: true, data: { staff: { id: 'target' } } }),
+      );
+    expect(
+      (
+        await updateStaffProfile(
+          { ...profile, phone: '09171234567', nickname: '' },
+          client(),
+          fetcher,
+        )
+      ).ok,
+    ).toBe(true);
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+      fullName: 'Updated Name',
+      nickname: null,
+      phone: '09171234567',
+      staffType: 'salon_head',
+      tier: 'head',
+      isHead: true,
     });
   });
+  it.each(['csr', 'csr_head', 'csr_staff', 'invented'])(
+    'does not select legacy or unknown role %s',
+    async (role) => {
+      const fetcher = vi.fn();
+      expect(
+        await updateStaffSystemRole('target', role, client(), fetcher),
+      ).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+      expect(fetcher).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    'owner',
+    'manager',
+    'assistant_manager',
+    'store_manager',
+    'crm',
+    'staff',
+    'service_head',
+    'service_staff',
+    'digital_marketer',
+    'driver',
+    'utility',
+  ])('supports canonical role %s', async (role) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      response({
+        ok: true,
+        data: { staff: { id: 'target', system_role: role } },
+      }),
+    );
+    expect(
+      (await updateStaffSystemRole('target', role, client(), fetcher)).ok,
+    ).toBe(true);
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+      systemRole: role,
+    });
+  });
+  it('does not trust extra approval authority fields at runtime', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(response({ ok: true, data: cases[0].data }));
+    await reviewOnboardingRequest(
+      {
+        ...approval,
+        staffType: 'managerial',
+        staffId: 'forged',
+        actorRole: 'owner',
+        authUserId: 'forged',
+      } as typeof approval,
+      client(),
+      fetcher,
+    );
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual(cases[0].body);
+  });
+});
+
+describe('Stage 12B verified Staff read dependencies', () => {
+  const serviceRow = {
+    branch_id: 'branch-1',
+    service_id: 'service-1',
+    is_active: true,
+    available_in_spa: true,
+    available_home_service: false,
+    visibility: 'hidden',
+    services: {
+      id: 'service-1',
+      name: 'Internal Service',
+      is_active: true,
+      duration_minutes: 60,
+      service_categories: { name: 'Wellness' },
+    },
+  };
+  const application = {
+    id: 'request-1',
+    requested_branch_id: 'branch-1',
+    full_name: 'Applicant',
+    email: 'applicant@example.test',
+    phone: null,
+    preferred_role: null,
+    status: 'submitted',
+    created_at: '2026-09-27T00:00:00Z',
+  };
+  function clientFor(
+    result: { data: unknown; error: unknown },
+    rules = {
+      data: { branch_id: 'branch-1', home_service_enabled: true } as unknown,
+      error: null as unknown,
+    },
+  ) {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue(result),
+      then: Promise.resolve(result).then.bind(Promise.resolve(result)),
+    };
+    const rulesQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue(rules),
+    };
+    const from = vi.fn((table: string) =>
+      table === 'branch_booking_rules' ? rulesQuery : query,
+    );
+    return {
+      client: { from } as unknown as SupabaseClient,
+      from,
+      query,
+      rulesQuery,
+    };
+  }
+  it('reads only branch catalogue membership and includes hidden/internal in-spa services', async () => {
+    const mock = clientFor({ data: [serviceRow], error: null });
+    expect(
+      await fetchBranchAssignableServices('branch-1', mock.client),
+    ).toEqual({
+      ok: true,
+      data: [
+        {
+          id: 'service-1',
+          name: 'Internal Service',
+          category: 'Wellness',
+          duration_minutes: 60,
+        },
+      ],
+    });
+    expect(mock.from.mock.calls.map(([table]) => table)).toEqual([
+      'branch_services',
+    ]);
+    expect(mock.query.eq).toHaveBeenCalledWith('branch_id', 'branch-1');
+    expect(mock.query.eq).toHaveBeenCalledWith('is_active', true);
+    expect(mock.query.select).toHaveBeenCalledWith(
+      expect.stringContaining('services (id, name, is_active'),
+    );
+  });
+  it('returns verified empty catalogue without rules or global services fallback', async () => {
+    const mock = clientFor({ data: [], error: null });
+    expect(
+      await fetchBranchAssignableServices('branch-1', mock.client),
+    ).toEqual({ ok: true, data: [] });
+    expect(mock.from.mock.calls.map(([table]) => table)).toEqual([
+      'branch_services',
+    ]);
+  });
+  it.each([
+    { code: '42501', message: 'permission denied' },
+    { code: 'PGRST301', message: 'JWT expired' },
+    { message: 'network unavailable' },
+  ])(
+    'preserves query/RLS/network failure and never queries global services: %j',
+    async (error) => {
+      const mock = clientFor({ data: null, error });
+      expect(
+        await fetchBranchAssignableServices('branch-1', mock.client),
+      ).toMatchObject({
+        ok: false,
+        code: expect.any(String),
+        message: expect.stringContaining('Service assignments'),
+      });
+      expect(mock.from.mock.calls.map(([table]) => table)).toEqual([
+        'branch_services',
+      ]);
+    },
+  );
+  it('reports a thrown network failure instead of empty data', async () => {
+    const client = {
+      from: vi.fn(() => {
+        throw new Error('network failed');
+      }),
+    } as unknown as SupabaseClient;
+    expect(
+      await fetchBranchAssignableServices('branch-1', client),
+    ).toMatchObject({ ok: false, code: 'NETWORK_ERROR' });
+    expect(
+      await fetchBranchOnboardingRequests('branch-1', client),
+    ).toMatchObject({ ok: false, code: 'NETWORK_ERROR' });
+  });
+  it.each([
+    { ...serviceRow, services: { ...serviceRow.services, is_active: false } },
+    { ...serviceRow, is_active: false },
+    { ...serviceRow, available_in_spa: false, available_home_service: false },
+  ])('excludes inactive or currently unavailable services', async (row) => {
+    const mock = clientFor({ data: [row], error: null });
+    expect(
+      await fetchBranchAssignableServices('branch-1', mock.client),
+    ).toEqual({ ok: true, data: [] });
+  });
+  it.each([true, false])(
+    'includes home-only service only with enabled branch rule: %s',
+    async (enabled) => {
+      const mock = clientFor(
+        {
+          data: [
+            {
+              ...serviceRow,
+              available_in_spa: false,
+              available_home_service: true,
+            },
+          ],
+          error: null,
+        },
+        {
+          data: { branch_id: 'branch-1', home_service_enabled: enabled },
+          error: null,
+        },
+      );
+      const result = await fetchBranchAssignableServices(
+        'branch-1',
+        mock.client,
+      );
+      expect(result.ok && result.data.map((service) => service.id)).toEqual(
+        enabled ? ['service-1'] : [],
+      );
+      expect(mock.rulesQuery.eq).toHaveBeenCalledWith('branch_id', 'branch-1');
+    },
+  );
+  it('fails the entire catalogue when rules needed for home-only eligibility fail', async () => {
+    const mock = clientFor(
+      {
+        data: [
+          serviceRow,
+          {
+            ...serviceRow,
+            available_in_spa: false,
+            available_home_service: true,
+          },
+        ],
+        error: null,
+      },
+      { data: null, error: { message: 'permission denied', code: '42501' } },
+    );
+    expect(
+      await fetchBranchAssignableServices('branch-1', mock.client),
+    ).toMatchObject({ ok: false, code: 'PERMISSION_DENIED' });
+    expect(mock.from).not.toHaveBeenCalledWith('services');
+  });
+  it.each([
+    null,
+    { branch_id: 'other', home_service_enabled: true },
+    { branch_id: 'branch-1', home_service_enabled: 'true' },
+  ])('fails closed on unverified Home Service rules: %j', async (rules) => {
+    const mock = clientFor(
+      {
+        data: [
+          {
+            ...serviceRow,
+            available_in_spa: false,
+            available_home_service: true,
+          },
+        ],
+        error: null,
+      },
+      { data: rules, error: null },
+    );
+    expect(
+      await fetchBranchAssignableServices('branch-1', mock.client),
+    ).toMatchObject({ ok: false, code: 'INVALID_PAYLOAD' });
+  });
+  it.each([
+    null,
+    {},
+    [null],
+    [{ ...serviceRow, branch_id: 'other' }],
+    [{ ...serviceRow, services: null }],
+    [{ ...serviceRow, services: [] }],
+    [{ ...serviceRow, services: [serviceRow.services, serviceRow.services] }],
+    [{ ...serviceRow, services: { ...serviceRow.services, id: 'different' } }],
+    [{ ...serviceRow, services: { ...serviceRow.services, name: undefined } }],
+    [{ ...serviceRow, available_in_spa: undefined }],
+  ])(
+    'malformed or wrong-branch catalogue payload is not verified empty: %j',
+    async (data) => {
+      const mock = clientFor({ data, error: null });
+      expect(
+        await fetchBranchAssignableServices('branch-1', mock.client),
+      ).toMatchObject({ ok: false, code: 'INVALID_PAYLOAD' });
+    },
+  );
+  it('accepts the one-element services relation compatibility form', async () => {
+    const mock = clientFor({
+      data: [{ ...serviceRow, services: [serviceRow.services] }],
+      error: null,
+    });
+    expect(
+      await fetchBranchAssignableServices('branch-1', mock.client),
+    ).toMatchObject({ ok: true, data: [{ id: 'service-1' }] });
+  });
+  it('distinguishes a verified empty applications set from query failure', async () => {
+    const empty = clientFor({ data: [], error: null });
+    expect(
+      await fetchBranchOnboardingRequests('branch-1', empty.client),
+    ).toEqual({ ok: true, data: [] });
+    expect(empty.query.eq).toHaveBeenCalledWith(
+      'requested_branch_id',
+      'branch-1',
+    );
+    const failure = clientFor({
+      data: [],
+      error: { code: '42501', message: 'permission denied' },
+    });
+    expect(
+      await fetchBranchOnboardingRequests('branch-1', failure.client),
+    ).toMatchObject({ ok: false, code: 'PERMISSION_DENIED' });
+  });
+  it('accepts valid nullable application fields without fabricating identifiers', async () => {
+    const mock = clientFor({ data: [application], error: null });
+    expect(
+      await fetchBranchOnboardingRequests('branch-1', mock.client),
+    ).toMatchObject({
+      ok: true,
+      data: [{ id: 'request-1', phone: '', preferred_role: '' }],
+    });
+  });
+  it.each([
+    null,
+    {},
+    [null],
+    [{ ...application, id: undefined }],
+    [{ ...application, requested_branch_id: 'other' }],
+    [{ ...application, status: 'unknown' }],
+    [{ ...application, status: ['submitted'] }],
+    [{ ...application, metadata: [] }],
+  ])(
+    'malformed application read does not masquerade as valid empty: %j',
+    async (data) => {
+      const mock = clientFor({ data, error: null });
+      expect(
+        await fetchBranchOnboardingRequests('branch-1', mock.client),
+      ).toMatchObject({ ok: false, code: 'INVALID_PAYLOAD' });
+    },
+  );
 });

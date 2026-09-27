@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { AuthContext } from '../../types/auth';
 import type {
   BranchServiceOption,
@@ -35,6 +41,7 @@ import { StaffAddGuidanceModal } from './modals/StaffAddGuidanceModal';
 import { StaffOffboardingNoticeModal } from './modals/StaffOffboardingNoticeModal';
 import {
   ModuleWorkspace,
+  ModuleErrorBanner,
   ModuleLoadingState,
   ModuleMainGrid,
   ModulePrimaryColumn,
@@ -57,6 +64,8 @@ const STAFF_TABS: Array<{ id: StaffPrimaryTab; label: string }> = [
 ];
 
 export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
+  const [inspectorMutationPending, setInspectorMutationPending] =
+    useState(false);
   const [activeTab, setActiveTab] = useState<StaffPrimaryTab>('roster');
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [branchServices, setBranchServices] = useState<BranchServiceOption[]>(
@@ -65,6 +74,17 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   const [onboardingRequests, setOnboardingRequests] = useState<
     StaffOnboardingRequest[]
   >([]);
+  const [branchServicesReady, setBranchServicesReady] = useState(false);
+  const [branchServicesLoading, setBranchServicesLoading] = useState(true);
+  const [branchServicesError, setBranchServicesError] = useState<string | null>(
+    null,
+  );
+  const [applicationsReady, setApplicationsReady] = useState(false);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const [applicationsError, setApplicationsError] = useState<string | null>(
+    null,
+  );
+  const workspaceRead = useRef(0);
   const [scheduleOverrides, setScheduleOverrides] = useState<
     StaffScheduleOverride[]
   >([]);
@@ -125,32 +145,58 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
 
   // Load all initial workspace data
   const loadWorkspaceData = useCallback(async () => {
+    const readId = ++workspaceRead.current;
     setError(null);
     setScheduleError(null);
-    try {
-      const [staffRes, servicesRes, onboardingRes, scheduleRes] =
-        await Promise.all([
-          fetchBranchStaff(authContext.branchId),
-          fetchBranchAssignableServices(authContext.branchId),
-          fetchBranchOnboardingRequests(authContext.branchId),
-          fetchBranchScheduleWeek(authContext.branchId, currentMonday),
-        ]);
+    setBranchServicesReady(false);
+    setBranchServicesLoading(true);
+    setBranchServicesError(null);
+    setBranchServices([]);
+    setApplicationsReady(false);
+    setApplicationsLoading(true);
+    setApplicationsError(null);
+    setOnboardingRequests([]);
+    const [staffRead, servicesRead, applicationsRead, scheduleRead] =
+      await Promise.allSettled([
+        fetchBranchStaff(authContext.branchId),
+        fetchBranchAssignableServices(authContext.branchId),
+        fetchBranchOnboardingRequests(authContext.branchId),
+        fetchBranchScheduleWeek(authContext.branchId, currentMonday),
+      ]);
+    if (workspaceRead.current !== readId) return;
+    if (staffRead.status === 'fulfilled') {
+      if (staffRead.value.ok) setStaffList(staffRead.value.data);
+      else setError(staffRead.value.message);
+    } else setError('Failed to load staff workspace. Please try again.');
 
-      if (!staffRes.ok) {
-        setError(staffRes.message);
-      } else {
-        setStaffList(staffRes.data);
-      }
-
-      setBranchServices(servicesRes);
-      setOnboardingRequests(onboardingRes);
-      setScheduleOverrides(scheduleRes.overrides);
-      setScheduleBlocks(scheduleRes.blockedTimes);
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : 'Failed to load staff workspace.';
-      setError(msg);
+    setBranchServicesLoading(false);
+    if (servicesRead.status === 'fulfilled' && servicesRead.value.ok) {
+      setBranchServices(servicesRead.value.data);
+      setBranchServicesReady(true);
+    } else {
+      setBranchServicesError(
+        servicesRead.status === 'fulfilled' && !servicesRead.value.ok
+          ? servicesRead.value.message
+          : 'Service assignments could not be verified for this branch. Reload the Staff workspace.',
+      );
     }
+    setApplicationsLoading(false);
+    if (applicationsRead.status === 'fulfilled' && applicationsRead.value.ok) {
+      setOnboardingRequests(applicationsRead.value.data);
+      setApplicationsReady(true);
+    } else {
+      setApprovalModalRequest(null);
+      setApplicationsError(
+        applicationsRead.status === 'fulfilled' && !applicationsRead.value.ok
+          ? applicationsRead.value.message
+          : 'Applications could not be loaded for this branch. Reload the Staff workspace.',
+      );
+    }
+    if (scheduleRead.status === 'fulfilled') {
+      setScheduleOverrides(scheduleRead.value.overrides);
+      setScheduleBlocks(scheduleRead.value.blockedTimes);
+    } else
+      setScheduleError('Failed to load branch schedule. Please try again.');
   }, [authContext.branchId, currentMonday]);
 
   useEffect(() => {
@@ -197,23 +243,28 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
 
   // Selection Coherence for Applications (Isolated to Applications tab)
   const selectedApplication = useMemo(() => {
-    if (onboardingRequests.length === 0) return null;
+    if (!applicationsReady || onboardingRequests.length === 0) return null;
     if (selectedApplicationId === '') return null;
     if (selectedApplicationId === null) return onboardingRequests[0];
     const found = onboardingRequests.find(
       (r) => r.id === selectedApplicationId,
     );
     return found || onboardingRequests[0];
-  }, [onboardingRequests, selectedApplicationId]);
+  }, [applicationsReady, onboardingRequests, selectedApplicationId]);
 
   // Handle KPI Strip clicks (sets status filter)
-  const handleKpiClick = useCallback((targetFilter: StaffStatusFilter) => {
-    setFilters((prev) => ({ ...prev, status: targetFilter }));
-    setCurrentPage(1);
-    setActiveTab('roster');
-  }, []);
+  const handleKpiClick = useCallback(
+    (targetFilter: StaffStatusFilter) => {
+      if (inspectorMutationPending) return;
+      setFilters((prev) => ({ ...prev, status: targetFilter }));
+      setCurrentPage(1);
+      setActiveTab('roster');
+    },
+    [inspectorMutationPending],
+  );
 
   const handleResetFilters = useCallback(() => {
+    if (inspectorMutationPending) return;
     setFilters({
       search: '',
       status: 'all',
@@ -222,49 +273,33 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
       capabilityId: 'all',
     });
     setCurrentPage(1);
-  }, []);
+  }, [inspectorMutationPending]);
 
-  // Update staff in local state after mutations
-  const handleStaffUpdated = useCallback(
-    (patch: Partial<StaffMember> & { id: string }) => {
-      setStaffList((current) =>
-        current.map((m) => (m.id === patch.id ? { ...m, ...patch } : m)),
-      );
-      setSuccessNotice('Staff profile updated successfully.');
+  const handleStaffUpdated = useCallback(() => {
+    setSuccessNotice('Staff profile updated successfully.');
+    void handleRefresh();
+  }, [handleRefresh]);
+
+  const openCapabilityEditor = useCallback(
+    (staff: StaffMember) => {
+      if (branchServicesReady) setCapabilityModalStaff(staff);
     },
-    [],
+    [branchServicesReady],
   );
 
-  const handleCapabilitiesSaved = useCallback(
-    (staffId: string, serviceIds: string[]) => {
-      const assigned = branchServices
-        .filter((s) => serviceIds.includes(s.id))
-        .map((s) => ({ service_id: s.id, service_name: s.name }));
+  const handleCapabilitiesSaved = useCallback(() => {
+    setSuccessNotice('Service capabilities updated successfully.');
+    void handleRefresh();
+  }, [handleRefresh]);
 
-      setStaffList((current) =>
-        current.map((m) =>
-          m.id === staffId ? { ...m, services: assigned } : m,
-        ),
-      );
-      setSuccessNotice('Service capabilities updated successfully.');
-    },
-    [branchServices],
-  );
-
-  const handleRoleUpdated = useCallback((staffId: string, newRole: string) => {
-    setStaffList((current) =>
-      current.map((m) =>
-        m.id === staffId ? { ...m, system_role: newRole } : m,
-      ),
-    );
-    setSuccessNotice(`Role updated to ${newRole}.`);
-  }, []);
-
+  const handleRoleUpdated = useCallback(() => {
+    setSuccessNotice('System role updated successfully.');
+    void handleRefresh();
+  }, [handleRefresh]);
   const handleRejectApplication = useCallback(() => {
-    setError(
-      'Staff rejection requires an authoritative Desktop staff-review endpoint (Stage 12). Direct database updates are disabled.',
-    );
-  }, []);
+    setSuccessNotice('Application rejected.');
+    void handleRefresh();
+  }, [handleRefresh]);
 
   // KPI calculations for Roster
   const kpis = useMemo(() => {
@@ -308,9 +343,13 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     <ModuleWorkspace className="staff-view-container" testId="staff-view">
       {/* 1. Module Header */}
       <StaffHeader
-        onRefresh={handleRefresh}
+        onRefresh={() => {
+          if (!inspectorMutationPending) void handleRefresh();
+        }}
         isRefreshing={isRefreshing}
-        onOpenAddStaff={() => setIsAddGuidanceOpen(true)}
+        onOpenAddStaff={() => {
+          if (!inspectorMutationPending) setIsAddGuidanceOpen(true);
+        }}
       />
 
       {/* Success Notification Banner */}
@@ -364,6 +403,14 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         </div>
       )}
 
+      {branchServicesError && (
+        <ModuleErrorBanner
+          message={branchServicesError}
+          onRetry={() => void handleRefresh()}
+          testId="staff-services-error"
+        />
+      )}
+
       {/* Loading Skeleton */}
       {isLoading ? (
         <ModuleLoadingState
@@ -399,7 +446,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 <ModuleTabs<StaffPrimaryTab>
                   tabs={staffTabItems}
                   activeTab={activeTab}
-                  onTabChange={setActiveTab}
+                  onTabChange={(tab) => {
+                    if (!inspectorMutationPending) setActiveTab(tab);
+                  }}
                   ariaLabel="Staff Management Views"
                   getTabTestId={(id) => `staff-primary-tab-${id}`}
                 />
@@ -410,9 +459,13 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     staffList={filteredStaffList}
                     totalStaffCount={staffList.length}
                     selectedStaffId={selectedStaff?.id || null}
-                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onSelectStaff={(m) => {
+                      if (!inspectorMutationPending) setSelectedStaffId(m.id);
+                    }}
                     filters={filters}
-                    onFiltersChange={setFilters}
+                    onFiltersChange={(next) => {
+                      if (!inspectorMutationPending) setFilters(next);
+                    }}
                     onResetFilters={handleResetFilters}
                     currentPage={currentPage}
                     pageSize={pageSize}
@@ -427,7 +480,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     branchName={authContext.branchName}
                     staffList={staffList}
                     selectedStaffId={selectedStaff?.id || null}
-                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onSelectStaff={(m) => {
+                      if (!inspectorMutationPending) setSelectedStaffId(m.id);
+                    }}
                     overrides={scheduleOverrides}
                     blockedTimes={scheduleBlocks}
                     isLoading={scheduleLoading}
@@ -436,13 +491,34 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 )}
 
                 {/* TAB 3: Applications Content */}
-                {activeTab === 'applications' && (
+                {activeTab === 'applications' && applicationsReady && (
                   <StaffApplicationsContent
                     requests={onboardingRequests}
                     selectedRequestId={selectedApplication?.id || null}
-                    onSelectRequest={(req) => setSelectedApplicationId(req.id)}
+                    onSelectRequest={(req) => {
+                      if (!inspectorMutationPending)
+                        setSelectedApplicationId(req.id);
+                    }}
                   />
                 )}
+
+                {activeTab === 'applications' &&
+                  !applicationsReady &&
+                  (applicationsLoading ? (
+                    <ModuleLoadingState
+                      ariaLabel="Loading applications"
+                      testId="staff-applications-loading"
+                    />
+                  ) : (
+                    <ModuleErrorBanner
+                      message={
+                        applicationsError ||
+                        'Applications could not be verified. Reload the Staff workspace.'
+                      }
+                      onRetry={() => void handleRefresh()}
+                      testId="staff-applications-error"
+                    />
+                  ))}
 
                 {/* TAB 4: Performance Content */}
                 {activeTab === 'performance' && <StaffPerformanceContent />}
@@ -452,9 +528,15 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   <StaffCapabilitiesContent
                     staffList={staffList}
                     branchServices={branchServices}
+                    branchServicesReady={branchServicesReady}
+                    branchServicesLoading={branchServicesLoading}
+                    branchServicesError={branchServicesError}
+                    onRetryServices={() => void handleRefresh()}
                     selectedStaffId={selectedStaff?.id || null}
-                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
-                    onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
+                    onSelectStaff={(m) => {
+                      if (!inspectorMutationPending) setSelectedStaffId(m.id);
+                    }}
+                    onOpenCapabilityModal={openCapabilityEditor}
                   />
                 )}
 
@@ -463,7 +545,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   <StaffRolesContent
                     staffList={staffList}
                     selectedStaffId={selectedStaff?.id || null}
-                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onSelectStaff={(m) => {
+                      if (!inspectorMutationPending) setSelectedStaffId(m.id);
+                    }}
                     onOpenRoleModal={(m) => setRoleModalStaff(m)}
                   />
                 )}
@@ -480,6 +564,10 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 selectedApplicationId={selectedApplicationId}
                 branchName={authContext.branchName}
                 branchServices={branchServices}
+                branchServicesReady={branchServicesReady}
+                branchServicesLoading={branchServicesLoading}
+                branchServicesError={branchServicesError}
+                onRetryServices={() => void handleRefresh()}
                 scheduleOverrides={scheduleOverrides}
                 scheduleBlocks={scheduleBlocks}
                 todayStr={todayStr}
@@ -489,11 +577,14 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   setScheduleModalData({ staff: m, date, existingBlocks })
                 }
                 onOpenFullScheduleModal={(m) => setFullScheduleStaff(m)}
-                onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
+                onOpenCapabilityModal={openCapabilityEditor}
                 onOpenRoleModal={(m) => setRoleModalStaff(m)}
                 onOpenOffboardingModal={(m) => setOffboardingModalStaff(m)}
                 onStaffUpdated={handleStaffUpdated}
-                onOpenApprovalModal={(req) => setApprovalModalRequest(req)}
+                onMutationPendingChange={setInspectorMutationPending}
+                onOpenApprovalModal={(req) => {
+                  if (applicationsReady) setApprovalModalRequest(req);
+                }}
                 onRejectApplication={handleRejectApplication}
                 onOpenProfileEdit={(m) => {
                   setSelectedStaffId(m.id);
@@ -520,6 +611,10 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         onClose={() => setCapabilityModalStaff(null)}
         staff={capabilityModalStaff}
         branchServices={branchServices}
+        branchServicesReady={branchServicesReady}
+        branchServicesLoading={branchServicesLoading}
+        branchServicesError={branchServicesError}
+        onRetryServices={() => void handleRefresh()}
         onCapabilitiesSaved={handleCapabilitiesSaved}
       />
 
@@ -551,24 +646,48 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         isOpen={Boolean(roleModalStaff)}
         onClose={() => setRoleModalStaff(null)}
         staff={roleModalStaff}
-        actorRole={authContext.canonicalRole || 'manager'}
+        actorRole={authContext.canonicalRole}
+        actorStaffId={authContext.staffId}
         onRoleUpdated={handleRoleUpdated}
       />
 
       <StaffApplicationApprovalModal
-        isOpen={Boolean(approvalModalRequest)}
+        isOpen={Boolean(approvalModalRequest) && applicationsReady}
         onClose={() => setApprovalModalRequest(null)}
-        request={approvalModalRequest}
+        request={
+          applicationsReady
+            ? (onboardingRequests.find(
+                (request) =>
+                  request.id === approvalModalRequest?.id &&
+                  request.status === 'submitted',
+              ) ?? null)
+            : null
+        }
         branchId={authContext.branchId}
         branchName={authContext.branchName}
         branchServices={branchServices}
-        onApproved={handleRefresh}
+        branchServicesReady={branchServicesReady}
+        branchServicesLoading={branchServicesLoading}
+        branchServicesError={branchServicesError}
+        onRetryServices={() => void handleRefresh()}
+        actorRole={authContext.canonicalRole}
+        onApproved={() => {
+          setSuccessNotice('Application approved successfully.');
+          void handleRefresh();
+        }}
       />
 
       <StaffOffboardingNoticeModal
         isOpen={Boolean(offboardingModalStaff)}
         onClose={() => setOffboardingModalStaff(null)}
         staff={offboardingModalStaff}
+        actorStaffId={authContext.staffId}
+        onDeactivated={() => {
+          setSuccessNotice(
+            'Staff access deactivated. The staff record is retained.',
+          );
+          void handleRefresh();
+        }}
       />
     </ModuleWorkspace>
   );

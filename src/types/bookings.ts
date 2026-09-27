@@ -10,6 +10,17 @@ export type BookingStatus =
   | 'no_show'
   | 'expired';
 
+export const BOOKING_REASSIGNMENT_REASONS = [
+  { value: 'customer_requested', label: 'Customer requested' },
+  { value: 'therapist_on_break', label: 'Therapist on break' },
+  { value: 'manager_decision', label: 'Manager decision' },
+  { value: 'skill_or_service_mismatch', label: 'Skill or service mismatch' },
+  { value: 'workload_balance', label: 'Workload balance' },
+  { value: 'other', label: 'Other' },
+] as const;
+export type BookingReassignmentReason =
+  (typeof BOOKING_REASSIGNMENT_REASONS)[number]['value'];
+
 export type BookingType =
   'walkin' | 'in_house' | 'home_service' | 'online' | 'phone' | string;
 export type DeliveryType = 'in_spa' | 'home_service' | string;

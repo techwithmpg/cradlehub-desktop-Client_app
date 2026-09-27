@@ -12,6 +12,7 @@ export interface BookingInspectorCardProps {
   booking: Booking | null;
   onClose: () => void;
   onBookingUpdated?: () => void;
+  onBookingRescheduled?: () => void;
 }
 
 const INSPECTOR_TABS: Array<{
@@ -96,6 +97,7 @@ export const BookingInspectorCard: React.FC<BookingInspectorCardProps> = ({
   booking,
   onClose,
   onBookingUpdated,
+  onBookingRescheduled,
 }) => {
   const [activeTab, setActiveTab] = useState<InspectorTab>('overview');
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -592,6 +594,7 @@ export const BookingInspectorCard: React.FC<BookingInspectorCardProps> = ({
         booking={booking}
         onBookingRescheduled={() => {
           setIsRescheduleModalOpen(false);
+          onBookingRescheduled?.();
           onBookingUpdated?.();
         }}
       />
