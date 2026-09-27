@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import ts from 'typescript';
 import config from '../src-tauri/tauri.conf.json';
 import { AUTHORIZED_NAV_ITEMS } from '../src/lib/navigation';
 
@@ -147,5 +148,68 @@ describe('Stage 01/02 authority and security boundaries', () => {
     for (const d of dormant) {
       expect(navIds).not.toContain(d);
     }
+  });
+});
+
+describe('Stage 12B sensitive write boundary', () => {
+  it('contains no direct sensitive staff/onboarding/booking table mutations in renderer services', () => {
+    const prohibited: string[] = [];
+    for (const file of readdirSync('src/lib').filter((file) =>
+      file.endsWith('.ts'),
+    )) {
+      const source = ts.createSourceFile(
+        file,
+        readFileSync(`src/lib/${file}`, 'utf8'),
+        ts.ScriptTarget.Latest,
+        true,
+      );
+      const walk = (node: ts.Node) => {
+        if (
+          ts.isCallExpression(node) &&
+          ts.isPropertyAccessExpression(node.expression) &&
+          ['update', 'insert', 'upsert', 'delete'].includes(
+            node.expression.name.text,
+          )
+        ) {
+          let receiver: ts.Expression = node.expression.expression;
+          while (
+            ts.isCallExpression(receiver) &&
+            ts.isPropertyAccessExpression(receiver.expression)
+          ) {
+            if (
+              receiver.expression.name.text === 'from' &&
+              receiver.arguments[0] &&
+              ts.isStringLiteral(receiver.arguments[0]) &&
+              ['staff', 'staff_onboarding_requests', 'bookings'].includes(
+                receiver.arguments[0].text,
+              )
+            )
+              prohibited.push(`${file}: ${receiver.arguments[0].text}`);
+            receiver = receiver.expression.expression;
+          }
+        }
+        ts.forEachChild(node, walk);
+      };
+      walk(source);
+    }
+    expect(prohibited).toEqual([]);
+  });
+  it('keeps privileged keys and admin clients out of renderer and native configuration', () => {
+    const paths: string[] = [];
+    function collect(dir: string) {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = `${dir}/${entry.name}`;
+        if (['target', 'gen'].includes(entry.name)) continue;
+        if (entry.isDirectory()) collect(path);
+        else if (/\.(ts|tsx|json|rs)$/.test(entry.name)) paths.push(path);
+      }
+    }
+    collect('src');
+    collect('src-tauri');
+    paths.push('.env.example');
+    const sources = paths.map((path) => readFileSync(path, 'utf8')).join('\n');
+    expect(sources).not.toMatch(
+      /SUPABASE_SERVICE_ROLE_KEY|service_role|service-role|supabaseServiceRole|createAdminClient|admin client/i,
+    );
   });
 });

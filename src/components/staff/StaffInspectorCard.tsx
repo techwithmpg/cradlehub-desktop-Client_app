@@ -1,4 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import {
+  updateStaffProfile,
+  reviewOnboardingRequest,
+} from '../../lib/staff-service';
+import { STAFF_TIERS, STAFF_TYPES } from '../../types/staff';
+import { useModalFocus } from '../../lib/use-modal-focus';
 import type {
   BranchServiceOption,
   StaffBlockedTime,
@@ -34,6 +40,7 @@ export interface StaffContextInspectorProps {
   onOpenRoleModal: (staff: StaffMember) => void;
   onOpenOffboardingModal: (staff: StaffMember) => void;
   onStaffUpdated: (patch: Partial<StaffMember> & { id: string }) => void;
+  onMutationPendingChange?: (pending: boolean) => void;
   onOpenApprovalModal?: (req: StaffOnboardingRequest) => void;
   onRejectApplication?: (requestId: string, reason?: string) => void;
   onOpenProfileEdit?: (staff: StaffMember) => void;
@@ -66,6 +73,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   onOpenCapabilityModal,
   onOpenRoleModal,
   onOpenOffboardingModal,
+  onStaffUpdated,
+  onMutationPendingChange,
+  onRejectApplication,
   onOpenApprovalModal,
   onOpenProfileEdit,
   onCheckAvailability,
@@ -86,9 +96,16 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   const [editStaffType, setEditStaffType] = useState(
     staff?.staff_type || 'therapist',
   );
-  const [editTier, setEditTier] = useState(staff?.tier || 'Standard');
+  const [editTier, setEditTier] = useState(staff?.tier || 'n/a');
   const [editIsHead, setEditIsHead] = useState(staff?.is_head || false);
-  const [isSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const profileBusy = useRef(false);
+  const rejectBusy = useRef(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const rejectDialogRef = useModalFocus(showRejectModal, isRejecting, () =>
+    setShowRejectModal(false),
+  );
   const [editError, setEditError] = useState<string | null>(null);
 
   const [prevStaffId, setPrevStaffId] = useState<string | null>(
@@ -156,10 +173,43 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!staff) return;
-    setEditError(
-      'Profile editing requires an authoritative Desktop staff endpoint (Stage 12). Direct database updates are disabled in Desktop client.',
-    );
+    if (!staff || profileBusy.current) return;
+    if (staff.phone?.trim() && !editPhone.trim()) {
+      setEditError(
+        'Clearing a saved phone is not supported by the current profile service.',
+      );
+      return;
+    }
+    profileBusy.current = true;
+    onMutationPendingChange?.(true);
+    setIsSaving(true);
+    setEditError(null);
+    try {
+      const result = await updateStaffProfile({
+        staffId: staff.id,
+        fullName: editFullName,
+        nickname: editNickname.trim() || null,
+        phone:
+          editPhone.trim() !== (staff.phone ?? '').trim()
+            ? editPhone.trim()
+            : undefined,
+        staffType: editStaffType,
+        tier: editTier,
+        isHead: editIsHead,
+      });
+      if (!result.ok) {
+        setEditError(result.error);
+        return;
+      }
+      setIsEditingProfile(false);
+      onStaffUpdated({ id: staff.id });
+    } catch {
+      setEditError('Profile updates require a connection. Please try again.');
+    } finally {
+      profileBusy.current = false;
+      onMutationPendingChange?.(false);
+      setIsSaving(false);
+    }
   };
 
   const handleStartEditing = () => {
@@ -176,7 +226,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   };
 
   const handleCancelEdit = () => {
-    if (!staff) return;
+    if (!staff || profileBusy.current) return;
     setEditFullName(staff.full_name);
     setEditNickname(staff.nickname || '');
     setEditPhone(staff.phone || '');
@@ -187,10 +237,32 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
     setEditError(null);
   };
 
-  const handleConfirmReject = () => {
-    // Fail-closed: Staff application rejection requires authoritative Desktop endpoint (Stage 12)
-    setShowRejectModal(false);
-    setRejectReason('');
+  const handleConfirmReject = async () => {
+    if (!application || rejectBusy.current) return;
+    rejectBusy.current = true;
+    onMutationPendingChange?.(true);
+    setIsRejecting(true);
+    setRejectError(null);
+    try {
+      const result = await reviewOnboardingRequest({
+        requestId: application.id,
+        action: 'reject',
+        rejectionReason: rejectReason,
+      });
+      if (!result.ok) {
+        setRejectError(result.error);
+        return;
+      }
+      setShowRejectModal(false);
+      setRejectReason('');
+      onRejectApplication?.(application.id);
+    } catch {
+      setRejectError('Rejection requires a connection. Please try again.');
+    } finally {
+      rejectBusy.current = false;
+      onMutationPendingChange?.(false);
+      setIsRejecting(false);
+    }
   };
 
   // ==========================================
@@ -245,7 +317,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
             <button
               type="button"
               className="inspector-close-btn"
-              onClick={handleCloseApp}
+              onClick={() => {
+                if (!rejectBusy.current) handleCloseApp?.();
+              }}
               aria-label="Close Inspector"
             >
               &times;
@@ -395,8 +469,13 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
         {showRejectModal && (
           <div
             className="bookings-modal-backdrop"
+            ref={rejectDialogRef}
+            tabIndex={-1}
+            aria-busy={isRejecting}
             data-testid="reject-app-modal"
-            onClick={() => setShowRejectModal(false)}
+            onClick={() => {
+              if (!rejectBusy.current) setShowRejectModal(false);
+            }}
             role="dialog"
             aria-modal="true"
             aria-label="Reject Application"
@@ -410,7 +489,10 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                 <button
                   type="button"
                   className="bookings-modal-close-btn"
-                  onClick={() => setShowRejectModal(false)}
+                  onClick={() => {
+                    if (!rejectBusy.current) setShowRejectModal(false);
+                  }}
+                  disabled={isRejecting}
                   aria-label="Close dialog"
                 >
                   &times;
@@ -424,49 +506,48 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                   ?
                 </p>
 
-                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
-                  <div className="font-semibold flex items-center gap-1.5">
-                    <span>⚠️</span> UNAVAILABLE IN DESKTOP — AUTHORITATIVE
-                    ENDPOINT REQUIRED
-                  </div>
-                  <p className="leading-relaxed">
-                    Staff application rejection requires the authoritative
-                    Desktop staff-review service (Stage 12). This action is
-                    temporarily unavailable in the Desktop client to prevent
-                    unverified client database mutations.
-                  </p>
-                </div>
-
                 <div>
-                  <label className="block text-xs font-medium text-[var(--cs-text-secondary)] mb-1">
+                  <label
+                    htmlFor="reject-reason"
+                    className="block text-xs font-medium text-[var(--cs-text-secondary)] mb-1"
+                  >
                     Reason (Optional)
                   </label>
                   <textarea
                     className="bookings-search-input w-full p-2 h-20"
+                    id="reject-reason"
+                    maxLength={500}
                     placeholder="State reason for rejection..."
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    disabled
+                    disabled={isRejecting}
                   />
                 </div>
               </div>
+              {rejectError && (
+                <p role="alert" className="text-xs text-red-700 p-4">
+                  {rejectError}
+                </p>
+              )}
               <div className="bookings-modal-footer">
                 <button
                   type="button"
                   className="btn-secondary-compact text-xs"
-                  onClick={() => setShowRejectModal(false)}
+                  disabled={isRejecting}
+                  onClick={() => {
+                    if (!rejectBusy.current) setShowRejectModal(false);
+                  }}
                 >
                   Close
                 </button>
                 <button
                   type="button"
                   data-testid="confirm-reject-btn"
-                  className="bookings-header-primary-btn text-xs py-1.5 px-3 bg-red-600 opacity-50 cursor-not-allowed"
-                  disabled={true}
+                  className="bookings-header-primary-btn text-xs py-1.5 px-3 bg-red-600"
+                  disabled={isRejecting}
                   onClick={handleConfirmReject}
-                  title="Staff rejection requires an authoritative Desktop backend endpoint (Stage 12)"
                 >
-                  Confirm Rejection (Unavailable)
+                  {isRejecting ? 'Rejecting…' : 'Confirm Rejection'}
                 </button>
               </div>
             </div>
@@ -558,7 +639,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
             <button
               type="button"
               className="inspector-close-btn"
-              onClick={handleCloseStaff}
+              onClick={() => {
+                if (!profileBusy.current) handleCloseStaff?.();
+              }}
               aria-label="Close Inspector"
             >
               &times;
@@ -800,7 +883,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
             <button
               type="button"
               className="inspector-close-btn"
-              onClick={handleCloseStaff}
+              onClick={() => {
+                if (!profileBusy.current) handleCloseStaff?.();
+              }}
               aria-label="Close Inspector"
             >
               &times;
@@ -915,7 +1000,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
             <button
               type="button"
               className="inspector-close-btn"
-              onClick={handleCloseStaff}
+              onClick={() => {
+                if (!profileBusy.current) handleCloseStaff?.();
+              }}
               aria-label="Close Inspector"
             >
               &times;
@@ -1033,7 +1120,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
             <button
               type="button"
               className="inspector-close-btn"
-              onClick={handleCloseStaff}
+              onClick={() => {
+                if (!profileBusy.current) handleCloseStaff?.();
+              }}
               aria-label="Close Inspector"
             >
               &times;
@@ -1088,7 +1177,9 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
           <button
             type="button"
             className="inspector-close-btn"
-            onClick={handleCloseStaff}
+            onClick={() => {
+              if (!profileBusy.current) handleCloseStaff?.();
+            }}
             aria-label="Close Inspector"
           >
             &times;
@@ -1152,6 +1243,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
               role="tab"
               type="button"
               aria-selected={isActive}
+              disabled={isSaving}
               className={`inspector-tab-btn ${isActive ? 'active' : ''}`}
               onClick={() => {
                 setInternalTab(tab.id);
@@ -1187,6 +1279,13 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
               <form
                 onSubmit={handleSaveProfile}
                 className="p-3.5 space-y-3 bg-[var(--cs-surface-warm)] rounded-lg border border-[var(--cs-border)] m-3"
+                aria-busy={isSaving}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && !profileBusy.current) {
+                    event.preventDefault();
+                    handleCancelEdit();
+                  }
+                }}
                 data-testid="edit-profile-form"
               >
                 <div className="flex items-center justify-between border-b border-[var(--cs-border)] pb-2 mb-2">
@@ -1197,31 +1296,26 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                     type="button"
                     className="text-xs text-[var(--cs-text-muted)] hover:text-[var(--cs-text)]"
                     onClick={handleCancelEdit}
+                    disabled={isSaving}
                   >
                     Cancel
                   </button>
                 </div>
 
-                <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
-                  <div className="font-semibold flex items-center gap-1.5">
-                    <span>⚠️</span> UNAVAILABLE IN DESKTOP — AUTHORITATIVE
-                    ENDPOINT REQUIRED
-                  </div>
-                  <p>
-                    Staff profile editing requires the authoritative Desktop
-                    staff service (Stage 12). Direct database updates are
-                    disabled in the Desktop client.
-                  </p>
-                </div>
-
                 {editError && (
-                  <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                  <div
+                    role="alert"
+                    className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200"
+                  >
                     {editError}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1">
+                  <label
+                    htmlFor="edit-staff-name"
+                    className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1"
+                  >
                     Full Name *
                   </label>
                   <input
@@ -1229,13 +1323,18 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                     className="bookings-search-input w-full"
                     value={editFullName}
                     onChange={(e) => setEditFullName(e.target.value)}
+                    id="edit-staff-name"
+                    disabled={isSaving}
                     data-testid="edit-staff-name"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1">
+                  <label
+                    htmlFor="edit-staff-nickname"
+                    className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1"
+                  >
                     Nickname / Call Name
                   </label>
                   <input
@@ -1243,12 +1342,17 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                     className="bookings-search-input w-full"
                     value={editNickname}
                     onChange={(e) => setEditNickname(e.target.value)}
+                    id="edit-staff-nickname"
+                    disabled={isSaving}
                     data-testid="edit-staff-nickname"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1">
+                  <label
+                    htmlFor="edit-staff-phone"
+                    className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1"
+                  >
                     Phone Number
                   </label>
                   <input
@@ -1256,46 +1360,58 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                     className="bookings-search-input w-full"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
+                    id="edit-staff-phone"
+                    disabled={isSaving}
                     data-testid="edit-staff-phone"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1">
+                    <label
+                      htmlFor="edit-staff-type"
+                      className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1"
+                    >
                       Staff Type
                     </label>
                     <select
                       className="bookings-select-filter w-full"
                       value={editStaffType}
                       onChange={(e) => setEditStaffType(e.target.value)}
+                      id="edit-staff-type"
+                      disabled={isSaving}
                       data-testid="edit-staff-type"
                     >
-                      <option value="therapist">Therapist</option>
-                      <option value="nail_tech">Nail Tech</option>
-                      <option value="aesthetician">Aesthetician</option>
-                      <option value="csr">CSR / Front Desk</option>
-                      <option value="driver">Driver</option>
-                      <option value="utility">Utility</option>
-                      <option value="managerial">Managerial</option>
+                      {STAFF_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type.replaceAll('_', ' ')}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1">
+                    <label
+                      htmlFor="edit-staff-tier"
+                      className="block text-[11px] font-medium text-[var(--cs-text-secondary)] mb-1"
+                    >
                       Skill Tier
                     </label>
                     <select
                       className="bookings-select-filter w-full"
                       value={editTier}
                       onChange={(e) => setEditTier(e.target.value)}
+                      id="edit-staff-tier"
+                      disabled={isSaving}
                       data-testid="edit-staff-tier"
                     >
-                      <option value="Standard">Standard</option>
-                      <option value="junior">Junior</option>
-                      <option value="mid">Mid</option>
-                      <option value="senior">Senior</option>
-                      <option value="master">Master</option>
+                      {STAFF_TIERS.map((tier) => (
+                        <option key={tier} value={tier}>
+                          {tier === 'n/a'
+                            ? 'N/A'
+                            : tier[0].toUpperCase() + tier.slice(1)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -1304,6 +1420,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                   <input
                     type="checkbox"
                     id="edit-is-head"
+                    disabled={isSaving}
                     checked={editIsHead}
                     onChange={(e) => setEditIsHead(e.target.checked)}
                     className="rounded text-[var(--cs-brand-green)]"
@@ -1328,12 +1445,11 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="bookings-header-primary-btn text-xs py-1.5 px-3 opacity-50 cursor-not-allowed"
-                    disabled={true}
+                    className="bookings-header-primary-btn text-xs py-1.5 px-3"
+                    disabled={isSaving}
                     data-testid="save-profile-btn"
-                    title="Staff profile editing requires an authoritative Desktop backend endpoint (Stage 12)"
                   >
-                    Save Profile (Unavailable)
+                    {isSaving ? 'Saving…' : 'Save Profile'}
                   </button>
                 </div>
               </form>
@@ -1543,7 +1659,7 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                     <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
                     <line x1="12" y1="2" x2="12" y2="12" />
                   </svg>
-                  <span>End Employment</span>
+                  <span>Deactivate Staff Access</span>
                 </button>
               </div>
             </div>

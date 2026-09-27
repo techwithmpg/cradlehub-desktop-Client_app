@@ -254,6 +254,11 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
                 booking={selectedBooking}
                 onClose={() => setSelectedBooking(null)}
                 onBookingUpdated={handleRefresh}
+                onBookingRescheduled={() =>
+                  setCreationNotice({
+                    message: 'Booking changes saved successfully.',
+                  })
+                }
               />
             </ModuleInspectorColumn>
           </ModuleMainGrid>

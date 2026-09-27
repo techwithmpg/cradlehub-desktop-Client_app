@@ -1,117 +1,120 @@
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
+
 import type {
   BranchServiceOption,
   StaffOnboardingRequest,
 } from '../../../types/staff';
 
+import { STAFF_TIERS } from '../../../types/staff';
+
+import { getAssignableStaffRoles } from '../../../lib/roles';
+
+import { reviewOnboardingRequest } from '../../../lib/staff-service';
+
+import { useModalFocus } from '../../../lib/use-modal-focus';
+
 interface StaffApplicationApprovalModalProps {
   isOpen: boolean;
   onClose: () => void;
   request: StaffOnboardingRequest | null;
+
   branchId: string;
   branchName: string;
   branchServices: BranchServiceOption[];
+
+  actorRole: string;
   onApproved: () => void;
 }
 
-const STAFF_TYPE_OPTIONS = [
-  { value: 'therapist', label: 'Therapist / Masseur' },
-  { value: 'nail_tech', label: 'Nail Technician' },
-  { value: 'aesthetician', label: 'Aesthetician' },
-  { value: 'csr', label: 'Front Desk / CSR' },
-  { value: 'driver', label: 'Driver' },
-  { value: 'utility', label: 'Utility / Helper' },
-  { value: 'managerial', label: 'Managerial' },
-];
+function ApprovalDialog({
+  onClose,
+  request,
+  branchId,
+  branchName,
+  branchServices,
+  actorRole,
+  onApproved,
+}: Omit<StaffApplicationApprovalModalProps, 'isOpen' | 'request'> & {
+  request: StaffOnboardingRequest;
+}) {
+  const roles = getAssignableStaffRoles(actorRole);
 
-const TIER_OPTIONS = ['Junior', 'Senior', 'Master', 'Standard'];
-
-export const StaffApplicationApprovalModal: React.FC<
-  StaffApplicationApprovalModalProps
-> = ({ isOpen, onClose, request, branchId, branchName, branchServices }) => {
-  const getInitialRoleAndType = (req: StaffOnboardingRequest | null) => {
-    if (!req) return { staffType: 'therapist', systemRole: 'staff' };
-    const pref = req.preferred_role.toLowerCase();
-    if (pref.includes('nail'))
-      return { staffType: 'nail_tech', systemRole: 'staff' };
-    if (pref.includes('aesthet'))
-      return { staffType: 'aesthetician', systemRole: 'staff' };
-    if (pref.includes('csr') || pref.includes('front'))
-      return { staffType: 'csr', systemRole: 'crm' };
-    if (pref.includes('driver'))
-      return { staffType: 'driver', systemRole: 'staff' };
-    if (pref.includes('util'))
-      return { staffType: 'utility', systemRole: 'staff' };
-    return { staffType: 'therapist', systemRole: 'staff' };
-  };
-
-  const initialValues = getInitialRoleAndType(request);
-  const [staffType, setStaffType] = useState(initialValues.staffType);
-  const [systemRole, setSystemRole] = useState(initialValues.systemRole);
-  const [tier, setTier] = useState('Junior');
-  const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(
-    new Set(),
+  const [systemRole, setSystemRole] = useState<string>(
+    roles.some((role) => role.value === 'staff')
+      ? 'staff'
+      : (roles[0]?.value ?? ''),
   );
-  const [error] = useState<string | null>(null);
 
-  const [prevRequestId, setPrevRequestId] = useState<string | null>(
-    request?.id || null,
-  );
-  if (request && request.id !== prevRequestId) {
-    setPrevRequestId(request.id);
-    const defaults = getInitialRoleAndType(request);
-    setStaffType(defaults.staffType);
-    setSystemRole(defaults.systemRole);
-    setTier('Junior');
-    setSelectedServiceIds(new Set());
-  }
+  const [tier, setTier] = useState('junior');
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
+
+  const [pending, setPending] = useState(false);
+
+  const busy = useRef(false);
+
+  const [error, setError] = useState<string | null>(null);
+
+  const dialogRef = useModalFocus(true, pending, onClose);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (busy.current || !roles.some((role) => role.value === systemRole))
+      return;
+
+    busy.current = true;
+    setPending(true);
+    setError(null);
+
+    try {
+      const result = await reviewOnboardingRequest({
+        requestId: request.id,
+        action: 'approve',
+        branchId,
+        systemRole,
+        tier,
+        serviceIds: [...new Set(serviceIds)],
+      });
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
-  if (!isOpen || !request) return null;
-
-  const toggleService = (id: string) => {
-    setSelectedServiceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+      onApproved();
+      onClose();
+    } catch {
+      setError('Approval requires a connection. Please try again.');
+    } finally {
+      busy.current = false;
+      setPending(false);
+    }
   };
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       className="modal-overlay-backdrop"
       role="dialog"
       aria-modal="true"
       aria-labelledby="approval-modal-title"
+      aria-busy={pending}
       data-testid="staff-application-approval-modal"
     >
       <div className="modal-container-card" style={{ maxWidth: 520 }}>
-        {/* Header */}
         <div className="modal-header-row">
           <div>
             <h2 id="approval-modal-title" className="modal-title-text">
               Approve &amp; Configure Staff
             </h2>
-            <p className="modal-subtitle-text">
-              Configure operational profile for{' '}
-              <strong className="text-[var(--cs-text)]">
-                {request.full_name}
-              </strong>
-            </p>
+            <p className="modal-subtitle-text">{request.full_name}</p>
           </div>
           <button
             type="button"
             className="modal-close-icon-btn"
+            disabled={pending}
             onClick={onClose}
             aria-label="Close approval modal"
           >
@@ -119,157 +122,123 @@ export const StaffApplicationApprovalModal: React.FC<
           </button>
         </div>
 
-        {/* Body */}
-        <div className="modal-body-content space-y-3">
-          {/* Branch Target */}
-          <div>
-            <label className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1">
-              Assigned Branch
-            </label>
-            <div className="form-input-control text-xs bg-[var(--cs-surface-hover)] text-[var(--cs-text)]">
-              {branchName} ({branchId})
-            </div>
-          </div>
+        <form
+          onSubmit={submit}
+          style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        >
+          <div className="modal-body-content space-y-3">
+            <p className="text-xs">Assigned Branch: {branchName}</p>
 
-          {/* Staff Type and Role */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="approval-staff-type"
-                className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1"
-              >
-                Staff Type / Function
-              </label>
-              <select
-                id="approval-staff-type"
-                className="form-input-control text-xs w-full"
-                value={staffType}
-                onChange={(e) => setStaffType(e.target.value)}
-              >
-                {STAFF_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="approval-system-role"
-                className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1"
-              >
-                System Access Role
-              </label>
-              <select
-                id="approval-system-role"
-                className="form-input-control text-xs w-full"
-                value={systemRole}
-                onChange={(e) => setSystemRole(e.target.value)}
-              >
-                <option value="staff">Standard Staff</option>
-                <option value="service_staff">Service Staff</option>
-                <option value="crm">Front Desk / CSR</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Skill Tier */}
-          <div>
-            <label
-              htmlFor="approval-tier"
-              className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1"
-            >
-              Skill Tier
-            </label>
-            <select
-              id="approval-tier"
-              className="form-input-control text-xs w-full"
-              value={tier}
-              onChange={(e) => setTier(e.target.value)}
-            >
-              {TIER_OPTIONS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Initial Capabilities */}
-          {branchServices.length > 0 && (
-            <div>
-              <label className="block text-xs font-semibold text-[var(--cs-text-muted)] mb-1">
-                Initial Service Capabilities ({selectedServiceIds.size}{' '}
-                selected)
-              </label>
-              <div
-                className="border border-[var(--cs-border)] rounded-md max-h-36 overflow-y-auto p-2 space-y-1 bg-[var(--cs-surface)]"
-                role="group"
-                aria-label="Service choices"
-              >
-                {branchServices.map((svc) => (
-                  <label
-                    key={svc.id}
-                    className="flex items-center gap-2 p-1 rounded hover:bg-[var(--cs-surface-hover)] cursor-pointer text-xs"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedServiceIds.has(svc.id)}
-                      onChange={() => toggleService(svc.id)}
-                      className="rounded border-[var(--cs-border)] text-[var(--cs-sand)]"
-                    />
-                    <span>{svc.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
-            <div className="font-semibold flex items-center gap-1.5">
-              <span>⚠️</span> UNAVAILABLE IN DESKTOP — AUTHORITATIVE ENDPOINT
-              REQUIRED
-            </div>
-            <p className="leading-relaxed">
-              Staff onboarding approval requires the authoritative Desktop
-              staff-review service (Stage 12). This action is temporarily
-              unavailable in the Desktop client to prevent unverified client
-              database mutations.
+            <p className="text-xs">
+              Preferred role / function: {request.preferred_role}
             </p>
+
+            <fieldset disabled={pending} className="space-y-3">
+              <div>
+                <label htmlFor="approval-system-role">System Role</label>
+                <select
+                  id="approval-system-role"
+                  className="form-input-control text-xs w-full"
+                  value={systemRole}
+                  onChange={(event) => setSystemRole(event.target.value)}
+                >
+                  {roles.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="approval-tier">Skill Tier</label>
+                <select
+                  id="approval-tier"
+                  className="form-input-control text-xs w-full"
+                  value={tier}
+                  onChange={(event) => setTier(event.target.value)}
+                >
+                  {STAFF_TIERS.map((value) => (
+                    <option key={value} value={value}>
+                      {value === 'n/a'
+                        ? 'N/A'
+                        : value[0].toUpperCase() + value.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {branchServices.length > 0 && (
+                <div
+                  role="group"
+                  aria-label="Service choices"
+                  className="border border-[var(--cs-border)] rounded-md max-h-36 overflow-y-auto p-2 space-y-1"
+                >
+                  {branchServices.map((service) => (
+                    <label
+                      key={service.id}
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={serviceIds.includes(service.id)}
+                        onChange={(event) =>
+                          setServiceIds((ids) =>
+                            event.target.checked
+                              ? [...ids, service.id]
+                              : ids.filter((id) => id !== service.id),
+                          )
+                        }
+                      />
+                      {service.name}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </fieldset>
+
+            {roles.length === 0 && (
+              <p role="alert">
+                No assignable roles are available for your account.
+              </p>
+            )}
+
+            {error && (
+              <p role="alert" className="text-xs text-red-700">
+                {error}
+              </p>
+            )}
           </div>
 
-          {error && (
-            <div
-              className="p-2.5 rounded bg-red-50 border border-red-200 text-red-700 text-xs"
-              role="alert"
+          <div className="modal-footer-row">
+            <button
+              type="button"
+              className="btn-secondary text-xs"
+              data-testid="cancel-approval-modal-btn"
+              disabled={pending}
+              onClick={onClose}
             >
-              {error}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="modal-footer-row">
-          <button
-            type="button"
-            className="btn-secondary text-xs"
-            data-testid="cancel-approval-modal-btn"
-            onClick={onClose}
-          >
-            Close
-          </button>
-          <button
-            type="button"
-            className="btn-primary text-xs opacity-50 cursor-not-allowed"
-            data-testid="approve-application-submit-btn"
-            disabled={true}
-            title="Staff approval requires an authoritative Desktop backend endpoint (Stage 12)"
-          >
-            Approve Application (Unavailable)
-          </button>
-        </div>
+              Close
+            </button>
+            <button
+              type="submit"
+              className="btn-primary text-xs"
+              data-testid="approve-application-submit-btn"
+              disabled={pending || !systemRole}
+            >
+              {pending ? 'Approving…' : 'Approve Application'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
-};
+}
+
+export function StaffApplicationApprovalModal(
+  props: StaffApplicationApprovalModalProps,
+) {
+  return props.isOpen && props.request ? (
+    <ApprovalDialog key={props.request.id} {...props} request={props.request} />
+  ) : null;
+}

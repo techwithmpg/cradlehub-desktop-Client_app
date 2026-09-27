@@ -1,5 +1,33 @@
 import type { CanonicalRole } from '../types/auth';
 
+export const STAFF_ROLE_OPTIONS = [
+  { value: 'owner', label: 'Owner' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'assistant_manager', label: 'Assistant Manager' },
+  { value: 'store_manager', label: 'Store Manager' },
+  { value: 'crm', label: 'Front Desk (CRM)' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'service_head', label: 'Service Head' },
+  { value: 'service_staff', label: 'Service Staff' },
+  { value: 'digital_marketer', label: 'Digital Marketer' },
+  { value: 'driver', label: 'Driver' },
+  { value: 'utility', label: 'Utility' },
+] as const;
+
+/** UX choices only; the hosted server resolves and authorizes the actor. */
+export function getAssignableStaffRoles(actorRole: string) {
+  const role = canonicalizeRole(actorRole);
+  if (role === 'owner') return [...STAFF_ROLE_OPTIONS];
+  if (!isRoleEligibleForCrm(role)) return [];
+  return STAFF_ROLE_OPTIONS.filter(
+    (option) =>
+      !['owner', 'manager', 'assistant_manager', 'store_manager'].includes(
+        option.value,
+      ) &&
+      (role !== 'crm' || option.value !== 'digital_marketer'),
+  );
+}
+
 /**
  * Canonicalizes an authoritative staff system_role string into an authoritative CanonicalRole.
  * Follows the hosted Cradlehub system_role canonicalization rules:

@@ -133,12 +133,25 @@ export interface StaffScheduleAdjustmentInput {
 
 export interface ReviewOnboardingInput {
   requestId: string;
-  staffId?: string;
   action: 'approve' | 'reject';
   branchId?: string;
   systemRole?: string;
-  staffType?: string;
   tier?: string;
   serviceIds?: string[];
   rejectionReason?: string;
 }
+
+export const STAFF_TIERS = ['n/a', 'junior', 'mid', 'senior', 'head'] as const;
+export const STAFF_TYPES = [
+  'therapist',
+  'nail_tech',
+  'aesthetician',
+  'csr',
+  'driver',
+  'utility',
+  'salon_head',
+  'managerial',
+] as const;
+export type HostedMutationResult<T> =
+  | { ok: true; data: T; message: string }
+  | { ok: false; code: string; error: string };

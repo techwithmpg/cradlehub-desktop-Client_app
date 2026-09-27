@@ -57,6 +57,8 @@ const STAFF_TABS: Array<{ id: StaffPrimaryTab; label: string }> = [
 ];
 
 export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
+  const [inspectorMutationPending, setInspectorMutationPending] =
+    useState(false);
   const [activeTab, setActiveTab] = useState<StaffPrimaryTab>('roster');
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [branchServices, setBranchServices] = useState<BranchServiceOption[]>(
@@ -207,13 +209,18 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
   }, [onboardingRequests, selectedApplicationId]);
 
   // Handle KPI Strip clicks (sets status filter)
-  const handleKpiClick = useCallback((targetFilter: StaffStatusFilter) => {
-    setFilters((prev) => ({ ...prev, status: targetFilter }));
-    setCurrentPage(1);
-    setActiveTab('roster');
-  }, []);
+  const handleKpiClick = useCallback(
+    (targetFilter: StaffStatusFilter) => {
+      if (inspectorMutationPending) return;
+      setFilters((prev) => ({ ...prev, status: targetFilter }));
+      setCurrentPage(1);
+      setActiveTab('roster');
+    },
+    [inspectorMutationPending],
+  );
 
   const handleResetFilters = useCallback(() => {
+    if (inspectorMutationPending) return;
     setFilters({
       search: '',
       status: 'all',
@@ -222,18 +229,12 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
       capabilityId: 'all',
     });
     setCurrentPage(1);
-  }, []);
+  }, [inspectorMutationPending]);
 
-  // Update staff in local state after mutations
-  const handleStaffUpdated = useCallback(
-    (patch: Partial<StaffMember> & { id: string }) => {
-      setStaffList((current) =>
-        current.map((m) => (m.id === patch.id ? { ...m, ...patch } : m)),
-      );
-      setSuccessNotice('Staff profile updated successfully.');
-    },
-    [],
-  );
+  const handleStaffUpdated = useCallback(() => {
+    setSuccessNotice('Staff profile updated successfully.');
+    void handleRefresh();
+  }, [handleRefresh]);
 
   const handleCapabilitiesSaved = useCallback(
     (staffId: string, serviceIds: string[]) => {
@@ -251,20 +252,14 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     [branchServices],
   );
 
-  const handleRoleUpdated = useCallback((staffId: string, newRole: string) => {
-    setStaffList((current) =>
-      current.map((m) =>
-        m.id === staffId ? { ...m, system_role: newRole } : m,
-      ),
-    );
-    setSuccessNotice(`Role updated to ${newRole}.`);
-  }, []);
-
+  const handleRoleUpdated = useCallback(() => {
+    setSuccessNotice('System role updated successfully.');
+    void handleRefresh();
+  }, [handleRefresh]);
   const handleRejectApplication = useCallback(() => {
-    setError(
-      'Staff rejection requires an authoritative Desktop staff-review endpoint (Stage 12). Direct database updates are disabled.',
-    );
-  }, []);
+    setSuccessNotice('Application rejected.');
+    void handleRefresh();
+  }, [handleRefresh]);
 
   // KPI calculations for Roster
   const kpis = useMemo(() => {
@@ -308,9 +303,13 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     <ModuleWorkspace className="staff-view-container" testId="staff-view">
       {/* 1. Module Header */}
       <StaffHeader
-        onRefresh={handleRefresh}
+        onRefresh={() => {
+          if (!inspectorMutationPending) void handleRefresh();
+        }}
         isRefreshing={isRefreshing}
-        onOpenAddStaff={() => setIsAddGuidanceOpen(true)}
+        onOpenAddStaff={() => {
+          if (!inspectorMutationPending) setIsAddGuidanceOpen(true);
+        }}
       />
 
       {/* Success Notification Banner */}
@@ -399,7 +398,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 <ModuleTabs<StaffPrimaryTab>
                   tabs={staffTabItems}
                   activeTab={activeTab}
-                  onTabChange={setActiveTab}
+                  onTabChange={(tab) => {
+                    if (!inspectorMutationPending) setActiveTab(tab);
+                  }}
                   ariaLabel="Staff Management Views"
                   getTabTestId={(id) => `staff-primary-tab-${id}`}
                 />
@@ -410,9 +411,13 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     staffList={filteredStaffList}
                     totalStaffCount={staffList.length}
                     selectedStaffId={selectedStaff?.id || null}
-                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onSelectStaff={(m) => {
+                      if (!inspectorMutationPending) setSelectedStaffId(m.id);
+                    }}
                     filters={filters}
-                    onFiltersChange={setFilters}
+                    onFiltersChange={(next) => {
+                      if (!inspectorMutationPending) setFilters(next);
+                    }}
                     onResetFilters={handleResetFilters}
                     currentPage={currentPage}
                     pageSize={pageSize}
@@ -427,7 +432,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     branchName={authContext.branchName}
                     staffList={staffList}
                     selectedStaffId={selectedStaff?.id || null}
-                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onSelectStaff={(m) => {
+                      if (!inspectorMutationPending) setSelectedStaffId(m.id);
+                    }}
                     overrides={scheduleOverrides}
                     blockedTimes={scheduleBlocks}
                     isLoading={scheduleLoading}
@@ -440,7 +447,10 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   <StaffApplicationsContent
                     requests={onboardingRequests}
                     selectedRequestId={selectedApplication?.id || null}
-                    onSelectRequest={(req) => setSelectedApplicationId(req.id)}
+                    onSelectRequest={(req) => {
+                      if (!inspectorMutationPending)
+                        setSelectedApplicationId(req.id);
+                    }}
                   />
                 )}
 
@@ -453,7 +463,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                     staffList={staffList}
                     branchServices={branchServices}
                     selectedStaffId={selectedStaff?.id || null}
-                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onSelectStaff={(m) => {
+                      if (!inspectorMutationPending) setSelectedStaffId(m.id);
+                    }}
                     onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
                   />
                 )}
@@ -463,7 +475,9 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   <StaffRolesContent
                     staffList={staffList}
                     selectedStaffId={selectedStaff?.id || null}
-                    onSelectStaff={(m) => setSelectedStaffId(m.id)}
+                    onSelectStaff={(m) => {
+                      if (!inspectorMutationPending) setSelectedStaffId(m.id);
+                    }}
                     onOpenRoleModal={(m) => setRoleModalStaff(m)}
                   />
                 )}
@@ -493,6 +507,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 onOpenRoleModal={(m) => setRoleModalStaff(m)}
                 onOpenOffboardingModal={(m) => setOffboardingModalStaff(m)}
                 onStaffUpdated={handleStaffUpdated}
+                onMutationPendingChange={setInspectorMutationPending}
                 onOpenApprovalModal={(req) => setApprovalModalRequest(req)}
                 onRejectApplication={handleRejectApplication}
                 onOpenProfileEdit={(m) => {
@@ -551,7 +566,8 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         isOpen={Boolean(roleModalStaff)}
         onClose={() => setRoleModalStaff(null)}
         staff={roleModalStaff}
-        actorRole={authContext.canonicalRole || 'manager'}
+        actorRole={authContext.canonicalRole}
+        actorStaffId={authContext.staffId}
         onRoleUpdated={handleRoleUpdated}
       />
 
@@ -562,13 +578,24 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         branchId={authContext.branchId}
         branchName={authContext.branchName}
         branchServices={branchServices}
-        onApproved={handleRefresh}
+        actorRole={authContext.canonicalRole}
+        onApproved={() => {
+          setSuccessNotice('Application approved successfully.');
+          void handleRefresh();
+        }}
       />
 
       <StaffOffboardingNoticeModal
         isOpen={Boolean(offboardingModalStaff)}
         onClose={() => setOffboardingModalStaff(null)}
         staff={offboardingModalStaff}
+        actorStaffId={authContext.staffId}
+        onDeactivated={() => {
+          setSuccessNotice(
+            'Staff access deactivated. The staff record is retained.',
+          );
+          void handleRefresh();
+        }}
       />
     </ModuleWorkspace>
   );

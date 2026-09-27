@@ -765,6 +765,11 @@ describe('Stage 02 Bookings UI Components', () => {
   describe('RescheduleBookingModal', () => {
     beforeEach(() => {
       vi.restoreAllMocks();
+      vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
+        services: [],
+        resources: [],
+        staff: [{ id: 'staff-2', name: 'Other Therapist' }],
+      });
     });
 
     it('returns null when isOpen is false', () => {
@@ -843,34 +848,36 @@ describe('Stage 02 Bookings UI Components', () => {
       ).toBeDefined();
       expect(screen.getByDisplayValue('Buzz code 1234')).toBeDefined();
       expect(screen.getAllByText('Anna Cruz').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(/Reassignment Unavailable/i)).toBeDefined();
+      expect(screen.getByLabelText('Assigned Therapist')).toBeDefined();
     });
 
-    it('requires CRM reason when time is changed', async () => {
-      const mockBooking = createMockBooking();
+    it('allows time changes without a required CRM note', async () => {
+      const spy = vi
+        .spyOn(bookingsService, 'rescheduleBranchBooking')
+        .mockResolvedValue({ ok: true });
       render(
         <RescheduleBookingModal
-          isOpen={true}
+          isOpen
           onClose={vi.fn()}
-          booking={mockBooking}
+          booking={createMockBooking()}
         />,
       );
-
-      const timeInput = screen.getByLabelText(/start time/i);
-      fireEvent.change(timeInput, { target: { value: '14:00' } });
-
-      const submitBtn = screen.getByRole('button', {
-        name: 'Save Booking Changes',
+      fireEvent.change(screen.getByLabelText(/start time/i), {
+        target: { value: '14:00' },
       });
-      expect((submitBtn as HTMLButtonElement).disabled).toBe(false);
-
-      fireEvent.click(submitBtn);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText('Add a CRM reason before saving this change.'),
-        ).toBeDefined();
-      });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Save Booking Changes' }),
+      );
+      await waitFor(() =>
+        expect(spy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            startTime: '14:00',
+            note: undefined,
+            therapistId: undefined,
+            overrideReason: undefined,
+          }),
+        ),
+      );
     });
 
     it('requires non-empty address when home service address is modified', async () => {
@@ -1047,5 +1054,201 @@ describe('Stage 02 Bookings UI Components', () => {
       fireEvent.keyDown(window, { key: 'Escape' });
       expect(onClose).toHaveBeenCalledOnce();
     });
+  });
+});
+
+describe('Stage 12B therapist reassignment UI', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
+      services: [],
+      resources: [],
+      staff: [{ id: 'staff-2', name: 'Replacement Provider' }],
+    });
+  });
+  it('requires canonical reason for therapist-only change and sends exact payload without note', async () => {
+    const spy = vi
+      .spyOn(bookingsService, 'rescheduleBranchBooking')
+      .mockResolvedValue({ ok: true });
+    const done = vi.fn();
+    render(
+      <RescheduleBookingModal
+        isOpen
+        onClose={vi.fn()}
+        booking={createMockBooking()}
+        onBookingRescheduled={done}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('Assigned Therapist') as HTMLSelectElement)
+          .disabled,
+      ).toBe(false),
+    );
+    fireEvent.change(screen.getByLabelText('Assigned Therapist'), {
+      target: { value: 'staff-2' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save Booking Changes' }),
+    );
+    expect(
+      screen.getByText('Choose a reassignment reason before saving.'),
+    ).toBeDefined();
+    expect(spy).not.toHaveBeenCalled();
+    const reasons = screen.getByLabelText(
+      'Reassignment Reason',
+    ) as HTMLSelectElement;
+    expect(Array.from(reasons.options).map((option) => option.value)).toEqual([
+      '',
+      'customer_requested',
+      'therapist_on_break',
+      'manager_decision',
+      'skill_or_service_mismatch',
+      'workload_balance',
+      'other',
+    ]);
+    fireEvent.change(reasons, { target: { value: 'workload_balance' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save Booking Changes' }),
+    );
+    await waitFor(() => expect(done).toHaveBeenCalledOnce());
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        therapistId: 'staff-2',
+        overrideReason: 'workload_balance',
+        note: undefined,
+      }),
+    );
+  });
+  it('candidate read failure preserves ordinary rescheduling and keep-current assignment', async () => {
+    vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockRejectedValue(
+      new Error('offline'),
+    );
+    const spy = vi
+      .spyOn(bookingsService, 'rescheduleBranchBooking')
+      .mockResolvedValue({ ok: true });
+    render(
+      <RescheduleBookingModal
+        isOpen
+        onClose={vi.fn()}
+        booking={createMockBooking()}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByText(/choices could not be loaded/)).toBeDefined(),
+    );
+    expect(
+      (screen.getByLabelText('Assigned Therapist') as HTMLSelectElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.change(screen.getByLabelText(/New Date/), {
+      target: { value: '2026-09-06' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save Booking Changes' }),
+    );
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          therapistId: undefined,
+          overrideReason: undefined,
+          note: undefined,
+        }),
+      ),
+    );
+  });
+  it('clears an existing home-service access note with an explicit empty string', async () => {
+    const spy = vi
+      .spyOn(bookingsService, 'rescheduleBranchBooking')
+      .mockResolvedValue({ ok: true });
+    render(
+      <RescheduleBookingModal
+        isOpen
+        onClose={vi.fn()}
+        booking={createMockBooking({
+          delivery_type: 'home_service',
+          metadata: {
+            home_service_address: {
+              full_address: 'Address 123',
+              access_note: 'Old note',
+            },
+          },
+        })}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/Access Note/), {
+      target: { value: '' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save Booking Changes' }),
+    );
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ homeServiceAccessNote: '' }),
+      ),
+    );
+  });
+
+  it('handles empty candidates truthfully', async () => {
+    vi.spyOn(bookingsService, 'fetchBranchBookingOptions').mockResolvedValue({
+      services: [],
+      staff: [],
+      resources: [],
+    });
+    render(
+      <RescheduleBookingModal
+        isOpen
+        onClose={vi.fn()}
+        booking={createMockBooking()}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(/No other active branch providers/),
+      ).toBeDefined(),
+    );
+    expect(
+      (screen.getByLabelText('Assigned Therapist') as HTMLSelectElement)
+        .options,
+    ).toHaveLength(1);
+  });
+  it('blocks duplicates, Escape and fields while pending; failure stays visible without success', async () => {
+    let resolve!: (value: { ok: false; code: string; error: string }) => void;
+    const promise = new Promise<{ ok: false; code: string; error: string }>(
+      (done) => {
+        resolve = done;
+      },
+    );
+    const spy = vi
+      .spyOn(bookingsService, 'rescheduleBranchBooking')
+      .mockReturnValue(promise);
+    const close = vi.fn(),
+      done = vi.fn();
+    render(
+      <RescheduleBookingModal
+        isOpen
+        onClose={close}
+        booking={createMockBooking()}
+        onBookingRescheduled={done}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/New Date/), {
+      target: { value: '2026-09-06' },
+    });
+    const button = screen.getByRole('button', { name: 'Save Booking Changes' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(spy).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    expect(done).not.toHaveBeenCalled();
+    expect(
+      (screen.getByLabelText(/New Date/) as HTMLInputElement).disabled,
+    ).toBe(true);
+    resolve({ ok: false, code: 'CONFLICT', error: 'Authoritative conflict' });
+    await waitFor(() =>
+      expect(screen.getByText('Authoritative conflict')).toBeDefined(),
+    );
+    expect(done).not.toHaveBeenCalled();
   });
 });

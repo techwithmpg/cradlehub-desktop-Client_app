@@ -1,91 +1,136 @@
-import React, { useEffect } from 'react';
+import React, { useRef, useState } from 'react';
+
 import type { StaffMember } from '../../../types/staff';
+
+import { deactivateStaff } from '../../../lib/staff-service';
+
+import { useModalFocus } from '../../../lib/use-modal-focus';
 
 interface StaffOffboardingNoticeModalProps {
   isOpen: boolean;
   onClose: () => void;
   staff: StaffMember | null;
+
+  actorStaffId?: string;
+  onDeactivated?: () => void;
 }
 
-export const StaffOffboardingNoticeModal: React.FC<
-  StaffOffboardingNoticeModalProps
-> = ({ isOpen, onClose, staff }) => {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+function DeactivateDialog({
+  staff,
+  actorStaffId,
+  onClose,
+  onDeactivated,
+}: Omit<StaffOffboardingNoticeModalProps, 'isOpen' | 'staff'> & {
+  staff: StaffMember;
+}) {
+  const [pending, setPending] = useState(false);
 
-  if (!isOpen || !staff) return null;
+  const busy = useRef(false);
+
+  const [error, setError] = useState<string | null>(null);
+
+  const self = staff.id === actorStaffId;
+
+  const dialogRef = useModalFocus(true, pending, onClose);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (busy.current || self) return;
+
+    busy.current = true;
+    setPending(true);
+    setError(null);
+
+    try {
+      const result = await deactivateStaff(staff.id);
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      onDeactivated?.();
+      onClose();
+    } catch {
+      setError('Deactivation requires a connection. Please try again.');
+    } finally {
+      busy.current = false;
+      setPending(false);
+    }
+  };
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       className="modal-overlay-backdrop"
       role="dialog"
       aria-modal="true"
       aria-labelledby="offboarding-modal-title"
+      aria-busy={pending}
       data-testid="staff-offboarding-modal"
     >
       <div className="modal-container-card" style={{ maxWidth: 480 }}>
         <div className="modal-header-row">
           <div>
             <h2 id="offboarding-modal-title" className="modal-title-text">
-              End Employment / Offboarding
+              Deactivate Staff Access
             </h2>
-            <p className="modal-subtitle-text">
-              Employment lifecycle status for{' '}
-              <strong className="text-[var(--cs-text)]">
-                {staff.full_name}
-              </strong>
-            </p>
+            <p className="modal-subtitle-text">{staff.full_name}</p>
           </div>
           <button
             type="button"
             className="modal-close-icon-btn"
+            disabled={pending}
             onClick={onClose}
-            aria-label="Close offboarding modal"
+            aria-label="Close deactivation modal"
           >
             &times;
           </button>
         </div>
 
-        <div className="modal-body-content space-y-3">
-          <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1.5">
-            <div className="font-semibold text-sm flex items-center gap-1.5">
-              <span>⚠️</span> OFFBOARDING CONTRACT REQUIRED
-            </div>
-            <p className="leading-relaxed">
-              Permanent offboarding / employee termination requires an
-              authoritative server contract. In the current schema, toggling
-              active status to false is reserved for pending onboarding and
-              invitation states.
+        <form onSubmit={submit}>
+          <div className="modal-body-content space-y-3">
+            <p className="text-xs">
+              This disables the staff account while retaining the staff record.
             </p>
+            {self && (
+              <p role="alert">You cannot deactivate your own staff access.</p>
+            )}
+            {error && (
+              <p role="alert" className="text-xs text-red-700">
+                {error}
+              </p>
+            )}
           </div>
-
-          <div className="text-xs text-[var(--cs-text-muted)] space-y-1.5">
-            <p>
-              To protect database integrity and prevent terminated staff from
-              appearing as pending applicants, offboarding mutations are blocked
-              pending backend contract deployment.
-            </p>
+          <div className="modal-footer-row">
+            <button
+              type="button"
+              className="btn-secondary text-xs"
+              data-testid="close-offboarding-modal"
+              disabled={pending}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary text-xs"
+              disabled={pending || self}
+            >
+              {pending ? 'Deactivating…' : 'Deactivate Staff Access'}
+            </button>
           </div>
-        </div>
-
-        <div className="modal-footer-row">
-          <button
-            type="button"
-            className="btn-primary text-xs"
-            data-testid="close-offboarding-modal"
-            onClick={onClose}
-          >
-            Understood
-          </button>
-        </div>
+        </form>
       </div>
     </div>
   );
-};
+}
+
+export function StaffOffboardingNoticeModal(
+  props: StaffOffboardingNoticeModalProps,
+) {
+  return props.isOpen && props.staff ? (
+    <DeactivateDialog key={props.staff.id} {...props} staff={props.staff} />
+  ) : null;
+}

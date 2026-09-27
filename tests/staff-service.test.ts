@@ -1,5 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
+  updateStaffProfile,
+  reviewOnboardingRequest,
+  updateStaffSystemRole,
+  deactivateStaff,
   calculateStaffKpis,
   classifyStaffError,
   deriveStaffStatus,
@@ -1141,58 +1145,6 @@ describe('staff-service', () => {
   });
 
   describe('Service Mutations & RPCs', () => {
-    it('updateStaffProfile validates required fields and updates staff', async () => {
-      const mockQueryBuilder: Record<string, unknown> = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockResolvedValue({
-          data: [{ id: 's-1', full_name: 'Updated Name' }],
-          error: null,
-        }),
-      };
-
-      const mockClient = {
-        from: vi.fn().mockReturnValue(mockQueryBuilder),
-      } as unknown as SupabaseClient;
-
-      const res = await (
-        await import('../src/lib/staff-service')
-      ).updateStaffProfile(
-        {
-          staffId: 's-1',
-          fullName: 'Updated Name',
-          nickname: 'Nick',
-          phone: '09171112222',
-          staffType: 'therapist',
-          tier: 'Senior',
-          isHead: true,
-        },
-        mockClient,
-      );
-
-      expect(res.ok).toBe(true);
-      if (res.ok) {
-        expect(res.staff.full_name).toBe('Updated Name');
-      }
-    });
-
-    it('updateStaffProfile rejects empty full name', async () => {
-      const res = await (
-        await import('../src/lib/staff-service')
-      ).updateStaffProfile({
-        staffId: 's-1',
-        fullName: '   ',
-        staffType: 'therapist',
-        tier: 'Senior',
-        isHead: false,
-      });
-
-      expect(res.ok).toBe(false);
-      if (!res.ok) {
-        expect(res.error).toBe('Full name is required.');
-      }
-    });
-
     it('updateStaffCapabilities calls replace_staff_service_capabilities RPC', async () => {
       const mockClient = {
         rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -1252,35 +1204,328 @@ describe('staff-service', () => {
       );
       expect(resDayOff.ok).toBe(true);
     });
+  });
+});
 
-    it('reviewOnboardingRequest updates request status and activates staff', async () => {
-      const mockQueryBuilder: Record<string, unknown> = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      };
-
-      const mockClient = {
-        from: vi.fn().mockReturnValue(mockQueryBuilder),
-        rpc: vi.fn().mockResolvedValue({ error: null }),
-      } as unknown as SupabaseClient;
-
-      const res = await (
-        await import('../src/lib/staff-service')
-      ).reviewOnboardingRequest(
-        {
-          requestId: 'req-1',
-          staffId: 's-1',
-          action: 'approve',
-          branchId: 'b-1',
-          systemRole: 'staff',
-          staffType: 'therapist',
-          tier: 'Junior',
-          serviceIds: ['srv-1'],
-        },
-        mockClient,
-      );
-
-      expect(res.ok).toBe(true);
+describe('Stage 12B hosted Staff mutation boundary', () => {
+  const profile = {
+    staffId: 'target',
+    fullName: 'Updated Name',
+    nickname: null,
+    staffType: 'salon_head',
+    tier: 'head',
+    isHead: true,
+  };
+  const approval = {
+    requestId: 'request',
+    action: 'approve' as const,
+    branchId: 'branch',
+    systemRole: 'staff',
+    tier: 'junior',
+    serviceIds: ['service', 'service'],
+  };
+  const cases = [
+    {
+      name: 'approval',
+      path: 'onboarding/request/approve',
+      method: 'POST',
+      body: {
+        branchId: 'branch',
+        systemRole: 'staff',
+        tier: 'junior',
+        serviceIds: ['service'],
+      },
+      data: { staffId: 'target', branchId: 'branch', systemRole: 'staff' },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        reviewOnboardingRequest(approval, client, fetcher),
+    },
+    {
+      name: 'rejection',
+      path: 'onboarding/request/reject',
+      method: 'POST',
+      body: {},
+      data: { requestId: 'request', staffId: null },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        reviewOnboardingRequest(
+          { requestId: 'request', action: 'reject' },
+          client,
+          fetcher,
+        ),
+    },
+    {
+      name: 'profile',
+      path: 'target',
+      method: 'PATCH',
+      body: {
+        fullName: 'Updated Name',
+        nickname: null,
+        staffType: 'salon_head',
+        tier: 'head',
+        isHead: true,
+      },
+      data: { staff: { id: 'target' } },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        updateStaffProfile(profile, client, fetcher),
+    },
+    {
+      name: 'role',
+      path: 'target/role',
+      method: 'POST',
+      body: { systemRole: 'crm' },
+      data: { staff: { id: 'target', system_role: 'crm' } },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        updateStaffSystemRole('target', 'crm', client, fetcher),
+    },
+    {
+      name: 'deactivation',
+      path: 'target/deactivate',
+      method: 'POST',
+      body: {},
+      data: { staff: { id: 'target', is_active: false } },
+      run: (client: SupabaseClient, fetcher: typeof fetch) =>
+        deactivateStaff('target', client, fetcher),
+    },
+  ];
+  function client(token: string | null = 'test-token') {
+    return {
+      from: vi.fn(() => {
+        throw new Error('Direct table write forbidden');
+      }),
+      rpc: vi.fn(),
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: token ? { access_token: token } : null },
+          error: null,
+        }),
+      },
+    } as unknown as SupabaseClient;
+  }
+  function response(data: unknown, status = 200) {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
     });
+  }
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+  });
+  for (const item of cases) {
+    describe(item.name, () => {
+      it('sends exact native hosted request with bearer and performs no direct write', async () => {
+        const db = client();
+        const fetcher = vi
+          .fn()
+          .mockResolvedValue(response({ ok: true, data: item.data }));
+        const result = await item.run(db, fetcher);
+        expect(result.ok).toBe(true);
+        expect(fetcher).toHaveBeenCalledOnce();
+        const [url, options] = fetcher.mock.calls[0];
+        expect(url).toBe(
+          `https://www.cradlewellnessliving.com/api/desktop/v1/staff/${item.path}`,
+        );
+        expect(options.method).toBe(item.method);
+        expect(options.headers).toEqual({
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer test-token',
+        });
+        expect(JSON.parse(options.body)).toEqual(item.body);
+        expect(db.from).not.toHaveBeenCalled();
+        expect(db.rpc).not.toHaveBeenCalled();
+      });
+      it('fails closed for missing session', async () => {
+        const fetcher = vi.fn();
+        const result = await item.run(client(null), fetcher);
+        expect(result).toMatchObject({
+          ok: false,
+          code: 'AUTH_SESSION_REQUIRED',
+        });
+        expect(fetcher).not.toHaveBeenCalled();
+      });
+      it('rejects an arbitrary mutation origin', async () => {
+        vi.stubEnv('VITE_CRADLEHUB_API_URL', 'https://attacker.test');
+        const fetcher = vi.fn();
+        expect(await item.run(client(), fetcher)).toMatchObject({
+          ok: false,
+          code: 'API_CONFIG_REQUIRED',
+        });
+        expect(fetcher).not.toHaveBeenCalled();
+      });
+      it.each([
+        [401, 'UNAUTHENTICATED'],
+        [403, 'FORBIDDEN'],
+        [403, 'BRANCH_MISMATCH'],
+        [404, 'NOT_FOUND'],
+        [409, 'INVALID_STATE'],
+        [500, 'SAVE_FAILED'],
+      ])(
+        'preserves HTTP %s server code %s and message',
+        async (status, code) => {
+          const fetcher = vi
+            .fn()
+            .mockResolvedValue(
+              response(
+                { ok: false, code, message: 'Authoritative rejection' },
+                status as number,
+              ),
+            );
+          expect(await item.run(client(), fetcher)).toEqual({
+            ok: false,
+            code,
+            error: 'Authoritative rejection',
+          });
+        },
+      );
+      it('classifies network failure without exposing tokens', async () => {
+        const fetcher = vi.fn().mockRejectedValue(new Error('test-token'));
+        const result = await item.run(client(), fetcher);
+        expect(result).toMatchObject({ ok: false, code: 'NETWORK_ERROR' });
+        expect(JSON.stringify(result)).not.toContain('test-token');
+      });
+      it.each([{ ok: true }, { ok: true, data: null }, { ok: true, data: {} }])(
+        'rejects malformed success %j',
+        async (body) => {
+          expect(
+            await item.run(client(), vi.fn().mockResolvedValue(response(body))),
+          ).toMatchObject({
+            ok: false,
+            code: 'HOSTED_RESPONSE_CONTRACT_ERROR',
+          });
+        },
+      );
+      it('rejects non-JSON instead of claiming success', async () => {
+        expect(
+          await item.run(
+            client(),
+            vi.fn().mockResolvedValue(
+              new Response('<html>login</html>', {
+                headers: { 'Content-Type': 'text/html' },
+              }),
+            ),
+          ),
+        ).toMatchObject({ ok: false, code: 'HOSTED_API_NON_JSON_RESPONSE' });
+      });
+    });
+  }
+  it('rejects overlong rejection reason before transport and accepts 500', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        response({ ok: true, data: { requestId: 'request', staffId: null } }),
+      );
+    expect(
+      await reviewOnboardingRequest(
+        {
+          requestId: 'request',
+          action: 'reject',
+          rejectionReason: 'x'.repeat(501),
+        },
+        client(),
+        fetcher,
+      ),
+    ).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(
+      (
+        await reviewOnboardingRequest(
+          {
+            requestId: 'request',
+            action: 'reject',
+            rejectionReason: 'x'.repeat(500),
+          },
+          client(),
+          fetcher,
+        )
+      ).ok,
+    ).toBe(true);
+    expect(
+      JSON.parse(fetcher.mock.calls[0][1].body).rejectionReason,
+    ).toHaveLength(500);
+  });
+  it.each(['', null, '123', 'x'.repeat(21)])(
+    'rejects supplied invalid or cleared phone %s',
+    async (phone) => {
+      const fetcher = vi.fn();
+      expect(
+        await updateStaffProfile({ ...profile, phone }, client(), fetcher),
+      ).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+      expect(fetcher).not.toHaveBeenCalled();
+    },
+  );
+  it('maps valid changed phone and nickname clearing exactly', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        response({ ok: true, data: { staff: { id: 'target' } } }),
+      );
+    expect(
+      (
+        await updateStaffProfile(
+          { ...profile, phone: '09171234567', nickname: '' },
+          client(),
+          fetcher,
+        )
+      ).ok,
+    ).toBe(true);
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+      fullName: 'Updated Name',
+      nickname: null,
+      phone: '09171234567',
+      staffType: 'salon_head',
+      tier: 'head',
+      isHead: true,
+    });
+  });
+  it.each(['csr', 'csr_head', 'csr_staff', 'invented'])(
+    'does not select legacy or unknown role %s',
+    async (role) => {
+      const fetcher = vi.fn();
+      expect(
+        await updateStaffSystemRole('target', role, client(), fetcher),
+      ).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+      expect(fetcher).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    'owner',
+    'manager',
+    'assistant_manager',
+    'store_manager',
+    'crm',
+    'staff',
+    'service_head',
+    'service_staff',
+    'digital_marketer',
+    'driver',
+    'utility',
+  ])('supports canonical role %s', async (role) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      response({
+        ok: true,
+        data: { staff: { id: 'target', system_role: role } },
+      }),
+    );
+    expect(
+      (await updateStaffSystemRole('target', role, client(), fetcher)).ok,
+    ).toBe(true);
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+      systemRole: role,
+    });
+  });
+  it('does not trust extra approval authority fields at runtime', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(response({ ok: true, data: cases[0].data }));
+    await reviewOnboardingRequest(
+      {
+        ...approval,
+        staffType: 'managerial',
+        staffId: 'forged',
+        actorRole: 'owner',
+        authUserId: 'forged',
+      } as typeof approval,
+      client(),
+      fetcher,
+    );
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual(cases[0].body);
   });
 });

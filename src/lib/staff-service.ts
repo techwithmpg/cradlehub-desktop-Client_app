@@ -1,5 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { getHostedApiBaseUrl } from './bookings-service';
+import { readHostedJsonResponse } from './hosted-json-response';
+import { STAFF_ROLE_OPTIONS } from './roles';
+import {
+  STAFF_TIERS,
+  STAFF_TYPES,
+  type HostedMutationResult,
+} from '../types/staff';
 import type {
   BranchServiceOption,
   FetchStaffResult,
@@ -699,49 +708,135 @@ export async function fetchBranchScheduleWeek(
   return { overrides, blockedTimes };
 }
 
-/**
- * Updates a staff member's profile attributes under RLS.
- */
+type StaffMutationData = { staff: Record<string, unknown> };
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+function isStaffMutationData(data: unknown): data is StaffMutationData {
+  return (
+    isRecord(data) &&
+    isRecord(data.staff) &&
+    typeof data.staff.id === 'string' &&
+    data.staff.id.length > 0
+  );
+}
+function invalidStaffInput(error: string): {
+  ok: false;
+  code: string;
+  error: string;
+} {
+  return { ok: false, code: 'INVALID_INPUT', error };
+}
+
+/** Native hosted boundary. Only the bearer token conveys caller identity. */
+async function staffHostedMutation<T>(
+  path: string,
+  method: 'POST' | 'PATCH',
+  body: Record<string, unknown>,
+  validator: (data: unknown) => data is T,
+  message: string,
+  client?: SupabaseClient,
+  customFetch?: typeof fetch,
+): Promise<HostedMutationResult<T>> {
+  const baseUrl = getHostedApiBaseUrl();
+  if (!baseUrl)
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error: 'Staff service is not configured for this desktop installation.',
+    };
+  let supabase: SupabaseClient;
+  try {
+    supabase = client ?? getSupabaseClient();
+  } catch {
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error:
+        'Staff service is not configured. Sign in again after checking configuration.',
+    };
+  }
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session?.access_token)
+      return {
+        ok: false,
+        code: 'AUTH_SESSION_REQUIRED',
+        error: 'Your session has expired. Sign in again to update staff.',
+      };
+    const response = await (customFetch ?? tauriFetch)(
+      `${baseUrl}/api/desktop/v1/staff/${path}`,
+      {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    const parsed = await readHostedJsonResponse<{ ok: true; data: T }>(
+      response,
+      {
+        serviceName: 'Staff service',
+        validator: (value): value is { ok: true; data: T } =>
+          isRecord(value) && value.ok === true && validator(value.data),
+      },
+    );
+    if (!parsed.ok)
+      return { ok: false, code: parsed.code, error: parsed.message };
+    return { ok: true, data: parsed.data.data, message };
+  } catch {
+    return {
+      ok: false,
+      code: 'NETWORK_ERROR',
+      error:
+        'Updating staff requires a connection. Please check your network and try again.',
+    };
+  }
+}
+
+/** Profile input contains no branch, role, email, or lifecycle authority. */
 export async function updateStaffProfile(
   input: UpdateStaffProfileInput,
   client?: SupabaseClient,
-): Promise<
-  { ok: true; staff: Partial<StaffMember> } | { ok: false; error: string }
-> {
-  if (!input.fullName.trim()) {
-    return { ok: false, error: 'Full name is required.' };
-  }
-
-  const supabase = client ?? getSupabaseClient();
-  const updatePayload = {
-    full_name: input.fullName.trim(),
-    nickname: input.nickname?.trim() || null,
-    phone: input.phone?.trim() || null,
-    staff_type: input.staffType.trim(),
-    tier: input.tier.trim(),
-    is_head: input.isHead,
-  };
-
-  const { data, error } = await supabase
-    .from('staff')
-    .update(updatePayload)
-    .eq('id', input.staffId)
-    .select(
-      'id, full_name, nickname, phone, staff_type, tier, is_head, updated_at',
+  customFetch?: typeof fetch,
+): Promise<HostedMutationResult<StaffMutationData>> {
+  const fullName = input.fullName.trim();
+  if (fullName.length < 2 || fullName.length > 100)
+    return invalidStaffInput('Full name must be 2–100 characters.');
+  if ((input.nickname?.trim().length ?? 0) > 80)
+    return invalidStaffInput('Nickname must be 80 characters or fewer.');
+  if (
+    input.phone !== undefined &&
+    (input.phone === null ||
+      input.phone.trim().length < 7 ||
+      input.phone.trim().length > 20)
+  )
+    return invalidStaffInput(
+      'Phone must be 7–20 characters. Clearing a saved phone is not supported.',
     );
-
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  if (!data || data.length === 0) {
-    return {
-      ok: false,
-      error: 'Failed to update profile. The record may be inaccessible.',
-    };
-  }
-
-  return { ok: true, staff: data[0] as Partial<StaffMember> };
+  if (
+    !STAFF_TIERS.some((tier) => tier === input.tier) ||
+    !STAFF_TYPES.some((type) => type === input.staffType)
+  )
+    return invalidStaffInput('Choose a supported skill tier and staff type.');
+  return staffHostedMutation(
+    encodeURIComponent(input.staffId),
+    'PATCH',
+    {
+      fullName,
+      nickname: input.nickname?.trim() || null,
+      phone: input.phone?.trim(),
+      tier: input.tier,
+      staffType: input.staffType,
+      isHead: input.isHead,
+    },
+    isStaffMutationData,
+    'Staff profile updated successfully.',
+    client,
+    customFetch,
+  );
 }
 
 /**
@@ -876,94 +971,97 @@ export async function adjustStaffSchedule(
   return { ok: false, error: 'Invalid adjustment type.' };
 }
 
-/**
- * Reviews a staff onboarding request (approve or reject).
- */
+/** Reviews onboarding entirely through server-owned authorization and compensation. */
 export async function reviewOnboardingRequest(
   input: ReviewOnboardingInput,
   client?: SupabaseClient,
-): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
-  const supabase = client ?? getSupabaseClient();
-  const now = new Date().toISOString();
-
+  customFetch?: typeof fetch,
+): Promise<HostedMutationResult<Record<string, unknown>>> {
+  const path = `onboarding/${encodeURIComponent(input.requestId)}`;
   if (input.action === 'approve') {
-    // 1. Update onboarding request status
-    const { error: reqErr } = await supabase
-      .from('staff_onboarding_requests')
-      .update({
-        status: 'approved',
-        reviewed_at: now,
-      })
-      .eq('id', input.requestId);
-
-    if (reqErr) return { ok: false, error: reqErr.message };
-
-    // 2. If staffId is present, update staff record
-    if (input.staffId) {
-      const updatePayload: Record<string, unknown> = {
-        is_active: true,
-      };
-      if (input.branchId) updatePayload.branch_id = input.branchId;
-      if (input.systemRole) updatePayload.system_role = input.systemRole;
-      if (input.staffType) updatePayload.staff_type = input.staffType;
-      if (input.tier) updatePayload.tier = input.tier;
-
-      const { error: staffErr } = await supabase
-        .from('staff')
-        .update(updatePayload)
-        .eq('id', input.staffId);
-
-      if (staffErr) return { ok: false, error: staffErr.message };
-
-      if (input.serviceIds) {
-        await updateStaffCapabilities(
-          input.staffId,
-          input.serviceIds,
-          supabase,
-        );
-      }
-    }
-
-    return { ok: true, message: 'Application approved successfully.' };
+    if (
+      !input.branchId ||
+      !STAFF_ROLE_OPTIONS.some((role) => role.value === input.systemRole) ||
+      !STAFF_TIERS.some((tier) => tier === input.tier)
+    )
+      return invalidStaffInput(
+        'Choose a branch, supported system role and skill tier.',
+      );
+    return staffHostedMutation(
+      `${path}/approve`,
+      'POST',
+      {
+        branchId: input.branchId,
+        systemRole: input.systemRole,
+        tier: input.tier,
+        serviceIds: input.serviceIds
+          ? [...new Set(input.serviceIds)]
+          : undefined,
+      },
+      (data): data is Record<string, unknown> =>
+        isRecord(data) &&
+        typeof data.staffId === 'string' &&
+        data.staffId.length > 0 &&
+        typeof data.branchId === 'string' &&
+        typeof data.systemRole === 'string',
+      'Application approved successfully.',
+      client,
+      customFetch,
+    );
   }
-
   if (input.action === 'reject') {
-    const { error: reqErr } = await supabase
-      .from('staff_onboarding_requests')
-      .update({
-        status: 'rejected',
-        reviewed_at: now,
-        rejection_reason: input.rejectionReason?.trim() || null,
-      })
-      .eq('id', input.requestId);
-
-    if (reqErr) return { ok: false, error: reqErr.message };
-    return { ok: true, message: 'Application rejected.' };
+    if ((input.rejectionReason?.length ?? 0) > 500)
+      return invalidStaffInput(
+        'Rejection reason must be 500 characters or fewer.',
+      );
+    return staffHostedMutation(
+      `${path}/reject`,
+      'POST',
+      { rejectionReason: input.rejectionReason?.trim() || undefined },
+      (data): data is Record<string, unknown> =>
+        isRecord(data) &&
+        typeof data.requestId === 'string' &&
+        (data.staffId === null || typeof data.staffId === 'string'),
+      'Application rejected.',
+      client,
+      customFetch,
+    );
   }
-
-  return { ok: false, error: 'Invalid review action.' };
+  return invalidStaffInput('Invalid review action.');
 }
 
-/**
- * Updates a staff member's system access role under RLS.
- */
 export async function updateStaffSystemRole(
   staffId: string,
   newRole: string,
   client?: SupabaseClient,
-): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
-  if (!newRole.trim()) {
-    return { ok: false, error: 'Role is required.' };
-  }
-  const supabase = client ?? getSupabaseClient();
-  const { error } = await supabase
-    .from('staff')
-    .update({ system_role: newRole.trim() })
-    .eq('id', staffId);
+  customFetch?: typeof fetch,
+): Promise<HostedMutationResult<StaffMutationData>> {
+  if (!STAFF_ROLE_OPTIONS.some((role) => role.value === newRole))
+    return invalidStaffInput('Choose a supported system role.');
+  return staffHostedMutation(
+    `${encodeURIComponent(staffId)}/role`,
+    'POST',
+    { systemRole: newRole },
+    isStaffMutationData,
+    'System role updated successfully.',
+    client,
+    customFetch,
+  );
+}
 
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true, message: `System role updated to ${newRole}.` };
+export async function deactivateStaff(
+  staffId: string,
+  client?: SupabaseClient,
+  customFetch?: typeof fetch,
+): Promise<HostedMutationResult<StaffMutationData>> {
+  return staffHostedMutation(
+    `${encodeURIComponent(staffId)}/deactivate`,
+    'POST',
+    {},
+    (data): data is StaffMutationData =>
+      isStaffMutationData(data) && data.staff.is_active === false,
+    'Staff access deactivated. The staff record is retained.',
+    client,
+    customFetch,
+  );
 }
