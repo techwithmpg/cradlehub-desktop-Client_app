@@ -10,6 +10,7 @@ import {
   InvalidCredentialsError,
   NetworkOrConfigError,
 } from './lib/auth-service';
+import { StartupIdentity } from './components/StartupIdentity';
 import { LoginView } from './components/LoginView';
 import { AccessDeniedView } from './components/AccessDeniedView';
 import { CanonicalShell } from './components/CanonicalShell';
@@ -110,12 +111,18 @@ export function App() {
     );
   }
 
+  const checkingAccess = status === 'resolving_context';
   return (
-    <LoginView
-      onLogin={handleLogin}
-      isLoading={status === 'authenticating' || status === 'resolving_context'}
-      errorMessage={errorMessage}
-      isConfigured={configured}
-    />
+    <>
+      {checkingAccess && <StartupIdentity />}
+      <div hidden={checkingAccess}>
+        <LoginView
+          onLogin={handleLogin}
+          isLoading={status === 'authenticating' || checkingAccess}
+          errorMessage={errorMessage}
+          isConfigured={configured}
+        />
+      </div>
+    </>
   );
 }

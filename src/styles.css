@@ -9909,3 +9909,53 @@ button.bookings-kpi-cell:focus-visible {
     gap: 10px;
   }
 }
+
+/* Canonical identity shared by Login, access checking and the existing shell. */
+.cradlehub-brand-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+}
+.startup-identity-content {
+  text-align: center;
+}
+.startup-brand-icon {
+  display: block;
+  width: 88px;
+  height: 88px;
+  border-radius: 14px;
+  margin: 0 auto 24px;
+}
+.startup-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-muted);
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+.startup-spinner {
+  animation: startupSpin 1s linear infinite;
+}
+@keyframes startupSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .startup-spinner {
+    animation: none;
+  }
+}
+.notification-action {
+  margin-top: 12px;
+}
+.notification-feed-note {
+  margin-top: 14px;
+}
+.notification-popover {
+  max-width: calc(100vw - 32px);
+}

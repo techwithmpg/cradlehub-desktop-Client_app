@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { LockKeyhole, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import cradlehubIcon from '../assets/brand/cradlehub-icon.png';
+import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -46,13 +47,9 @@ export function LoginView({
       <div className="login-card">
         <header className="login-header">
           <div className="login-logo" aria-hidden="true">
-            <LockKeyhole
-              size={28}
-              className="text-emerald-700"
-              strokeWidth={2}
-            />
+            <img src={cradlehubIcon} alt="" className="cradlehub-brand-icon" />
           </div>
-          <p className="login-eyebrow">CradleHub Desktop Client</p>
+          <p className="login-eyebrow">CradleHub Desktop</p>
           <h1 className="login-title">Sign In</h1>
           <p className="login-subtitle">
             Enter your staff credentials to access the CRM operational shell.
