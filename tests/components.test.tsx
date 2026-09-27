@@ -348,9 +348,11 @@ describe('Stage 01 UI Components', () => {
       // Open notification panel
       await user.click(screen.getByTestId('notification-trigger'));
       expect(screen.getByTestId('notification-panel')).toBeDefined();
-      expect(screen.getByText('No Notifications')).toBeDefined();
+      expect(screen.getByText('Desktop Notifications')).toBeDefined();
       expect(
-        screen.getByText(/Desktop notifications are not yet available/i),
+        screen.getByText(
+          /Native notifications are available only in the desktop app/i,
+        ),
       ).toBeDefined();
       expect(screen.queryByText(/Stage 01/i)).toBeNull();
 

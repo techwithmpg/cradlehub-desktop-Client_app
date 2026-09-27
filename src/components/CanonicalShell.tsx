@@ -13,10 +13,16 @@ import {
   UserCog,
   Settings,
   Bell,
-  BellOff,
   ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
+import cradlehubIcon from '../assets/brand/cradlehub-icon.png';
+import {
+  checkDesktopNotificationPermission,
+  requestDesktopNotificationPermission,
+  sendDesktopTestNotification,
+  type DesktopNotificationResult,
+} from '../lib/desktop-notifications';
 import { TodayView } from './today/TodayView';
 import { BookingsView } from './bookings/BookingsView';
 import { CustomersView } from './customers/CustomersView';
@@ -57,6 +63,26 @@ export function CanonicalShell({
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
 
+  const [notificationState, setNotificationState] =
+    useState<DesktopNotificationResult | null>(null);
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const notificationPending = useRef(false);
+  const notificationButtonRef = useRef<HTMLButtonElement>(null);
+
+  const runNotificationAction = async (
+    operation: () => Promise<DesktopNotificationResult>,
+  ) => {
+    if (notificationPending.current) return;
+    notificationPending.current = true;
+    setNotificationBusy(true);
+    try {
+      setNotificationState(await operation());
+    } finally {
+      notificationPending.current = false;
+      setNotificationBusy(false);
+    }
+  };
+
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +117,8 @@ export function CanonicalShell({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
+        if (notificationRef.current?.contains(document.activeElement))
+          notificationButtonRef.current?.focus();
         setIsNotificationOpen(false);
         setIsUserMenuOpen(false);
       }
@@ -111,7 +139,7 @@ export function CanonicalShell({
         {/* Brand Header */}
         <div className="sidebar-brand">
           <div className="brand-logo-mark" aria-hidden="true">
-            <span className="brand-letter">C</span>
+            <img src={cradlehubIcon} alt="" className="cradlehub-brand-icon" />
           </div>
           <div className="brand-text">
             <span className="brand-name">CradleHub</span>
@@ -192,9 +220,17 @@ export function CanonicalShell({
                 type="button"
                 className={`header-ghost-btn ${isNotificationOpen ? 'header-ghost-btn-active' : ''}`}
                 onClick={() => {
+                  if (!isNotificationOpen && !notificationPending.current) {
+                    setNotificationState(null);
+                    void runNotificationAction(
+                      checkDesktopNotificationPermission,
+                    );
+                  }
                   setIsNotificationOpen(!isNotificationOpen);
                   setIsUserMenuOpen(false);
                 }}
+                ref={notificationButtonRef}
+                aria-controls="desktop-notification-panel"
                 aria-label="Notifications"
                 aria-expanded={isNotificationOpen}
                 aria-haspopup="dialog"
@@ -206,6 +242,7 @@ export function CanonicalShell({
               {isNotificationOpen && (
                 <div
                   className="popover-panel notification-popover"
+                  id="desktop-notification-panel"
                   role="dialog"
                   aria-label="Notifications Panel"
                   data-testid="notification-panel"
@@ -214,12 +251,70 @@ export function CanonicalShell({
                     <span className="popover-title">Notifications</span>
                   </div>
                   <div className="notification-empty-state">
-                    <div className="notification-empty-icon" aria-hidden="true">
-                      <BellOff size={20} className="text-slate-400" />
-                    </div>
-                    <p className="notification-empty-title">No Notifications</p>
-                    <p className="notification-empty-desc">
-                      Desktop notifications are not yet available.
+                    <p className="notification-empty-title">
+                      Desktop Notifications
+                    </p>
+                    <p
+                      className="notification-empty-desc"
+                      role={
+                        notificationState?.permission === 'error' ||
+                        notificationState?.permission === 'denied'
+                          ? 'alert'
+                          : 'status'
+                      }
+                    >
+                      {notificationBusy
+                        ? notificationState
+                          ? 'Working with native notifications…'
+                          : 'Checking notification permission…'
+                        : notificationState?.message}
+                    </p>
+                    {!notificationBusy &&
+                      notificationState?.permission === 'granted' && (
+                        <button
+                          type="button"
+                          className="btn-secondary-compact notification-action"
+                          onClick={() =>
+                            void runNotificationAction(
+                              sendDesktopTestNotification,
+                            )
+                          }
+                        >
+                          Send Test Notification
+                        </button>
+                      )}
+                    {!notificationBusy &&
+                      (notificationState?.permission === 'not-enabled' ||
+                        notificationState?.permission === 'denied') && (
+                        <button
+                          type="button"
+                          className="btn-secondary-compact notification-action"
+                          onClick={() =>
+                            void runNotificationAction(
+                              requestDesktopNotificationPermission,
+                            )
+                          }
+                        >
+                          Enable Desktop Notifications
+                        </button>
+                      )}
+                    {!notificationBusy &&
+                      notificationState?.permission === 'error' && (
+                        <button
+                          type="button"
+                          className="btn-secondary-compact notification-action"
+                          onClick={() =>
+                            void runNotificationAction(
+                              checkDesktopNotificationPermission,
+                            )
+                          }
+                        >
+                          Retry Permission Check
+                        </button>
+                      )}
+                    <p className="notification-empty-desc notification-feed-note">
+                      Operational alerts are not connected to a desktop event
+                      feed.
                     </p>
                   </div>
                 </div>
