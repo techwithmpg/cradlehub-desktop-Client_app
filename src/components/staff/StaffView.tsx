@@ -280,21 +280,17 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
     void handleRefresh();
   }, [handleRefresh]);
 
-  const handleCapabilitiesSaved = useCallback(
-    (staffId: string, serviceIds: string[]) => {
-      const assigned = branchServices
-        .filter((s) => serviceIds.includes(s.id))
-        .map((s) => ({ service_id: s.id, service_name: s.name }));
-
-      setStaffList((current) =>
-        current.map((m) =>
-          m.id === staffId ? { ...m, services: assigned } : m,
-        ),
-      );
-      setSuccessNotice('Service capabilities updated successfully.');
+  const openCapabilityEditor = useCallback(
+    (staff: StaffMember) => {
+      if (branchServicesReady) setCapabilityModalStaff(staff);
     },
-    [branchServices],
+    [branchServicesReady],
   );
+
+  const handleCapabilitiesSaved = useCallback(() => {
+    setSuccessNotice('Service capabilities updated successfully.');
+    void handleRefresh();
+  }, [handleRefresh]);
 
   const handleRoleUpdated = useCallback(() => {
     setSuccessNotice('System role updated successfully.');
@@ -532,11 +528,15 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   <StaffCapabilitiesContent
                     staffList={staffList}
                     branchServices={branchServices}
+                    branchServicesReady={branchServicesReady}
+                    branchServicesLoading={branchServicesLoading}
+                    branchServicesError={branchServicesError}
+                    onRetryServices={() => void handleRefresh()}
                     selectedStaffId={selectedStaff?.id || null}
                     onSelectStaff={(m) => {
                       if (!inspectorMutationPending) setSelectedStaffId(m.id);
                     }}
-                    onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
+                    onOpenCapabilityModal={openCapabilityEditor}
                   />
                 )}
 
@@ -564,6 +564,10 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                 selectedApplicationId={selectedApplicationId}
                 branchName={authContext.branchName}
                 branchServices={branchServices}
+                branchServicesReady={branchServicesReady}
+                branchServicesLoading={branchServicesLoading}
+                branchServicesError={branchServicesError}
+                onRetryServices={() => void handleRefresh()}
                 scheduleOverrides={scheduleOverrides}
                 scheduleBlocks={scheduleBlocks}
                 todayStr={todayStr}
@@ -573,7 +577,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
                   setScheduleModalData({ staff: m, date, existingBlocks })
                 }
                 onOpenFullScheduleModal={(m) => setFullScheduleStaff(m)}
-                onOpenCapabilityModal={(m) => setCapabilityModalStaff(m)}
+                onOpenCapabilityModal={openCapabilityEditor}
                 onOpenRoleModal={(m) => setRoleModalStaff(m)}
                 onOpenOffboardingModal={(m) => setOffboardingModalStaff(m)}
                 onStaffUpdated={handleStaffUpdated}
@@ -607,6 +611,10 @@ export const StaffView: React.FC<StaffViewProps> = ({ authContext }) => {
         onClose={() => setCapabilityModalStaff(null)}
         staff={capabilityModalStaff}
         branchServices={branchServices}
+        branchServicesReady={branchServicesReady}
+        branchServicesLoading={branchServicesLoading}
+        branchServicesError={branchServicesError}
+        onRetryServices={() => void handleRefresh()}
         onCapabilitiesSaved={handleCapabilitiesSaved}
       />
 

@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { StaffCapabilitiesContent } from '../src/components/staff/StaffCapabilitiesView';
 import { StaffContextInspector } from '../src/components/staff/StaffInspectorCard';
 import { StaffView } from '../src/components/staff/StaffView';
 import { CanonicalShell } from '../src/components/CanonicalShell';
@@ -2042,6 +2043,7 @@ describe('Staff Capability Authoritative RPC & In-Flight Lifecycle Suite (Stage 
         onClose={onClose}
         staff={mockStaff}
         branchServices={mockBranchServices}
+        branchServicesReady
         onCapabilitiesSaved={onCapabilitiesSaved}
       />,
     );
@@ -2101,6 +2103,7 @@ describe('Staff Capability Authoritative RPC & In-Flight Lifecycle Suite (Stage 
         onClose={onClose}
         staff={mockStaff}
         branchServices={mockBranchServices}
+        branchServicesReady
         onCapabilitiesSaved={onCapabilitiesSaved}
       />,
     );
@@ -2127,5 +2130,532 @@ describe('Staff Capability Authoritative RPC & In-Flight Lifecycle Suite (Stage 
     // Modal remains open and onCapabilitiesSaved was not called
     expect(onCapabilitiesSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('Stage 12B capability catalogue guards', () => {
+  const assigned = {
+    ...mockStaffRoster[0],
+    services: [
+      { service_id: 'old-service', service_name: 'Existing assignment' },
+    ],
+  };
+  const choices = [{ id: 'new-service', name: 'Assignable service' }];
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+  });
+  const states = [
+    { ready: false, loading: true, error: null },
+    { ready: false, loading: false, error: 'Catalogue verification failed.' },
+    { ready: true, loading: false, error: null },
+  ];
+  it.each(states)(
+    'capability tab preserves staff assignments and guards Manage: %j',
+    ({ ready, loading, error }) => {
+      const open = vi.fn(),
+        retry = vi.fn();
+      render(
+        <StaffCapabilitiesContent
+          staffList={[assigned]}
+          branchServices={[]}
+          branchServicesReady={ready}
+          branchServicesLoading={loading}
+          branchServicesError={error}
+          onRetryServices={retry}
+          selectedStaffId={assigned.id}
+          onSelectStaff={vi.fn()}
+          onOpenCapabilityModal={open}
+        />,
+      );
+      expect(screen.getByRole('cell', { name: '1 service' })).toBeDefined();
+      const manage = screen.getByRole('button', {
+        name: 'Manage',
+      }) as HTMLButtonElement;
+      expect(manage.disabled).toBe(!ready);
+      fireEvent.click(manage);
+      expect(open).toHaveBeenCalledTimes(ready ? 1 : 0);
+      if (loading)
+        expect(screen.getByRole('status').textContent).toContain(
+          'Verifying branch service catalogue',
+        );
+      if (error) {
+        expect(screen.getByRole('alert').textContent).toContain(error);
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Retry operation' }),
+        );
+        expect(retry).toHaveBeenCalledOnce();
+      }
+    },
+  );
+  it.each([
+    { context: 'overview', tab: 'roster', internal: null },
+    { context: 'roster services', tab: 'roster', internal: 'Services' },
+    { context: 'capabilities', tab: 'capabilities', internal: null },
+  ] as const)(
+    'all inspector entry points in $context block when unverified and work when verified',
+    ({ tab, internal }) => {
+      const open = vi.fn();
+      const props = {
+        activeTab: tab,
+        staff: { ...assigned, services: [] },
+        onCloseStaffSelection: vi.fn(),
+        onOpenScheduleModal: vi.fn(),
+        onOpenCapabilityModal: open,
+        onOpenRoleModal: vi.fn(),
+        onOpenOffboardingModal: vi.fn(),
+        onStaffUpdated: vi.fn(),
+      };
+      const view = render(
+        <StaffContextInspector
+          {...props}
+          branchServicesReady={false}
+          branchServicesLoading
+          branchServicesError={null}
+        />,
+      );
+      if (internal)
+        fireEvent.click(screen.getByRole('tab', { name: internal }));
+      const buttons = screen
+        .getAllByRole('button')
+        .filter((button) =>
+          [
+            'Manage',
+            'Assign Capabilities',
+            'Assign Services',
+            'Capabilities',
+          ].includes(button.textContent?.trim() || ''),
+        );
+      expect(buttons.length).toBe(tab === 'roster' && !internal ? 1 : 2);
+      for (const button of buttons) {
+        expect((button as HTMLButtonElement).disabled).toBe(true);
+        expect(button.title).toContain('catalogue is verified');
+        fireEvent.click(button);
+      }
+      expect(open).not.toHaveBeenCalled();
+      view.rerender(
+        <StaffContextInspector
+          {...props}
+          branchServicesReady={false}
+          branchServicesLoading={false}
+          branchServicesError="Catalogue verification failed."
+        />,
+      );
+      for (const button of buttons)
+        expect((button as HTMLButtonElement).disabled).toBe(true);
+      view.rerender(
+        <StaffContextInspector
+          {...props}
+          branchServicesReady
+          branchServicesLoading={false}
+          branchServicesError={null}
+        />,
+      );
+      for (const button of buttons) {
+        expect((button as HTMLButtonElement).disabled).toBe(false);
+        fireEvent.click(button);
+      }
+      expect(open).toHaveBeenCalledTimes(buttons.length);
+    },
+  );
+  it('inspector retains current assignments and does not claim zero branch availability on failed read', () => {
+    render(
+      <StaffContextInspector
+        activeTab="capabilities"
+        staff={assigned}
+        branchServices={[]}
+        branchServicesReady={false}
+        branchServicesError="Catalogue verification failed."
+        onCloseStaffSelection={vi.fn()}
+        onOpenScheduleModal={vi.fn()}
+        onOpenCapabilityModal={vi.fn()}
+        onOpenRoleModal={vi.fn()}
+        onOpenOffboardingModal={vi.fn()}
+        onStaffUpdated={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Existing assignment')).toBeDefined();
+    expect(screen.getByText('1 Assigned Services')).toBeDefined();
+    expect(screen.getByText('Branch catalogue unverified')).toBeDefined();
+    expect(screen.queryByText('Branch Total: 0')).toBeNull();
+  });
+  it.each([
+    { ready: false, loading: true, error: null, services: [] },
+    {
+      ready: false,
+      loading: false,
+      error: 'Catalogue verification failed.',
+      services: [],
+    },
+    { ready: undefined, loading: false, error: null, services: choices },
+  ])(
+    'modal defends unverified state even through direct form submission: %j',
+    ({ ready, loading, error, services }) => {
+      const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+      const retry = vi.fn();
+      render(
+        <StaffCapabilityModal
+          isOpen
+          staff={assigned}
+          branchServices={services}
+          branchServicesReady={ready}
+          branchServicesLoading={loading}
+          branchServicesError={error}
+          onRetryServices={retry}
+          onClose={vi.fn()}
+          onCapabilitiesSaved={vi.fn()}
+        />,
+      );
+      expect(
+        screen.getByText(/Current staff assignments: Existing assignment/),
+      ).toBeDefined();
+      for (const button of [
+        screen.getByTestId('save-capability-modal'),
+        screen.getByRole('button', { name: 'Clear' }),
+        screen.getByRole('button', { name: 'Select All' }),
+      ]) {
+        expect((button as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.click(button);
+      }
+      expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+      fireEvent.submit(
+        screen.getByTestId('save-capability-modal').closest('form')!,
+      );
+      expect(mutation).not.toHaveBeenCalled();
+      expect(
+        screen.queryByText('No services match your search or filter.'),
+      ).toBeNull();
+      expect(
+        screen.queryByText(
+          'No assignable services are available for this branch.',
+        ),
+      ).toBeNull();
+      expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+        'Save 1 Services',
+      );
+      if (loading)
+        expect(screen.getByRole('status').textContent).toContain(
+          'Verifying service assignments',
+        );
+      else {
+        expect(screen.getByRole('alert').textContent).toContain(
+          error || 'could not be verified',
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+        expect(retry).toHaveBeenCalledOnce();
+      }
+    },
+  );
+  it('verified empty catalogue preserves existing assignments until explicit Clear and Save', async () => {
+    const mutation = vi
+      .spyOn(staffService, 'updateStaffCapabilities')
+      .mockResolvedValue({ ok: true, message: 'Saved' });
+    const saved = vi.fn();
+    render(
+      <StaffCapabilityModal
+        isOpen
+        staff={assigned}
+        branchServices={[]}
+        branchServicesReady
+        onClose={vi.fn()}
+        onCapabilitiesSaved={saved}
+      />,
+    );
+    expect(
+      screen.getByText('No assignable services are available for this branch.'),
+    ).toBeDefined();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(
+      screen.getByText(/Current staff assignments: Existing assignment/),
+    ).toBeDefined();
+    expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+      'Save 1 Services',
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select All' }));
+    expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+      'Save 1 Services',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('save-capability-modal'));
+    await waitFor(() => expect(saved).toHaveBeenCalledWith(assigned.id, []));
+    expect(mutation).toHaveBeenCalledWith(assigned.id, []);
+  });
+  it('does not trim existing out-of-catalogue IDs on open or Select All; saves only on explicit submit', async () => {
+    const mutation = vi
+      .spyOn(staffService, 'updateStaffCapabilities')
+      .mockResolvedValue({ ok: true, message: 'Saved' });
+    const saved = vi.fn();
+    render(
+      <StaffCapabilityModal
+        isOpen
+        staff={assigned}
+        branchServices={choices}
+        branchServicesReady
+        onClose={vi.fn()}
+        onCapabilitiesSaved={saved}
+      />,
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select All' }));
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('save-capability-modal'));
+    await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+    expect(mutation).toHaveBeenCalledWith(assigned.id, [
+      'old-service',
+      'new-service',
+    ]);
+  });
+  it('readiness loss blocks an already-open modal without clearing selections; verified retry restores it', () => {
+    const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+    const props = {
+      isOpen: true,
+      staff: assigned,
+      branchServices: choices,
+      onClose: vi.fn(),
+      onCapabilitiesSaved: vi.fn(),
+    };
+    const view = render(
+      <StaffCapabilityModal {...props} branchServicesReady />,
+    );
+    fireEvent.click(screen.getByRole('checkbox'));
+    view.rerender(
+      <StaffCapabilityModal
+        {...props}
+        branchServices={[]}
+        branchServicesReady={false}
+        branchServicesLoading
+      />,
+    );
+    fireEvent.submit(
+      screen.getByTestId('save-capability-modal').closest('form')!,
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+      'Save 2 Services',
+    );
+    view.rerender(<StaffCapabilityModal {...props} branchServicesReady />);
+    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(
+      true,
+    );
+  });
+  it('cancelled Clear is not carried into a later modal opening', () => {
+    const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+    const props = {
+      staff: assigned,
+      branchServices: [],
+      branchServicesReady: true,
+      onClose: vi.fn(),
+      onCapabilitiesSaved: vi.fn(),
+    };
+    const view = render(<StaffCapabilityModal {...props} isOpen />);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    view.rerender(<StaffCapabilityModal {...props} isOpen={false} />);
+    view.rerender(<StaffCapabilityModal {...props} isOpen />);
+    expect(screen.getByTestId('save-capability-modal').textContent).toBe(
+      'Save 1 Services',
+    );
+    expect(mutation).not.toHaveBeenCalled();
+  });
+  function workspaceReads() {
+    vi.spyOn(staffService, 'fetchBranchStaff').mockResolvedValue({
+      ok: true,
+      data: mockStaffRoster,
+      kpis: {
+        totalStaff: 4,
+        activeStaff: 2,
+        awaitingStaff: 1,
+        invitedStaff: 1,
+      },
+    });
+    vi.spyOn(staffService, 'fetchBranchOnboardingRequests').mockResolvedValue({
+      ok: true,
+      data: mockOnboardingRequests,
+    });
+    vi.spyOn(staffService, 'fetchBranchScheduleWeek').mockResolvedValue({
+      overrides: [],
+      blockedTimes: [],
+    });
+  }
+  it('failed workspace catalogue disables every entry; retry restores normal editing', async () => {
+    workspaceReads();
+    vi.spyOn(staffService, 'fetchBranchAssignableServices')
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 'QUERY_FAILED',
+        message: 'Catalogue verification failed.',
+      })
+      .mockResolvedValue({ ok: true, data: mockBranchServices });
+    const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('inspector-manage-capabilities-btn'));
+    expect(screen.queryByTestId('staff-capability-modal')).toBeNull();
+    fireEvent.click(screen.getByTestId('staff-primary-tab-capabilities'));
+    const table = screen.getByTestId('staff-capabilities-view');
+    for (const manage of within(table).getAllByRole('button', {
+      name: 'Manage',
+    })) {
+      expect((manage as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(manage);
+    }
+    expect(screen.queryByTestId('staff-capability-modal')).toBeNull();
+    expect(mutation).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(table).getByRole('button', { name: 'Retry operation' }),
+    );
+    await waitFor(() =>
+      expect(
+        (
+          within(table).getAllByRole('button', {
+            name: 'Manage',
+          })[0] as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(
+      within(table).getAllByRole('button', { name: 'Manage' })[0],
+    );
+    expect(screen.getByTestId('staff-capability-modal')).toBeDefined();
+    expect(mutation).not.toHaveBeenCalled();
+  });
+  it('workspace refresh propagates loading then failure into an already-open editor', async () => {
+    workspaceReads();
+    let resolve!: (
+      result: Awaited<
+        ReturnType<typeof staffService.fetchBranchAssignableServices>
+      >,
+    ) => void;
+    vi.spyOn(staffService, 'fetchBranchAssignableServices')
+      .mockResolvedValueOnce({ ok: true, data: mockBranchServices })
+      .mockReturnValueOnce(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+    const mutation = vi.spyOn(staffService, 'updateStaffCapabilities');
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('inspector-manage-capabilities-btn'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Refresh Staff Roster' }),
+    );
+    const dialog = screen.getByTestId('staff-capability-modal');
+    expect(within(dialog).getByRole('status').textContent).toContain(
+      'Verifying service assignments',
+    );
+    fireEvent.submit(
+      within(dialog).getByTestId('save-capability-modal').closest('form')!,
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    resolve({
+      ok: false,
+      code: 'QUERY_FAILED',
+      message: 'Catalogue verification failed.',
+    });
+    await waitFor(() =>
+      expect(within(dialog).getByRole('alert').textContent).toContain(
+        'Catalogue verification failed',
+      ),
+    );
+    fireEvent.submit(
+      within(dialog).getByTestId('save-capability-modal').closest('form')!,
+    );
+    expect(mutation).not.toHaveBeenCalled();
+  });
+  it('verified modal keeps duplicate, toggle and dismissal guards while RPC is pending', async () => {
+    let resolve!: (
+      result: Awaited<ReturnType<typeof staffService.updateStaffCapabilities>>,
+    ) => void;
+    const mutation = vi
+      .spyOn(staffService, 'updateStaffCapabilities')
+      .mockReturnValue(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+    const close = vi.fn();
+    render(
+      <StaffCapabilityModal
+        isOpen
+        staff={assigned}
+        branchServices={choices}
+        branchServicesReady
+        onClose={close}
+        onCapabilitiesSaved={vi.fn()}
+      />,
+    );
+    const submit = screen.getByTestId('save-capability-modal');
+    fireEvent.submit(submit.closest('form')!);
+    fireEvent.submit(submit.closest('form')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect((screen.getByRole('checkbox') as HTMLInputElement).disabled).toBe(
+      true,
+    );
+    expect(mutation).toHaveBeenCalledOnce();
+    expect(mutation).toHaveBeenCalledWith(assigned.id, ['old-service']);
+    expect(close).not.toHaveBeenCalled();
+    resolve({ ok: false, error: 'Authoritative capability denial' });
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Authoritative capability denial',
+      ),
+    );
+    expect((submit as HTMLButtonElement).disabled).toBe(false);
+  });
+  it('successful capability replacement refreshes authoritative Staff data rather than trimming assignments locally', async () => {
+    workspaceReads();
+    vi.mocked(staffService.fetchBranchStaff)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: mockStaffRoster,
+        kpis: {
+          totalStaff: 4,
+          activeStaff: 2,
+          awaitingStaff: 1,
+          invitedStaff: 1,
+        },
+      })
+      .mockResolvedValue({
+        ok: true,
+        data: [{ ...assigned, full_name: 'Authoritative refreshed staff' }],
+        kpis: {
+          totalStaff: 1,
+          activeStaff: 1,
+          awaitingStaff: 0,
+          invitedStaff: 0,
+        },
+      });
+    vi.spyOn(staffService, 'fetchBranchAssignableServices').mockResolvedValue({
+      ok: true,
+      data: mockBranchServices,
+    });
+    vi.spyOn(staffService, 'updateStaffCapabilities').mockResolvedValue({
+      ok: true,
+      message: 'Saved',
+    });
+    render(<StaffView authContext={mockAuthContext} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-row-s-1')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByTestId('inspector-manage-capabilities-btn'));
+    fireEvent.click(screen.getByTestId('save-capability-modal'));
+    await waitFor(() =>
+      expect(screen.getByTestId('inspector-staff-name').textContent).toBe(
+        'Authoritative refreshed staff',
+      ),
+    );
+    expect(staffService.fetchBranchStaff).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('status').textContent).toContain(
+      'Service capabilities updated successfully',
+    );
   });
 });

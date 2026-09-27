@@ -25,6 +25,10 @@ export interface StaffContextInspectorProps {
   selectedApplicationId?: string | null;
   branchName?: string;
   branchServices?: BranchServiceOption[];
+  branchServicesReady?: boolean;
+  branchServicesLoading?: boolean;
+  branchServicesError?: string | null;
+  onRetryServices?: () => void;
   scheduleOverrides?: StaffScheduleOverride[];
   scheduleBlocks?: StaffBlockedTime[];
   todayStr?: string;
@@ -63,6 +67,10 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
   selectedApplicationId,
   branchName = 'Active Branch',
   branchServices = [],
+  branchServicesReady = false,
+  branchServicesLoading = false,
+  branchServicesError,
+  onRetryServices,
   scheduleOverrides = [],
   scheduleBlocks = [],
   todayStr = new Date().toISOString().slice(0, 10),
@@ -897,12 +905,38 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
               {staff.services.length} Assigned Services
             </div>
             <div className="summary-resource-label">
-              <span>Branch Total: {branchServices.length}</span>
+              <span>
+                {branchServicesReady
+                  ? `Branch Total: ${branchServices.length}`
+                  : 'Branch catalogue unverified'}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="inspector-body-scrollable p-4 space-y-4">
+          {!branchServicesReady && (
+            <div
+              role={branchServicesLoading ? 'status' : 'alert'}
+              className="text-xs"
+            >
+              <p>
+                {branchServicesLoading
+                  ? 'Verifying branch service catalogue…'
+                  : branchServicesError ||
+                    'Service assignments cannot be edited until the branch service catalogue is verified.'}
+              </p>
+              {onRetryServices && !branchServicesLoading && (
+                <button
+                  type="button"
+                  className="bookings-retry-btn"
+                  onClick={onRetryServices}
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-between border-b border-[var(--cs-border)] pb-2">
             <h4 className="text-xs font-semibold uppercase text-[var(--cs-text)]">
               Service Capability Catalog
@@ -910,7 +944,15 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
             <button
               type="button"
               className="bookings-header-primary-btn text-xs py-1 px-2.5"
-              onClick={() => onOpenCapabilityModal(staff)}
+              disabled={!branchServicesReady}
+              title={
+                !branchServicesReady
+                  ? 'Service assignments cannot be edited until the branch service catalogue is verified.'
+                  : undefined
+              }
+              onClick={() => {
+                if (branchServicesReady) onOpenCapabilityModal(staff);
+              }}
             >
               Manage
             </button>
@@ -924,7 +966,15 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
               <button
                 type="button"
                 className="btn-secondary-compact text-xs mt-2"
-                onClick={() => onOpenCapabilityModal(staff)}
+                disabled={!branchServicesReady}
+                title={
+                  !branchServicesReady
+                    ? 'Service assignments cannot be edited until the branch service catalogue is verified.'
+                    : undefined
+                }
+                onClick={() => {
+                  if (branchServicesReady) onOpenCapabilityModal(staff);
+                }}
               >
                 Assign Capabilities
               </button>
@@ -1555,7 +1605,15 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                 <button
                   type="button"
                   className="quick-action-btn secondary"
-                  onClick={() => onOpenCapabilityModal(staff)}
+                  disabled={!branchServicesReady}
+                  title={
+                    !branchServicesReady
+                      ? 'Service assignments cannot be edited until the branch service catalogue is verified.'
+                      : undefined
+                  }
+                  onClick={() => {
+                    if (branchServicesReady) onOpenCapabilityModal(staff);
+                  }}
                   data-testid="inspector-manage-capabilities-btn"
                 >
                   <svg
@@ -1650,7 +1708,15 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
               <button
                 type="button"
                 className="bookings-header-primary-btn text-xs py-1 px-2.5"
-                onClick={() => onOpenCapabilityModal(staff)}
+                disabled={!branchServicesReady}
+                title={
+                  !branchServicesReady
+                    ? 'Service assignments cannot be edited until the branch service catalogue is verified.'
+                    : undefined
+                }
+                onClick={() => {
+                  if (branchServicesReady) onOpenCapabilityModal(staff);
+                }}
               >
                 Manage
               </button>
@@ -1665,7 +1731,15 @@ export const StaffContextInspector: React.FC<StaffContextInspectorProps> = ({
                 <button
                   type="button"
                   className="btn-secondary-compact text-xs mt-2"
-                  onClick={() => onOpenCapabilityModal(staff)}
+                  disabled={!branchServicesReady}
+                  title={
+                    !branchServicesReady
+                      ? 'Service assignments cannot be edited until the branch service catalogue is verified.'
+                      : undefined
+                  }
+                  onClick={() => {
+                    if (branchServicesReady) onOpenCapabilityModal(staff);
+                  }}
                 >
                   Assign Services
                 </button>

@@ -13,7 +13,7 @@
 
 **OWNER-PROVIDED MANUAL RUNTIME EVIDENCE:** The owner reports that the hosted Vercel deployment for the exact Stage 12A merge SHA was independently observed as READY. This proves deployment of that commit; it does not prove authenticated Staff or Booking mutations were exercised successfully. No new deployment was initiated for this Desktop stage.
 
-## Exact changed files
+## Initial implementation changed files (pre-correction)
 
 ```text
 docs/30-delivery/STAGE_12B_EVIDENCE.md
@@ -206,3 +206,65 @@ Native runtime was not independently observed by the agent in this correction. T
 Production mutations: **NO**. Schema/migrations: **NONE**. Local DB/cache: **NONE**. Hosted changes: **NONE**. The deactivation read-model ambiguity and unsupported phone-clearing limitation above remain unchanged.
 
 Rollback of this correction is a reviewed revert of its commit identified by the final NEW_HEAD_SHA. No data rollback is needed or performed. Push the correction without force to the same branch, verify local/remote equality and clean working tree, and stop for independent GitHub re-review. No merge or new stage is authorized by these results.
+
+## Second correction: capability catalogue verification
+
+- Stage: 12B capability fail-closed correction only, on `stage/12b-desktop-wiring-security`.
+- BASE_SHA: `683b5c11651c972e6290b6796d01b3b449c105a4`.
+- INITIAL_STAGE12B_HEAD: `3054a61eea16d053ee2a1ecb2933e5b50ad794dc`.
+- PRE_CAPABILITY_GUARD_HEAD: `c6e1000dddcb6907a1fd69e028b8d7f2b00819da`.
+- HOSTED_AUTHORITY_SHA: `03242a0bfbcfe6c4b1b03ba624510004cae7cc6a`.
+- NEW_HEAD_SHA is resolved after commit/push and reported in the handoff, with local/remote equality and clean working tree verification. It is not self-encoded in this evidence file.
+
+The service catalogue fail-closed correction initially protected onboarding approval but the existing Staff capability editor still consumed only the empty service array.
+
+An unavailable/unverified catalogue could therefore be interpreted as a legitimate empty catalogue by capability mutation surfaces.
+
+The capability editor and all of its entry points now require a verified branch service catalogue before any capability replacement can be initiated.
+
+### Exact capability correction files
+
+```text
+docs/30-delivery/STAGE_12B_EVIDENCE.md
+src/components/staff/StaffCapabilitiesView.tsx
+src/components/staff/StaffInspectorCard.tsx
+src/components/staff/StaffView.tsx
+src/components/staff/modals/StaffCapabilityModal.tsx
+tests/staff-components.test.tsx
+```
+
+### Corrected capability behavior
+
+StaffView remains the single source of branch catalogue readiness, loading and error. It passes those states and its existing refresh callback to the Capabilities tab, inspector and capability modal. The parent opening callback also checks readiness. No child catalogue fetch or additional state-management system was introduced.
+
+The Capabilities tab Manage action and all five inspector entry paths (capability-context Manage/Assign Capabilities, roster overview Capabilities, and roster Services Manage/Assign Services) are disabled with an explanation while loading or unverified. Existing staff assignment counts and names remain available as read-only staff data. Unverified branch availability is labeled unverified, rather than presented as zero services. Unrelated profile, role, schedule, deactivation and booking controls are unchanged.
+
+The modal defaults to unverified and guards Save, toggle, Select All and Clear inside their handlers, independently of disabled controls. Direct form submission cannot bypass readiness or the synchronous pending guard. Loading and failure states use truthful status/alert text and existing refresh Retry behavior; search-empty language appears only for verified catalogues. Pending duplicate writes, selection changes and dismissal remain blocked; authoritative errors keep the modal open.
+
+Verified empty remains legitimate and has its own empty-catalogue message. Current staff assignments are shown and all existing IDs initialize the selection, including IDs outside current choices. Opening, loading, failure and Select All never automatically clear or trim assignments. Select All adds verified choices while retaining existing IDs. Removing all assignments requires explicit Clear followed by Save after verification. Closing and reopening resets cancelled local edits to current staff assignments. Successful RPC saves refresh authoritative Staff data rather than locally filtering assignments through catalogue choices.
+
+The accepted actor-aware `updateStaffCapabilities` RPC implementation is unchanged. The caller-authenticated Supabase client supplies the real `auth.uid()` to the hosted `SECURITY DEFINER` function, whose internal authorization remains authoritative. No direct table write, service-role client, new hosted endpoint, function change or migration was added. The previous approval/application fail-closed behavior, removed global fallback and disabled disconnected availability actions are preserved.
+
+### Capability correction verification
+
+Node `24.14.0`, pnpm `10.33.2` and repository-pinned Prettier `3.9.6` were used. Dependencies, lockfiles, test configuration and boundary tests are unchanged.
+
+| Command                                                                                                                                                                                                | Capability correction result                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `pnpm exec vitest run tests/staff-service.test.ts tests/staff-components.test.tsx tests/bookings-service.test.ts tests/bookings-components.test.tsx tests/auth-service.test.ts tests/boundary.test.ts` | PASS: 6 files, 374 tests                                       |
+| `pnpm test`                                                                                                                                                                                            | PASS: 23 files, 675 tests                                      |
+| `pnpm typecheck`                                                                                                                                                                                       | PASS                                                           |
+| `pnpm lint`                                                                                                                                                                                            | PASS, zero warnings                                            |
+| `pnpm format:check`                                                                                                                                                                                    | PASS                                                           |
+| `pnpm build`                                                                                                                                                                                           | PASS: frontend TypeScript/Vite build, 1958 transformed modules |
+| `git diff --check`                                                                                                                                                                                     | PASS                                                           |
+
+The 18 added test cases cover loading/failed/verified Capabilities actions, all inspector entry contexts, retained assignment information, modal direct-submit defense including omitted readiness and stale choices, verified empty explicit clearing, out-of-catalogue ID preservation, readiness loss and retry, cancelled edit reset, workspace propagation, pending duplicate/dismissal protection, authoritative failure and authoritative Staff refresh after success. Existing tests were preserved; two prior capability tests now explicitly provide verified readiness. These results use mocked reads/writes and do not prove live production or native workflow success.
+
+The frontend build retains the existing nonfatal chunk-size warning; no unrelated bundling or warning suppression was added. Source/configuration scans found no privileged secret, service-role or admin client. Bundle credential scans found no secret-key value or privileged client; the earlier documented SDK prefix classifier remains dependency vocabulary. The unchanged AST and bearer/origin boundary regression tests pass. Direct sensitive renderer table mutations: **NONE**. Arbitrary hosted mutation origin: **NONE**. Service-role exposure: **NONE**. Tauri capability widening: **NONE**. Staff/Booking service implementations and hosted source are unchanged in this correction.
+
+Native runtime not independently observed by implementation agent. Owner runtime confirmation remains required. The earlier port-1420 launch block remains the recorded attempt; no unknown process was stopped. Native 1440×900, 1366×768 and 1024×768 observations remain **NOT OBSERVED**.
+
+Production mutations: **NO**. Schema/migrations: **NONE**. Local DB/cache: **NONE**. Hosted changes: **NONE**. Earlier read-model and phone-clearing limitations remain unchanged.
+
+Rollback is a reviewed revert of the capability correction commit identified by final NEW_HEAD_SHA. No data rollback is needed or performed. Push without force to the same branch and stop for independent GitHub re-review. These results authorize neither merge nor a subsequent stage.
