@@ -1,3 +1,4 @@
+import { measureReadOperation } from './read-performance';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getHostedApiBaseUrl } from './bookings-service';
@@ -145,7 +146,7 @@ async function requestJson<T>(
   return result.data;
 }
 
-export function fetchHomeService(
+function fetchHomeServiceUnmeasured(
   date: string,
   client?: SupabaseClient,
   customFetch?: typeof fetch,
@@ -157,7 +158,7 @@ export function fetchHomeService(
   );
 }
 
-export function fetchHomeServiceDrivers(
+function fetchHomeServiceDriversUnmeasured(
   client?: SupabaseClient,
   customFetch?: typeof fetch,
 ): Promise<{
@@ -171,7 +172,7 @@ export function fetchHomeServiceDrivers(
   );
 }
 
-export function fetchHomeServiceBookingDetail(
+function fetchHomeServiceBookingDetailUnmeasured(
   bookingId: string,
   client?: SupabaseClient,
   customFetch?: typeof fetch,
@@ -183,7 +184,7 @@ export function fetchHomeServiceBookingDetail(
   );
 }
 
-export function fetchHomeServiceRecommendations(
+function fetchHomeServiceRecommendationsUnmeasured(
   bookingId: string,
   client?: SupabaseClient,
   customFetch?: typeof fetch,
@@ -235,3 +236,29 @@ export function cancelHomeServiceBooking(
     { method: 'POST', body, client, customFetch },
   );
 }
+
+// Named read boundaries preserve the underlying service arguments and results.
+export const fetchHomeService = (
+  ...args: Parameters<typeof fetchHomeServiceUnmeasured>
+) =>
+  measureReadOperation('home-service.queue', () =>
+    fetchHomeServiceUnmeasured(...args),
+  );
+export const fetchHomeServiceDrivers = (
+  ...args: Parameters<typeof fetchHomeServiceDriversUnmeasured>
+) =>
+  measureReadOperation('home-service.drivers', () =>
+    fetchHomeServiceDriversUnmeasured(...args),
+  );
+export const fetchHomeServiceBookingDetail = (
+  ...args: Parameters<typeof fetchHomeServiceBookingDetailUnmeasured>
+) =>
+  measureReadOperation('home-service.detail', () =>
+    fetchHomeServiceBookingDetailUnmeasured(...args),
+  );
+export const fetchHomeServiceRecommendations = (
+  ...args: Parameters<typeof fetchHomeServiceRecommendationsUnmeasured>
+) =>
+  measureReadOperation('home-service.recommendations', () =>
+    fetchHomeServiceRecommendationsUnmeasured(...args),
+  );

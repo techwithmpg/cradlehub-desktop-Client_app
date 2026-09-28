@@ -1,3 +1,4 @@
+import { measureReadOperation } from './read-performance';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getSupabaseClient } from './supabase';
@@ -230,7 +231,7 @@ async function scheduleGet<T>(
   return result.data;
 }
 
-export async function fetchDailySchedule(
+async function fetchDailyScheduleUnmeasured(
   date: string,
   client?: SupabaseClient,
   customFetch?: typeof fetch,
@@ -243,7 +244,7 @@ export async function fetchDailySchedule(
   );
 }
 
-export async function fetchScheduleAvailability(
+async function fetchScheduleAvailabilityUnmeasured(
   client?: SupabaseClient,
   customFetch?: typeof fetch,
 ): Promise<ScheduleAvailabilityResponse> {
@@ -255,7 +256,7 @@ export async function fetchScheduleAvailability(
   );
 }
 
-export async function fetchStaffFullSchedule(
+async function fetchStaffFullScheduleUnmeasured(
   staffId: string,
   startDate: string,
   endDate: string,
@@ -294,7 +295,7 @@ export function getWeekStart(date: string): string {
   ].join('-');
 }
 
-export async function fetchScheduleWeek(
+async function fetchScheduleWeekUnmeasured(
   anchorDate: string,
   client?: SupabaseClient,
   customFetch?: typeof fetch,
@@ -370,3 +371,29 @@ export async function mutateSchedule(
 
   return result.data;
 }
+
+// Named read boundaries preserve the underlying service arguments and results.
+export const fetchDailySchedule = (
+  ...args: Parameters<typeof fetchDailyScheduleUnmeasured>
+) =>
+  measureReadOperation('schedule.day', () =>
+    fetchDailyScheduleUnmeasured(...args),
+  );
+export const fetchScheduleAvailability = (
+  ...args: Parameters<typeof fetchScheduleAvailabilityUnmeasured>
+) =>
+  measureReadOperation('schedule.availability', () =>
+    fetchScheduleAvailabilityUnmeasured(...args),
+  );
+export const fetchStaffFullSchedule = (
+  ...args: Parameters<typeof fetchStaffFullScheduleUnmeasured>
+) =>
+  measureReadOperation('schedule.staff-full', () =>
+    fetchStaffFullScheduleUnmeasured(...args),
+  );
+export const fetchScheduleWeek = (
+  ...args: Parameters<typeof fetchScheduleWeekUnmeasured>
+) =>
+  measureReadOperation('schedule.week', () =>
+    fetchScheduleWeekUnmeasured(...args),
+  );

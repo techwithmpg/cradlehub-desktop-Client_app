@@ -1,3 +1,4 @@
+import { measureReadOperation } from './read-performance';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
@@ -497,7 +498,7 @@ export function classifyStaffError(err: unknown): {
  * Fetches the authoritative branch Staff roster and minimized service capabilities.
  * Validates payload structure and derives operational statuses and KPIs.
  */
-export async function fetchBranchStaff(
+async function fetchBranchStaffUnmeasured(
   branchId: string,
   client?: SupabaseClient,
 ): Promise<FetchStaffResult> {
@@ -565,7 +566,7 @@ export async function fetchBranchStaff(
 }
 
 /** Branch-scoped assignment choices; a failed read never becomes an empty catalogue. */
-export async function fetchBranchAssignableServices(
+async function fetchBranchAssignableServicesUnmeasured(
   branchId: string,
   client?: SupabaseClient,
 ): Promise<FetchBranchServicesResult> {
@@ -687,7 +688,7 @@ function staffDependencyError(
 }
 
 /** Branch applications: failed or malformed reads remain failures. */
-export async function fetchBranchOnboardingRequests(
+async function fetchBranchOnboardingRequestsUnmeasured(
   branchId: string,
   client?: SupabaseClient,
 ): Promise<FetchOnboardingRequestsResult> {
@@ -773,7 +774,7 @@ export async function fetchBranchOnboardingRequests(
 /**
  * Fetches schedule overrides and blocked times for a specific 7-day week window.
  */
-export async function fetchBranchScheduleWeek(
+async function fetchBranchScheduleWeekUnmeasured(
   _branchId: string,
   startDate: string,
   client?: SupabaseClient,
@@ -1185,3 +1186,29 @@ export async function deactivateStaff(
     customFetch,
   );
 }
+
+// Named read boundaries preserve the underlying service arguments and results.
+export const fetchBranchStaff = (
+  ...args: Parameters<typeof fetchBranchStaffUnmeasured>
+) =>
+  measureReadOperation('staff.roster', () =>
+    fetchBranchStaffUnmeasured(...args),
+  );
+export const fetchBranchAssignableServices = (
+  ...args: Parameters<typeof fetchBranchAssignableServicesUnmeasured>
+) =>
+  measureReadOperation('staff.assignable-services', () =>
+    fetchBranchAssignableServicesUnmeasured(...args),
+  );
+export const fetchBranchOnboardingRequests = (
+  ...args: Parameters<typeof fetchBranchOnboardingRequestsUnmeasured>
+) =>
+  measureReadOperation('staff.applications', () =>
+    fetchBranchOnboardingRequestsUnmeasured(...args),
+  );
+export const fetchBranchScheduleWeek = (
+  ...args: Parameters<typeof fetchBranchScheduleWeekUnmeasured>
+) =>
+  measureReadOperation('staff.schedule-week', () =>
+    fetchBranchScheduleWeekUnmeasured(...args),
+  );

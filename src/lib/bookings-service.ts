@@ -1,3 +1,4 @@
+import { measureReadOperation } from './read-performance';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getSupabaseClient } from './supabase';
@@ -109,7 +110,7 @@ export function normalizeBooking(row: RawBookingRow): Booking {
   };
 }
 
-export async function fetchBranchBookings(
+async function fetchBranchBookingsUnmeasured(
   branchId: string,
   client?: SupabaseClient,
 ): Promise<Booking[]> {
@@ -392,7 +393,7 @@ export function canActAsBookingServiceProvider(
   return false;
 }
 
-export async function fetchBranchBookingOptions(
+async function fetchBranchBookingOptionsUnmeasured(
   branchId: string,
   client?: SupabaseClient,
 ): Promise<{
@@ -630,7 +631,7 @@ export class CustomerLookupUnavailableError extends Error {
 /**
  * Search branch customers via the authoritative hosted Desktop Customers API.
  */
-export async function searchBranchCustomers(
+async function searchBranchCustomersUnmeasured(
   branchId: string,
   query: string,
   client?: SupabaseClient,
@@ -1132,3 +1133,23 @@ export async function rescheduleBranchBooking(
     };
   }
 }
+
+// Named read boundaries preserve the underlying service arguments and results.
+export const fetchBranchBookings = (
+  ...args: Parameters<typeof fetchBranchBookingsUnmeasured>
+) =>
+  measureReadOperation('bookings.branch-list', () =>
+    fetchBranchBookingsUnmeasured(...args),
+  );
+export const fetchBranchBookingOptions = (
+  ...args: Parameters<typeof fetchBranchBookingOptionsUnmeasured>
+) =>
+  measureReadOperation('bookings.options', () =>
+    fetchBranchBookingOptionsUnmeasured(...args),
+  );
+export const searchBranchCustomers = (
+  ...args: Parameters<typeof searchBranchCustomersUnmeasured>
+) =>
+  measureReadOperation('bookings.customer-search', () =>
+    searchBranchCustomersUnmeasured(...args),
+  );
