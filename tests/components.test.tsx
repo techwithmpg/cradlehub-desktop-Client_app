@@ -444,9 +444,11 @@ describe('Stage 01 UI Components', () => {
       await user.click(screen.getByTestId('nav-item-customers'));
 
       expect(bookingsFrame.hidden).toBe(true);
-      expect(screen.getByTestId('retained-module-customers').hidden).toBe(
-        false,
-      );
+
+      const customersFrame = screen.getByTestId('retained-module-customers');
+      const customersView = screen.getByTestId('customers-view');
+
+      expect(customersFrame.hidden).toBe(false);
 
       // The exact Bookings input instance still exists with its state intact.
       const retainedBookingsSearch = screen.getByLabelText('Search Bookings');
@@ -460,7 +462,13 @@ describe('Stage 01 UI Components', () => {
       await user.click(screen.getByTestId('nav-item-bookings'));
 
       expect(bookingsFrame.hidden).toBe(false);
-      expect(screen.getByTestId('retained-module-customers').hidden).toBe(true);
+
+      // Previously visited modules remain mounted during ordinary navigation.
+      // Their local UI state must not be destroyed simply by switching modules.
+      expect(customersFrame.hidden).toBe(true);
+
+      // Customers itself remains the exact same mounted workspace instance.
+      expect(screen.getByTestId('customers-view')).toBe(customersView);
 
       const restoredBookingsSearch = screen.getByLabelText('Search Bookings');
 

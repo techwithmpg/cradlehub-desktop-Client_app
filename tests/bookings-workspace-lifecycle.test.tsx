@@ -169,4 +169,60 @@ describe('Bookings retained workspace lifecycle', () => {
       ).toBeGreaterThan(0);
     });
   });
+
+  it('does not repeatedly retry a failed dirty generation and retries once after reactivation', async () => {
+    const initialBooking = createBooking('booking-old', 'Existing Customer');
+    const refreshedBooking = createBooking(
+      'booking-new',
+      'Authoritative Customer',
+    );
+
+    const fetchSpy = vi
+      .spyOn(bookingsService, 'fetchBranchBookings')
+      .mockResolvedValueOnce([initialBooking])
+      .mockRejectedValueOnce(new Error('Network unavailable'))
+      .mockResolvedValueOnce([refreshedBooking]);
+
+    render(
+      <WorkspaceLifecycleProvider>
+        <LifecycleHarness />
+      </WorkspaceLifecycleProvider>,
+    );
+
+    await screen.findAllByText('Existing Customer');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dirty Bookings' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bookings-error-banner')).toBeDefined();
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    // A persistent failure must not create an automatic request loop.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Bookings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Bookings' }));
+
+    // A new activation is an explicit opportunity to retry the still-dirty
+    // generation exactly once.
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByText('Authoritative Customer').length,
+      ).toBeGreaterThan(0);
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
 });

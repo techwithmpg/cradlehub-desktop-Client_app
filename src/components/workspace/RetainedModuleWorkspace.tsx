@@ -1,8 +1,9 @@
-import { memo } from 'react';
+import { Fragment, memo, type ReactNode } from 'react';
 import { Settings } from 'lucide-react';
 import type { AuthContext, NavModuleId } from '../../types/auth';
 import { AUTHORIZED_NAV_ITEMS } from '../../lib/navigation';
 import { WorkspaceModulePresence } from './WorkspaceLifecycle';
+import { useWorkspaceModuleLifecycle } from './useWorkspaceLifecycle';
 import { TodayView } from '../today/TodayView';
 import { BookingsView } from '../bookings/BookingsView';
 import { AttendanceView } from '../attendance/AttendanceView';
@@ -25,13 +26,34 @@ interface RetainedModuleFrameProps {
   onNavigate: (module: NavModuleId) => void;
 }
 
+/**
+ * Today and Bookings implement the full workspace lifecycle and reconcile
+ * authoritative data without losing their local UI state.
+ *
+ * Other modules are retained normally, but use their invalidation generation
+ * as a remount boundary. Because hidden modules do not subscribe to lifecycle
+ * changes, an invalidated legacy module remounts only when it is activated
+ * again. Normal navigation therefore preserves its UI state and avoids a
+ * network reload.
+ */
+const LIFECYCLE_AWARE_MODULES: ReadonlySet<NavModuleId> = new Set([
+  'today',
+  'bookings',
+]);
+
+function GenerationAwareRetainedContent({ children }: { children: ReactNode }) {
+  const { invalidationGeneration } = useWorkspaceModuleLifecycle();
+
+  return <Fragment key={invalidationGeneration}>{children}</Fragment>;
+}
+
 const RetainedModuleFrame = memo(function RetainedModuleFrame({
   moduleId,
   active,
   authContext,
   onNavigate,
 }: RetainedModuleFrameProps) {
-  let content;
+  let content: ReactNode;
 
   switch (moduleId) {
     case 'today':
@@ -88,6 +110,12 @@ const RetainedModuleFrame = memo(function RetainedModuleFrame({
       break;
   }
 
+  const renderedContent = LIFECYCLE_AWARE_MODULES.has(moduleId) ? (
+    content
+  ) : (
+    <GenerationAwareRetainedContent>{content}</GenerationAwareRetainedContent>
+  );
+
   return (
     <WorkspaceModulePresence moduleId={moduleId} isActive={active}>
       <div
@@ -96,7 +124,7 @@ const RetainedModuleFrame = memo(function RetainedModuleFrame({
         hidden={!active}
         aria-hidden={!active}
       >
-        {content}
+        {renderedContent}
       </div>
     </WorkspaceModulePresence>
   );

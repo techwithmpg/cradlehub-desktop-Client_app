@@ -46,8 +46,22 @@ export function useWorkspaceModuleLifecycle() {
 
   const { moduleId, isActive } = presence;
 
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      // Hidden retained modules do not need to re-render simply because
+      // authority invalidated them. They observe the latest generation when
+      // activated again.
+      if (!isActive) {
+        return () => {};
+      }
+
+      return store.subscribe(moduleId, listener);
+    },
+    [isActive, moduleId, store],
+  );
+
   const state = useSyncExternalStore(
-    (listener) => store.subscribe(moduleId, listener),
+    subscribe,
     () => store.getSnapshot(moduleId),
     () => store.getSnapshot(moduleId),
   );
@@ -74,6 +88,7 @@ export function useWorkspaceModuleLifecycle() {
   return {
     moduleId,
     isActive,
+    invalidationGeneration: state.invalidationGeneration,
     isDirty: isWorkspaceModuleDirty(state),
     hasValidatedData: state.hasValidatedData,
     isRefreshing: state.isRefreshing,

@@ -170,6 +170,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 }) => {
   const {
     isActive,
+    invalidationGeneration,
     isDirty,
     hasValidatedData,
     isRefreshing,
@@ -179,6 +180,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   } = useWorkspaceModuleLifecycle();
 
   const invalidateModules = useWorkspaceInvalidation();
+  const lastAutomaticAttemptGenerationRef = useRef<number | null>(null);
 
   const [data, setData] = useState<DesktopTodayData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -301,9 +303,20 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   // Dirty hidden Today stays quiet. Reconcile when it becomes active again.
   useEffect(() => {
-    if (!isActive || !hasValidatedData || !isDirty || isRefreshing) {
+    if (!isActive) {
+      lastAutomaticAttemptGenerationRef.current = null;
       return;
     }
+
+    if (!hasValidatedData || !isDirty || isRefreshing) {
+      return;
+    }
+
+    if (lastAutomaticAttemptGenerationRef.current === invalidationGeneration) {
+      return;
+    }
+
+    lastAutomaticAttemptGenerationRef.current = invalidationGeneration;
 
     let cancelled = false;
 
@@ -316,7 +329,14 @@ export const TodayView: React.FC<TodayViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [hasValidatedData, isActive, isDirty, isRefreshing, reconcileToday]);
+  }, [
+    hasValidatedData,
+    invalidationGeneration,
+    isActive,
+    isDirty,
+    isRefreshing,
+    reconcileToday,
+  ]);
   const handleStageFilterChange = (filter: StageScopeFilter) => {
     setStageFilter(filter);
     setCurrentPage(1);

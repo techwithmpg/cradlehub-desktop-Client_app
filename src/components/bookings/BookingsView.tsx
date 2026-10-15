@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { AuthContext } from '../../types/auth';
 import type {
   Booking,
@@ -36,6 +42,7 @@ interface BookingsViewProps {
 export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
   const {
     isActive,
+    invalidationGeneration,
     isDirty,
     hasValidatedData,
     isRefreshing,
@@ -45,6 +52,7 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
   } = useWorkspaceModuleLifecycle();
 
   const invalidateModules = useWorkspaceInvalidation();
+  const lastAutomaticAttemptGenerationRef = useRef<number | null>(null);
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -152,9 +160,20 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
   // A retained hidden workspace does not refresh just because it became dirty.
   // Reconcile only when the operator activates it again.
   useEffect(() => {
-    if (!isActive || !hasValidatedData || !isDirty || isRefreshing) {
+    if (!isActive) {
+      lastAutomaticAttemptGenerationRef.current = null;
       return;
     }
+
+    if (!hasValidatedData || !isDirty || isRefreshing) {
+      return;
+    }
+
+    if (lastAutomaticAttemptGenerationRef.current === invalidationGeneration) {
+      return;
+    }
+
+    lastAutomaticAttemptGenerationRef.current = invalidationGeneration;
 
     let cancelled = false;
 
@@ -167,7 +186,14 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
     return () => {
       cancelled = true;
     };
-  }, [hasValidatedData, isActive, isDirty, isRefreshing, reconcileBookings]);
+  }, [
+    hasValidatedData,
+    invalidationGeneration,
+    isActive,
+    isDirty,
+    isRefreshing,
+    reconcileBookings,
+  ]);
 
   const handleRefresh = useCallback(async () => {
     await reconcileBookings();

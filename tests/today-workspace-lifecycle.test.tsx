@@ -180,4 +180,55 @@ describe('Today retained workspace lifecycle', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
+
+  it('does not repeatedly retry a failed dirty generation and retries once after reactivation', async () => {
+    const initialData = createTodayData(3);
+    const refreshedData = createTodayData(7);
+
+    const fetchSpy = vi
+      .spyOn(todayService, 'fetchToday')
+      .mockResolvedValueOnce(initialData)
+      .mockRejectedValueOnce(new Error('Network unavailable'))
+      .mockResolvedValueOnce(refreshedData);
+
+    render(
+      <WorkspaceLifecycleProvider>
+        <LifecycleHarness />
+      </WorkspaceLifecycleProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dirty Today' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('today-error-banner')).toBeDefined();
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    // A failed reconciliation must not hammer the authoritative endpoint.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Today' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Today' }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('today-error-banner')).toBeNull();
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
 });
