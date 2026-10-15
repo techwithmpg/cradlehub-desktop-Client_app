@@ -6,9 +6,9 @@
 - Stage: foundation correction before Stage 16
 - Branch: fix/persistent-workspace-performance-foundation
 - BASE_SHA: 413d20fd35d589622899c08243f7400ce13d6421
-- HEAD_SHA: 47fdcd99079fd7a404f491d47791deaa44e82657
+- HEAD_SHA: 1c3c83a11225d681242b6e9685043e5f7d9858fe
 - Evidence date: 2026-10-15
-- Note: HEAD_SHA is the validated implementation commit. One evidence-only commit follows this implementation commit.
+- Note: HEAD_SHA is the corrected validated implementation commit. An evidence-only commit follows this implementation commit.
 
 ## Scope
 
@@ -28,6 +28,10 @@ Implemented:
 - no invalidation after failed authoritative mutations;
 - hidden dirty workspaces remain quiet until activation;
 - background reconciliation while retaining previously validated data;
+- bounded automatic reconciliation: a failed dirty generation is not retried repeatedly while the workspace remains active;
+- activation-aware lifecycle subscriptions for retained workspaces;
+- all visited operational modules remain mounted during ordinary navigation;
+- non-lifecycle-aware retained modules remount/revalidate only when an invalidation generation is observed on reactivation;
 - canonical booking-domain invalidation targets.
 
 Not introduced:
@@ -74,11 +78,11 @@ Not introduced:
 - `pnpm typecheck` — PASS
 - `pnpm lint` — PASS
 - `pnpm format:check` — PASS
-- focused workspace/performance suite — PASS, 9 files / 118 tests
-- `pnpm test` — PASS, 33 files / 726 tests
+- focused workspace/performance suite — PASS, 9 files / 120 tests
+- `pnpm test` — PASS, 33 files / 728 tests
 - `pnpm build` — PASS
 - production build transformed 1973 modules
-- production JS bundle: 898.91 kB minified / 217.70 kB gzip
+- production JS bundle: 899.33 kB minified / 217.83 kB gzip
 - Vite emitted a non-blocking >500 kB chunk-size warning
 - `cargo test --manifest-path .\src-tauri\Cargo.toml` — PASS, 7 tests / 0 failures
 
@@ -96,7 +100,11 @@ Automated coverage proves:
 - a new invalidation generation does not reuse an older in-flight request;
 - obsolete responses cannot overwrite newer validated state;
 - successful Today operational writes invalidate affected workspaces;
-- failed authoritative writes do not invalidate dependent workspaces.
+- failed authoritative writes do not invalidate dependent workspaces;
+- failed Today and Bookings background reconciliation does not create an automatic same-generation retry loop;
+- leaving and reactivating a still-dirty Today or Bookings workspace permits one new retry;
+- Attendance, Customers, Schedule, Home Service and Staff remain mounted during ordinary navigation;
+- retained non-lifecycle-aware modules observe invalidation on activation and revalidate through a generation-bound remount rather than remaining indefinitely stale.
 
 ## Runtime evidence
 
@@ -105,6 +113,8 @@ OWNER-PROVIDED MANUAL RUNTIME EVIDENCE
 On 2026-10-15 the owner performed the requested desktop runtime/navigation inspection and reported that all was well.
 
 Earlier owner observation during this correction: navigation felt instant.
+
+After the correction review, the owner specifically verified that persistence was restored across Attendance, Customers, Schedule, Home Service and Staff. Ordinary navigation no longer reloads those workspaces, while Today and Bookings continue to preserve their retained lifecycle behavior.
 
 No real production business mutation was required for this manual verification.
 
@@ -122,8 +132,8 @@ No real production business mutation was required for this manual verification.
 
 ## Limitations / deferred work
 
-- Today and Bookings are the first lifecycle-aware business modules.
-- Other modules retain UI state once visited but have not been migrated to the full dirty/reconciliation lifecycle.
+- Today and Bookings are the first modules using the full dirty/background-reconciliation lifecycle.
+- Attendance, Customers, Schedule, Home Service and Staff remain persistently mounted during ordinary navigation but have not yet been migrated to that full lifecycle; when invalidated, they use an activation-aware generation remount to force authoritative revalidation.
 - React Activity is intentionally deferred until module read effects are safe to pause/recreate.
 - SQLite remains a non-authoritative foundation only; business snapshot integration is deferred.
 - The 898.91 kB production JS chunk warning remains for a future measured code-splitting optimization slice.
