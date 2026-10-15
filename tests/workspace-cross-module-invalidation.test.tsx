@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AuthContext } from '../src/types/auth';
+import type { AuthContext, NavModuleId } from '../src/types/auth';
 import type { Booking } from '../src/types/bookings';
 import type {
   DesktopTodayData,
@@ -10,12 +10,15 @@ import type {
 import { TodayView } from '../src/components/today/TodayView';
 import { BookingsView } from '../src/components/bookings/BookingsView';
 import {
+  RetainedModuleWorkspace,
   WorkspaceLifecycleProvider,
   WorkspaceModulePresence,
+  useWorkspaceInvalidation,
 } from '../src/components/workspace';
 import { clearInFlightOperationsForTests } from '../src/lib/single-flight';
 import * as todayService from '../src/lib/today-service';
 import * as bookingsService from '../src/lib/bookings-service';
+import * as customersService from '../src/lib/customers-service';
 
 const authContext: AuthContext = {
   userId: 'user-01',
@@ -202,6 +205,39 @@ function CrossModuleHarness() {
   );
 }
 
+const LEGACY_RETENTION_VISITED = new Set<NavModuleId>([
+  'customers',
+  'settings',
+]);
+
+function LegacyRetentionHarness() {
+  const [activeModule, setActiveModule] = useState<NavModuleId>('customers');
+
+  const invalidate = useWorkspaceInvalidation();
+
+  return (
+    <>
+      <button type="button" onClick={() => setActiveModule('customers')}>
+        Show Customers
+      </button>
+
+      <button type="button" onClick={() => setActiveModule('settings')}>
+        Show Settings
+      </button>
+
+      <button type="button" onClick={() => invalidate(['customers'])}>
+        Invalidate Customers
+      </button>
+
+      <RetainedModuleWorkspace
+        authContext={authContext}
+        activeModule={activeModule}
+        visitedModules={LEGACY_RETENTION_VISITED}
+        onNavigate={setActiveModule}
+      />
+    </>
+  );
+}
 describe('cross-module workspace invalidation', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -324,5 +360,74 @@ describe('cross-module workspace invalidation', () => {
 
     // Failed authoritative writes must not dirty dependent workspaces.
     expect(bookingsFetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a legacy retained module mounted normally and revalidates it once after hidden invalidation', async () => {
+    const fetchSpy = vi
+      .spyOn(customersService, 'fetchBranchCustomers')
+      .mockResolvedValue({
+        ok: true,
+        tab: 'all',
+        data: [],
+        waitlist: [],
+        pagination: {
+          page: 1,
+          pageSize: 6,
+          totalCount: 0,
+          totalPages: 1,
+        },
+        kpis: {
+          totalCustomers: 0,
+          repeatClients: 0,
+          lapsedClients: 0,
+          newThisMonth: 0,
+          totalVisits: 0,
+        },
+      });
+
+    render(
+      <WorkspaceLifecycleProvider>
+        <LegacyRetentionHarness />
+      </WorkspaceLifecycleProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    const originalCustomersView = screen.getByTestId('customers-view');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Settings' }));
+
+    expect(screen.getByTestId('retained-module-customers').hidden).toBe(true);
+
+    // Ordinary navigation preserves the exact mounted Customers workspace.
+    expect(screen.getByTestId('customers-view')).toBe(originalCustomersView);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Invalidate Customers' }),
+    );
+
+    await Promise.resolve();
+
+    // Hidden invalidation must stay quiet.
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('customers-view')).toBe(originalCustomersView);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Customers' }));
+
+    // Activation observes the new generation and remounts the legacy
+    // workspace, causing exactly one authoritative revalidation.
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    expect(screen.getByTestId('customers-view')).not.toBe(
+      originalCustomersView,
+    );
+
+    await Promise.resolve();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });
