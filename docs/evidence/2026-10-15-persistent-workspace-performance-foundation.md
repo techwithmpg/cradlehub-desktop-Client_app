@@ -6,9 +6,9 @@
 - Stage: foundation correction before Stage 16
 - Branch: fix/persistent-workspace-performance-foundation
 - BASE_SHA: 413d20fd35d589622899c08243f7400ce13d6421
-- HEAD_SHA: 1c3c83a11225d681242b6e9685043e5f7d9858fe
+- HEAD_SHA: 348f94d7e85430b851b65e5446c458bee35323d5
 - Evidence date: 2026-10-15
-- Note: HEAD_SHA is the corrected validated implementation commit. An evidence-only commit follows this implementation commit.
+- Note: HEAD_SHA is the corrected validated code/test checkpoint. An evidence-only commit follows this checkpoint.
 
 ## Scope
 
@@ -78,11 +78,11 @@ Not introduced:
 - `pnpm typecheck` — PASS
 - `pnpm lint` — PASS
 - `pnpm format:check` — PASS
-- focused workspace/performance suite — PASS, 9 files / 120 tests
-- `pnpm test` — PASS, 33 files / 728 tests
+- focused workspace/performance suite — PASS, 9 files / 121 tests
+- `pnpm test` — PASS, 33 files / 729 tests
 - `pnpm build` — PASS
 - production build transformed 1973 modules
-- production JS bundle: 899.33 kB minified / 217.83 kB gzip
+- production JS bundle: 899.40 kB minified / 217.80 kB gzip
 - Vite emitted a non-blocking >500 kB chunk-size warning
 - `cargo test --manifest-path .\src-tauri\Cargo.toml` — PASS, 7 tests / 0 failures
 
@@ -103,8 +103,8 @@ Automated coverage proves:
 - failed authoritative writes do not invalidate dependent workspaces;
 - failed Today and Bookings background reconciliation does not create an automatic same-generation retry loop;
 - leaving and reactivating a still-dirty Today or Bookings workspace permits one new retry;
-- Attendance, Customers, Schedule, Home Service and Staff remain mounted during ordinary navigation;
-- retained non-lifecycle-aware modules observe invalidation on activation and revalidate through a generation-bound remount rather than remaining indefinitely stale.
+- automated coverage proves the retained Customers instance survives ordinary navigation;
+- automated coverage proves hidden Customers invalidation causes no authoritative read, and reactivation performs exactly one generation-bound authoritative revalidation.
 
 ## Runtime evidence
 
@@ -136,7 +136,7 @@ No real production business mutation was required for this manual verification.
 - Attendance, Customers, Schedule, Home Service and Staff remain persistently mounted during ordinary navigation but have not yet been migrated to that full lifecycle; when invalidated, they use an activation-aware generation remount to force authoritative revalidation.
 - React Activity is intentionally deferred until module read effects are safe to pause/recreate.
 - SQLite remains a non-authoritative foundation only; business snapshot integration is deferred.
-- The 898.91 kB production JS chunk warning remains for a future measured code-splitting optimization slice.
+- The 899.40 kB production JS chunk warning remains for a future measured code-splitting optimization slice.
 - No production behavior claim is derived solely from repository source.
 
 ## Rollback
