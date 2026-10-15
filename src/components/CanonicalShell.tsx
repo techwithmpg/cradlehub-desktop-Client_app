@@ -1,4 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   Building2,
   LogOut,
@@ -23,14 +29,12 @@ import {
   sendDesktopTestNotification,
   type DesktopNotificationResult,
 } from '../lib/desktop-notifications';
-import { TodayView } from './today/TodayView';
-import { BookingsView } from './bookings/BookingsView';
-import { CustomersView } from './customers/CustomersView';
-import { StaffView } from './staff/StaffView';
-import { ScheduleView } from './schedule/ScheduleView';
-import { AttendanceView } from './attendance/AttendanceView';
-import { HomeServiceView } from './home-service/HomeServiceView';
-import { ModuleWorkspaceHost, ModuleWorkspaceMount } from './workspace';
+import {
+  ModuleWorkspaceHost,
+  ModuleWorkspaceMount,
+  RetainedModuleWorkspace,
+  WorkspaceLifecycleProvider,
+} from './workspace';
 import type { AuthContext, NavModuleId } from '../types/auth';
 import { formatRoleLabel } from '../lib/roles';
 import { AUTHORIZED_NAV_ITEMS, type NavItemConfig } from '../lib/navigation';
@@ -60,6 +64,44 @@ export function CanonicalShell({
   signOutError,
 }: CanonicalShellProps) {
   const [activeModule, setActiveModule] = useState<NavModuleId>('today');
+  const [visitedModules, setVisitedModules] = useState<
+    ReadonlySet<NavModuleId>
+  >(() => new Set<NavModuleId>(['today']));
+
+  const activeModuleRef = useRef<NavModuleId>('today');
+  const workspaceContentRef = useRef<HTMLElement>(null);
+  const moduleScrollPositions = useRef<Partial<Record<NavModuleId, number>>>(
+    {},
+  );
+
+  const navigateToModule = useCallback((nextModule: NavModuleId) => {
+    const currentModule = activeModuleRef.current;
+    if (currentModule === nextModule) return;
+
+    if (workspaceContentRef.current) {
+      moduleScrollPositions.current[currentModule] =
+        workspaceContentRef.current.scrollTop;
+    }
+
+    setVisitedModules((current) => {
+      if (current.has(nextModule)) return current;
+
+      const next = new Set(current);
+      next.add(nextModule);
+      return next;
+    });
+
+    activeModuleRef.current = nextModule;
+    setActiveModule(nextModule);
+  }, []);
+
+  useLayoutEffect(() => {
+    const workspace = workspaceContentRef.current;
+    if (!workspace) return;
+
+    workspace.scrollTop = moduleScrollPositions.current[activeModule] ?? 0;
+  }, [activeModule]);
+
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
 
@@ -89,8 +131,6 @@ export function CanonicalShell({
   const currentNavConfig =
     AUTHORIZED_NAV_ITEMS.find((item) => item.id === activeModule) ||
     AUTHORIZED_NAV_ITEMS[0];
-
-  const ModuleIcon = ICON_MAP[activeModule] || Info;
 
   const userInitials =
     authContext.fullName
@@ -162,7 +202,7 @@ export function CanonicalShell({
                   <button
                     type="button"
                     className={`nav-button ${isActive ? 'nav-button-active' : ''}`}
-                    onClick={() => setActiveModule(item.id)}
+                    onClick={() => navigateToModule(item.id)}
                     aria-current={isActive ? 'page' : undefined}
                     data-testid={`nav-item-${item.id}`}
                   >
@@ -434,6 +474,7 @@ export function CanonicalShell({
 
         {/* Operational Workspace Canvas */}
         <main
+          ref={workspaceContentRef}
           id="main-content"
           className={`workspace-content ${activeModule === 'today' ? 'today-workspace-content' : ''}`.trim()}
           tabIndex={-1}
@@ -463,52 +504,14 @@ export function CanonicalShell({
                 {currentNavConfig.label}
               </span>
 
-              {activeModule === 'today' ? (
-                <TodayView
+              <WorkspaceLifecycleProvider>
+                <RetainedModuleWorkspace
                   authContext={authContext}
-                  onNavigate={setActiveModule}
+                  activeModule={activeModule}
+                  visitedModules={visitedModules}
+                  onNavigate={navigateToModule}
                 />
-              ) : activeModule === 'bookings' ? (
-                <BookingsView authContext={authContext} />
-              ) : activeModule === 'attendance' ? (
-                <AttendanceView authContext={authContext} />
-              ) : activeModule === 'customers' ? (
-                <CustomersView authContext={authContext} />
-              ) : activeModule === 'schedule' ? (
-                <ScheduleView authContext={authContext} />
-              ) : activeModule === 'home-service' ? (
-                <HomeServiceView authContext={authContext} />
-              ) : activeModule === 'staff' ? (
-                <StaffView authContext={authContext} />
-              ) : (
-                <>
-                  {/* Module Workspace Header */}
-                  <div className="workspace-page-header">
-                    <h1 className="workspace-page-title">
-                      {currentNavConfig.label}
-                    </h1>
-                  </div>
-
-                  {/* Clean, quiet empty state placeholder */}
-                  <div
-                    className="workspace-placeholder"
-                    data-testid="module-unavailable-panel"
-                  >
-                    <div
-                      className="placeholder-icon-wrapper"
-                      aria-hidden="true"
-                    >
-                      <ModuleIcon size={24} className="placeholder-icon" />
-                    </div>
-                    <h2 className="placeholder-title">
-                      {currentNavConfig.label}
-                    </h2>
-                    <p className="placeholder-desc">
-                      This module is not yet available in the desktop client.
-                    </p>
-                  </div>
-                </>
-              )}
+              </WorkspaceLifecycleProvider>
             </ModuleWorkspaceMount>
           </ModuleWorkspaceHost>
         </main>

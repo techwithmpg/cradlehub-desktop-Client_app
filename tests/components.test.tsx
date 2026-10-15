@@ -395,8 +395,9 @@ describe('Stage 01 UI Components', () => {
       expect(handleSignOut).toHaveBeenCalled();
     });
 
-    it('mounts active modules into a single neutral ModuleWorkspaceHost and ModuleWorkspaceMount without duplicate title hooks or hidden inactive modules', async () => {
+    it('lazily mounts modules and preserves Bookings state and scroll across navigation', async () => {
       const user = userEvent.setup();
+
       render(
         <CanonicalShell
           authContext={mockAuthContext}
@@ -406,58 +407,68 @@ describe('Stage 01 UI Components', () => {
         />,
       );
 
-      // Verify exactly one ModuleWorkspaceHost, one ModuleWorkspaceMount, and one active-module-title hook exist
+      // The structural shell remains singular.
       expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
       expect(screen.getAllByTestId('module-workspace-mount')).toHaveLength(1);
       expect(screen.getAllByTestId('active-module-title')).toHaveLength(1);
 
-      // Permanent shell chrome is present
-      expect(screen.getByTestId('canonical-shell')).toBeDefined();
-      expect(screen.getByTestId('top-branch-indicator')).toBeDefined();
-      expect(screen.getByTestId('status-chip')).toBeDefined();
+      // Startup stays lean: Today is mounted, untouched modules are not.
+      expect(screen.getByTestId('retained-module-today').hidden).toBe(false);
+      expect(screen.queryByTestId('retained-module-bookings')).toBeNull();
+      expect(screen.queryByTestId('retained-module-customers')).toBeNull();
 
-      // Initial: Today placeholder
-      expect(screen.getByTestId('active-module-title').textContent).toBe(
-        'Today',
-      );
-      expect(screen.queryByTestId('bookings-view-container')).toBeNull();
-      expect(screen.queryByTestId('customers-view-container')).toBeNull();
-      expect(screen.queryByTestId('staff-view-container')).toBeNull();
-
-      // Navigate to Bookings
+      // First Bookings visit lazily mounts the workspace.
       await user.click(screen.getByTestId('nav-item-bookings'));
-      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
-      expect(screen.getAllByTestId('module-workspace-mount')).toHaveLength(1);
-      expect(screen.getAllByTestId('active-module-title')).toHaveLength(1);
-      expect(screen.getByTestId('active-module-title').textContent).toBe(
-        'Bookings',
-      );
-      // Inactive modules are not hidden-mounted
-      expect(screen.queryByTestId('customers-view-container')).toBeNull();
-      expect(screen.queryByTestId('staff-view-container')).toBeNull();
-      expect(screen.queryByTestId('module-unavailable-panel')).toBeNull();
 
-      // Navigate to Customers
+      const bookingsFrame = screen.getByTestId('retained-module-bookings');
+      expect(bookingsFrame.hidden).toBe(false);
+      expect(screen.getByTestId('retained-module-today').hidden).toBe(true);
+
+      const bookingsSearch = await screen.findByLabelText('Search Bookings');
+      expect(bookingsSearch).toBeDefined();
+
+      // Establish real module-local UI state.
+      await user.type(bookingsSearch, 'Maria');
+
+      expect((bookingsSearch as HTMLInputElement).value).toBe('Maria');
+
+      const workspace = document.getElementById('main-content');
+
+      if (!workspace) {
+        throw new Error('Workspace scroll container was not rendered.');
+      }
+
+      workspace.scrollTop = 420;
+
+      // Move away. Bookings must remain mounted but become hidden.
       await user.click(screen.getByTestId('nav-item-customers'));
-      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
-      expect(screen.getAllByTestId('module-workspace-mount')).toHaveLength(1);
-      expect(screen.getAllByTestId('active-module-title')).toHaveLength(1);
-      expect(screen.getByTestId('active-module-title').textContent).toBe(
-        'Customers',
-      );
-      expect(screen.queryByTestId('bookings-view-container')).toBeNull();
-      expect(screen.queryByTestId('staff-view-container')).toBeNull();
 
-      // Navigate to Staff
-      await user.click(screen.getByTestId('nav-item-staff'));
-      expect(screen.getAllByTestId('module-workspace-host')).toHaveLength(1);
-      expect(screen.getAllByTestId('module-workspace-mount')).toHaveLength(1);
-      expect(screen.getAllByTestId('active-module-title')).toHaveLength(1);
-      expect(screen.getByTestId('active-module-title').textContent).toBe(
-        'Staff',
+      expect(bookingsFrame.hidden).toBe(true);
+      expect(screen.getByTestId('retained-module-customers').hidden).toBe(
+        false,
       );
-      expect(screen.queryByTestId('bookings-view-container')).toBeNull();
-      expect(screen.queryByTestId('customers-view-container')).toBeNull();
+
+      // The exact Bookings input instance still exists with its state intact.
+      const retainedBookingsSearch = screen.getByLabelText('Search Bookings');
+
+      expect(retainedBookingsSearch).toBe(bookingsSearch);
+      expect((retainedBookingsSearch as HTMLInputElement).value).toBe('Maria');
+
+      workspace.scrollTop = 75;
+
+      // Returning to Bookings reactivates the retained instance.
+      await user.click(screen.getByTestId('nav-item-bookings'));
+
+      expect(bookingsFrame.hidden).toBe(false);
+      expect(screen.getByTestId('retained-module-customers').hidden).toBe(true);
+
+      const restoredBookingsSearch = screen.getByLabelText('Search Bookings');
+
+      expect(restoredBookingsSearch).toBe(bookingsSearch);
+      expect((restoredBookingsSearch as HTMLInputElement).value).toBe('Maria');
+
+      // Each module owns its own scroll position.
+      expect(workspace.scrollTop).toBe(420);
     });
   });
 

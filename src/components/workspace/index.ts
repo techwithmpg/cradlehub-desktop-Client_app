@@ -12,3 +12,8 @@ export * from './ModulePagination';
 export * from './ModuleInspectorFrame';
 export * from './ModuleLoadingState';
 export * from './ModuleStateMessage';
+
+export * from './RetainedModuleWorkspace';
+
+export * from './WorkspaceLifecycle';
+export * from './useWorkspaceLifecycle';

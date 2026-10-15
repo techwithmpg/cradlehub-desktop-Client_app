@@ -10,6 +10,8 @@ import {
   fetchBranchBookings,
   filterBookings,
 } from '../../lib/bookings-service';
+import { runWorkspaceRead } from '../../lib/workspace-read-coordinator';
+import { BOOKING_WRITE_INVALIDATIONS } from '../../lib/workspace-invalidation';
 import { BookingsHeader } from './BookingsHeader';
 import { BookingsKpiSummaryCard } from './BookingsKpiSummary';
 import { BookingsListCard } from './BookingsListCard';
@@ -23,6 +25,8 @@ import {
   ModuleMainGrid,
   ModulePrimaryColumn,
   ModuleInspectorColumn,
+  useWorkspaceInvalidation,
+  useWorkspaceModuleLifecycle,
 } from '../workspace';
 
 interface BookingsViewProps {
@@ -30,9 +34,20 @@ interface BookingsViewProps {
 }
 
 export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
+  const {
+    isActive,
+    isDirty,
+    hasValidatedData,
+    isRefreshing,
+    beginRefresh,
+    completeRefresh,
+    failRefresh,
+  } = useWorkspaceModuleLifecycle();
+
+  const invalidateModules = useWorkspaceInvalidation();
+
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isNewBookingOpen, setIsNewBookingOpen] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,69 +68,130 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
     warning?: string;
   } | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadBookings = useCallback(
+    (generation: number) =>
+      runWorkspaceRead(
+        {
+          userId: authContext.userId,
+          role: authContext.canonicalRole,
+          branchId: authContext.branchId,
+          dataset: 'bookings.branch-list',
+          generation,
+        },
+        () => fetchBranchBookings(authContext.branchId),
+      ),
+    [authContext.userId, authContext.canonicalRole, authContext.branchId],
+  );
 
-    void (async () => {
-      try {
-        const data = await fetchBranchBookings(authContext.branchId);
-        if (!isMounted) return;
-        setBookings(data);
-        setSelectedBooking((prev) => {
-          if (prev) {
-            const found = data.find((b) => b.id === prev.id);
-            return found || (data.length > 0 ? data[0] : null);
-          }
-          return data.length > 0 ? data[0] : null;
-        });
-      } catch (err: unknown) {
-        if (!isMounted) return;
-        const message =
-          err instanceof Error ? err.message : 'Unable to load branch bookings';
-        setError(message);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+  const applyBookingsData = useCallback((data: Booking[]) => {
+    setBookings(data);
+
+    setSelectedBooking((previous) => {
+      if (previous) {
+        const found = data.find((booking) => booking.id === previous.id);
+        return found || (data.length > 0 ? data[0] : null);
       }
-    })();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [authContext.branchId]);
+      return data.length > 0 ? data[0] : null;
+    });
+  }, []);
 
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
+  const reconcileBookings = useCallback(async (): Promise<boolean> => {
+    const token = beginRefresh();
     setError(null);
+
     try {
-      const data = await fetchBranchBookings(authContext.branchId);
-      setBookings(data);
-      setSelectedBooking((prev) => {
-        if (prev) {
-          const found = data.find((b) => b.id === prev.id);
-          return found || (data.length > 0 ? data[0] : null);
-        }
-        return data.length > 0 ? data[0] : null;
-      });
+      const data = await loadBookings(token.generation);
+
+      // Reject obsolete or pre-invalidation responses.
+      if (!completeRefresh(token)) {
+        return false;
+      }
+
+      applyBookingsData(data);
+      return true;
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Unable to load branch bookings';
-      setError(message);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [authContext.branchId]);
 
+      // An obsolete failed request must not overwrite newer state.
+      if (failRefresh(token, message)) {
+        setError(message);
+      }
+
+      return false;
+    }
+  }, [
+    applyBookingsData,
+    beginRefresh,
+    completeRefresh,
+    failRefresh,
+    loadBookings,
+  ]);
+
+  // First authoritative validation. StrictMode may invoke the effect twice,
+  // but workspace single-flight collapses the duplicate hosted read.
+  useEffect(() => {
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+
+      void reconcileBookings().finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reconcileBookings]);
+
+  // A retained hidden workspace does not refresh just because it became dirty.
+  // Reconcile only when the operator activates it again.
+  useEffect(() => {
+    if (!isActive || !hasValidatedData || !isDirty || isRefreshing) {
+      return;
+    }
+
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void reconcileBookings();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasValidatedData, isActive, isDirty, isRefreshing, reconcileBookings]);
+
+  const handleRefresh = useCallback(async () => {
+    await reconcileBookings();
+  }, [reconcileBookings]);
+
+  const invalidateBookingDependencies = useCallback(() => {
+    invalidateModules(BOOKING_WRITE_INVALIDATIONS);
+  }, [invalidateModules]);
+
+  const handleBookingUpdated = useCallback(() => {
+    invalidateBookingDependencies();
+    void reconcileBookings();
+  }, [invalidateBookingDependencies, reconcileBookings]);
   const handleBookingCreated = useCallback(
     ({ warning }: { bookingId: string; warning?: string }) => {
       setCreationNotice({
         message: 'Booking created successfully.',
         warning,
       });
-      void handleRefresh();
+
+      invalidateBookingDependencies();
+      void reconcileBookings();
     },
-    [handleRefresh],
+    [invalidateBookingDependencies, reconcileBookings],
   );
 
   // Derived KPIs
@@ -253,7 +329,7 @@ export const BookingsView: React.FC<BookingsViewProps> = ({ authContext }) => {
               <BookingInspectorCard
                 booking={selectedBooking}
                 onClose={() => setSelectedBooking(null)}
-                onBookingUpdated={handleRefresh}
+                onBookingUpdated={handleBookingUpdated}
                 onBookingRescheduled={() =>
                   setCreationNotice({
                     message: 'Booking changes saved successfully.',

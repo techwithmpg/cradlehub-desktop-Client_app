@@ -12,6 +12,10 @@ import { BookingsView } from '../src/components/bookings/BookingsView';
 import { NewBookingModal } from '../src/components/bookings/NewBookingModal';
 import { CancelBookingModal } from '../src/components/bookings/CancelBookingModal';
 import { RescheduleBookingModal } from '../src/components/bookings/RescheduleBookingModal';
+import {
+  WorkspaceLifecycleProvider,
+  WorkspaceModulePresence,
+} from '../src/components/workspace';
 import * as bookingsService from '../src/lib/bookings-service';
 import * as supabaseLib from '../src/lib/supabase';
 
@@ -76,6 +80,16 @@ const mockAuthContext: AuthContext = {
   branchName: 'Makati Branch',
   isCrmEligible: true,
 };
+
+function renderBookingsView() {
+  return render(
+    <WorkspaceLifecycleProvider>
+      <WorkspaceModulePresence moduleId="bookings" isActive>
+        <BookingsView authContext={mockAuthContext} />
+      </WorkspaceModulePresence>
+    </WorkspaceLifecycleProvider>,
+  );
+}
 
 describe('Stage 02 Bookings UI Components', () => {
   describe('BookingsHeader', () => {
@@ -386,7 +400,7 @@ describe('Stage 02 Bookings UI Components', () => {
         mockBookings,
       );
 
-      render(<BookingsView authContext={mockAuthContext} />);
+      renderBookingsView();
 
       // Initial loading skeleton should be shown
       expect(screen.getByTestId('bookings-skeleton')).toBeDefined();
@@ -410,7 +424,7 @@ describe('Stage 02 Bookings UI Components', () => {
         .mockRejectedValueOnce(new Error('Network connectivity lost'))
         .mockResolvedValueOnce([createMockBooking()]);
 
-      render(<BookingsView authContext={mockAuthContext} />);
+      renderBookingsView();
 
       await waitFor(() => {
         expect(screen.getByTestId('bookings-error-banner')).toBeDefined();
@@ -450,7 +464,7 @@ describe('Stage 02 Bookings UI Components', () => {
         resources: [{ id: 'r-1', name: 'Room 1', type: 'room', capacity: 1 }],
       });
 
-      render(<BookingsView authContext={mockAuthContext} />);
+      renderBookingsView();
 
       await waitFor(() => {
         expect(screen.queryByTestId('bookings-skeleton')).toBeNull();

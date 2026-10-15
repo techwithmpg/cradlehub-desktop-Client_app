@@ -6,10 +6,18 @@ import type {
   DesktopTodayMutationResult,
   DesktopTodayQueueItem,
 } from '../src/types/today';
-import { TodayView } from '../src/components/today/TodayView';
+import {
+  TodayView,
+  type TodayViewProps,
+} from '../src/components/today/TodayView';
+import {
+  WorkspaceLifecycleProvider,
+  WorkspaceModulePresence,
+} from '../src/components/workspace';
 import { calculateAdaptivePageSize } from '../src/components/today/adaptive-page-size';
 import { fetchToday, mutateToday } from '../src/lib/today-service';
 import { createBranchBooking } from '../src/lib/bookings-service';
+import { clearInFlightOperationsForTests } from '../src/lib/single-flight';
 import { NewBookingModal } from '../src/components/bookings/NewBookingModal';
 
 vi.mock('../src/lib/today-service', () => ({
@@ -169,14 +177,25 @@ function createTodayData(
   };
 }
 
+function renderTodayView(onNavigate?: TodayViewProps['onNavigate']) {
+  return render(
+    <WorkspaceLifecycleProvider>
+      <WorkspaceModulePresence moduleId="today" isActive>
+        <TodayView authContext={authContext} onNavigate={onNavigate} />
+      </WorkspaceModulePresence>
+    </WorkspaceLifecycleProvider>,
+  );
+}
+
 describe('TodayView Component Suite', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearInFlightOperationsForTests();
   });
 
   it('renders loading skeleton initially while fetch is pending', () => {
     mockedFetchToday.mockReturnValue(new Promise(() => {})); // Never resolves
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     expect(screen.getByTestId('today-loading-skeleton')).toBeDefined();
   });
@@ -185,7 +204,7 @@ describe('TodayView Component Suite', () => {
     const mockData = createTodayData();
     mockedFetchToday.mockResolvedValue(mockData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
@@ -217,7 +236,7 @@ describe('TodayView Component Suite', () => {
       new Error('Network connection failed'),
     );
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.getByTestId('today-error-banner')).toBeDefined();
@@ -258,7 +277,7 @@ describe('TodayView Component Suite', () => {
     });
     mockedFetchToday.mockResolvedValue(emptyData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.getByTestId('today-queue-empty')).toBeDefined();
@@ -277,7 +296,7 @@ describe('TodayView Component Suite', () => {
     });
     mockedFetchToday.mockResolvedValue(degradedData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
@@ -304,7 +323,7 @@ describe('TodayView Component Suite', () => {
     });
     mockedFetchToday.mockResolvedValue(degradedData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
@@ -330,7 +349,7 @@ describe('TodayView Component Suite', () => {
     });
     mockedFetchToday.mockResolvedValue(degradedData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
@@ -354,7 +373,7 @@ describe('TodayView Component Suite', () => {
     });
     mockedFetchToday.mockResolvedValue(emptyNotifsData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.queryByTestId('today-loading-skeleton')).toBeNull();
@@ -378,7 +397,7 @@ describe('TodayView Component Suite', () => {
     const mockData = createTodayData({ queue: [paymentStageBooking] });
     mockedFetchToday.mockResolvedValue(mockData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.getByTestId('today-row-booking-payment-01')).toBeDefined();
@@ -414,7 +433,7 @@ describe('TodayView Component Suite', () => {
     const mockData = createTodayData({ queue: [homeServiceBooking] });
     mockedFetchToday.mockResolvedValue(mockData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.getByTestId('today-row-booking-hs-01')).toBeDefined();
@@ -443,7 +462,7 @@ describe('TodayView Component Suite', () => {
       }),
     );
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(
@@ -489,7 +508,7 @@ describe('TodayView Component Suite', () => {
       new Error('Booking is closed and cannot be updated.'),
     );
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(
@@ -538,7 +557,7 @@ describe('TodayView Component Suite', () => {
     });
     mockedFetchToday.mockResolvedValue(mockData);
 
-    render(<TodayView authContext={authContext} />);
+    renderTodayView();
 
     await waitFor(() => {
       expect(screen.getByTestId('today-row-booking-hs-pending')).toBeDefined();
@@ -579,7 +598,7 @@ describe('TodayView Component Suite', () => {
       });
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(
@@ -600,7 +619,7 @@ describe('TodayView Component Suite', () => {
       });
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(
@@ -621,7 +640,7 @@ describe('TodayView Component Suite', () => {
       });
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(
@@ -642,7 +661,7 @@ describe('TodayView Component Suite', () => {
       });
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(
@@ -664,7 +683,7 @@ describe('TodayView Component Suite', () => {
       });
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(
@@ -681,7 +700,7 @@ describe('TodayView Component Suite', () => {
     it('renders persistent three-card right rail and removes old persistent inspector tabs', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-page-grid')).toBeDefined();
@@ -701,7 +720,7 @@ describe('TodayView Component Suite', () => {
     it('renders Activity card with Recent Scans and Recent Activity tabs, Snapshot badge, and no fake Live badge', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-activity-card')).toBeDefined();
@@ -727,7 +746,7 @@ describe('TodayView Component Suite', () => {
       const onNavigate = vi.fn();
       mockedFetchToday.mockResolvedValue(createTodayData());
 
-      render(<TodayView authContext={authContext} onNavigate={onNavigate} />);
+      renderTodayView(onNavigate);
 
       await waitFor(() => {
         expect(
@@ -743,7 +762,7 @@ describe('TodayView Component Suite', () => {
       const onNavigate = vi.fn();
       mockedFetchToday.mockResolvedValue(createTodayData());
 
-      render(<TodayView authContext={authContext} onNavigate={onNavigate} />);
+      renderTodayView(onNavigate);
 
       await waitFor(() => {
         expect(screen.getByTestId('today-quick-actions-card')).toBeDefined();
@@ -769,7 +788,7 @@ describe('TodayView Component Suite', () => {
     it("Today's Money card shows truthful unavailable / web-only state with NO fake money values", async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-money-card')).toBeDefined();
@@ -798,7 +817,7 @@ describe('TodayView Component Suite', () => {
     it('renders front-desk action strip with New Booking, Walk-in, Book for Later, and Home Service', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-action-strip')).toBeDefined();
@@ -819,7 +838,7 @@ describe('TodayView Component Suite', () => {
   describe('Section 33 — Booking Details Removed', () => {
     it('does not render selected-booking-detail card on initial load', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
@@ -831,7 +850,7 @@ describe('TodayView Component Suite', () => {
 
     it('clicking a queue row does not open an inline details card', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
@@ -843,7 +862,7 @@ describe('TodayView Component Suite', () => {
 
     it('first loaded booking is not automatically selected or expanded', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
@@ -862,7 +881,7 @@ describe('TodayView Component Suite', () => {
         bookingProgressStatus: 'not_started',
       });
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(
@@ -881,7 +900,7 @@ describe('TodayView Component Suite', () => {
   describe('Section 34 — Upper Action Cards Open Canonical Booking Modal', () => {
     it('New Booking card opens canonical NewBookingModal in default mode', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('action-card-new-booking')).toBeDefined();
@@ -899,7 +918,7 @@ describe('TodayView Component Suite', () => {
 
     it('Walk-in card opens modal with Walk-in mode selected', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
@@ -916,7 +935,7 @@ describe('TodayView Component Suite', () => {
 
     it('Book for Later card opens modal with Future mode selected', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('action-card-book-later')).toBeDefined();
@@ -933,7 +952,7 @@ describe('TodayView Component Suite', () => {
 
     it('Home Service card opens modal showing truthful disabled Home Service state and forbids submit', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('kpi-home-service')).toBeDefined();
@@ -965,7 +984,7 @@ describe('TodayView Component Suite', () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
       const onNavigate = vi.fn();
 
-      render(<TodayView authContext={authContext} onNavigate={onNavigate} />);
+      renderTodayView(onNavigate);
 
       await waitFor(() => {
         expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
@@ -987,7 +1006,7 @@ describe('TodayView Component Suite', () => {
 
     it('Today-opened booking modal contains no payment/financial UI and suppresses prices, totals, and payment status', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
@@ -1024,7 +1043,7 @@ describe('TodayView Component Suite', () => {
         bookingId: 'b-new-123',
       });
 
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('action-card-walk-in')).toBeDefined();
@@ -1103,7 +1122,7 @@ describe('TodayView Component Suite', () => {
         }),
       );
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: items }));
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-row-booking-1')).toBeDefined();
@@ -1142,7 +1161,7 @@ describe('TodayView Component Suite', () => {
         createQueueItem({ id: 'b-i-1', stage: 'in_service' }),
       ];
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: items }));
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-row-b-w-1')).toBeDefined();
@@ -1167,7 +1186,7 @@ describe('TodayView Component Suite', () => {
         }),
       );
       mockedFetchToday.mockResolvedValue(createTodayData({ queue: items }));
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('today-row-booking-1')).toBeDefined();
@@ -1202,7 +1221,7 @@ describe('TodayView Component Suite', () => {
       });
       mockedFetchToday.mockReturnValue(deferredPromise);
 
-      const { unmount } = render(<TodayView authContext={authContext} />);
+      const { unmount } = renderTodayView();
 
       // Step 1: Loading state is active; table container is not in DOM
       expect(screen.getByTestId('today-loading-skeleton')).toBeDefined();
@@ -1256,7 +1275,7 @@ describe('TodayView Component Suite', () => {
       });
 
       mockedFetchToday.mockResolvedValue(data);
-      render(<TodayView authContext={authContext} />);
+      renderTodayView();
 
       await waitFor(() => {
         expect(screen.getByTestId('scan-status-scan-no-outcome')).toBeDefined();

@@ -27,12 +27,19 @@ import type {
 } from '../../types/today';
 import type { QuickBookingMode } from '../../types/bookings';
 import { fetchToday, mutateToday } from '../../lib/today-service';
+import { runWorkspaceRead } from '../../lib/workspace-read-coordinator';
+import {
+  BOOKING_WRITE_INVALIDATIONS,
+  TODAY_OPERATIONAL_WRITE_INVALIDATIONS,
+} from '../../lib/workspace-invalidation';
 import {
   ModuleErrorBanner,
   ModuleLoadingState,
   ModulePagination,
   ModuleSuccessBanner,
   ModuleWorkspace,
+  useWorkspaceInvalidation,
+  useWorkspaceModuleLifecycle,
 } from '../workspace';
 import { NewBookingModal } from '../bookings/NewBookingModal';
 import { calculateAdaptivePageSize } from './adaptive-page-size';
@@ -161,9 +168,20 @@ export const TodayView: React.FC<TodayViewProps> = ({
   authContext,
   onNavigate,
 }) => {
+  const {
+    isActive,
+    isDirty,
+    hasValidatedData,
+    isRefreshing,
+    beginRefresh,
+    completeRefresh,
+    failRefresh,
+  } = useWorkspaceModuleLifecycle();
+
+  const invalidateModules = useWorkspaceInvalidation();
+
   const [data, setData] = useState<DesktopTodayData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>('');
   const [stageFilter, setStageFilter] = useState<StageScopeFilter>('all');
@@ -219,53 +237,86 @@ export const TodayView: React.FC<TodayViewProps> = ({
     QuickBookingMode | undefined
   >(undefined);
 
-  const loadToday = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setIsLoading(true);
+  const loadTodaySnapshot = useCallback(
+    (generation: number) =>
+      runWorkspaceRead(
+        {
+          userId: authContext.userId,
+          role: authContext.canonicalRole,
+          branchId: authContext.branchId,
+          dataset: 'today.snapshot',
+          generation,
+        },
+        () => fetchToday(),
+      ),
+    [authContext.userId, authContext.canonicalRole, authContext.branchId],
+  );
+
+  const reconcileToday = useCallback(async (): Promise<boolean> => {
+    const token = beginRefresh();
     setError(null);
 
     try {
-      const result = await fetchToday();
+      const result = await loadTodaySnapshot(token.generation);
+
+      // Ignore obsolete responses or snapshots invalidated while in flight.
+      if (!completeRefresh(token)) {
+        return false;
+      }
+
       setData(result);
+      return true;
     } catch (err: unknown) {
-      const msg =
+      const message =
         err instanceof Error
           ? err.message
           : 'Unable to load authoritative Today workspace.';
-      setError(msg);
-      setData(null);
+
+      // Preserve existing validated Today data on reconciliation failure.
+      if (failRefresh(token, message)) {
+        setError(message);
+      }
+
+      return false;
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
-  }, []);
+  }, [beginRefresh, completeRefresh, failRefresh, loadTodaySnapshot]);
 
+  // Initial authoritative validation. StrictMode duplicate callers share the
+  // same in-flight hosted request through the workspace read coordinator.
   useEffect(() => {
-    let isMounted = true;
-    void (async () => {
-      try {
-        const result = await fetchToday();
-        if (!isMounted) return;
-        setData(result);
-        setError(null);
-      } catch (err: unknown) {
-        if (!isMounted) return;
-        const msg =
-          err instanceof Error
-            ? err.message
-            : 'Unable to load authoritative Today workspace.';
-        setError(msg);
-        setData(null);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    })();
-    return () => {
-      isMounted = false;
-    };
-  }, [authContext.branchId]);
+    let cancelled = false;
 
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void reconcileToday();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reconcileToday]);
+
+  // Dirty hidden Today stays quiet. Reconcile when it becomes active again.
+  useEffect(() => {
+    if (!isActive || !hasValidatedData || !isDirty || isRefreshing) {
+      return;
+    }
+
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void reconcileToday();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasValidatedData, isActive, isDirty, isRefreshing, reconcileToday]);
   const handleStageFilterChange = (filter: StageScopeFilter) => {
     setStageFilter(filter);
     setCurrentPage(1);
@@ -277,10 +328,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
     setMutationNotice(null);
-    void loadToday(false);
-  }, [loadToday]);
+    void reconcileToday();
+  }, [reconcileToday]);
+
+  const handleRetry = useCallback(() => {
+    if (!data) {
+      setIsLoading(true);
+    }
+
+    void reconcileToday();
+  }, [data, reconcileToday]);
 
   const handleOpenBookingModal = (mode?: QuickBookingMode) => {
     setBookingModalInitialMode(mode);
@@ -293,7 +351,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
       type: 'success',
       message: 'Booking created successfully.',
     });
-    void loadToday(false);
+
+    invalidateModules(BOOKING_WRITE_INVALIDATIONS);
+    void reconcileToday();
   };
 
   const handleRunMutation = async (
@@ -322,8 +382,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 : 'Service completed.',
       });
 
-      // Refetch snapshot after successful mutation
-      await loadToday(false);
+      // Mark only affected retained workspaces dirty after authoritative success.
+      invalidateModules(TODAY_OPERATIONAL_WRITE_INVALIDATIONS);
+
+      // Today is active, so reconcile it immediately. Hidden affected modules
+      // retain their current data and reconcile when next activated.
+      await reconcileToday();
     } catch (err: unknown) {
       const msg =
         err instanceof Error
@@ -473,7 +537,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       {error && (
         <ModuleErrorBanner
           message={error}
-          onRetry={() => void loadToday(true)}
+          onRetry={handleRetry}
           testId="today-error-banner"
         />
       )}

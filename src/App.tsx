@@ -92,6 +92,7 @@ export function App() {
   if (status === 'authenticated' && authContext) {
     return (
       <CanonicalShell
+        key={`${authContext.userId}:${authContext.canonicalRole}:${authContext.branchId}`}
         authContext={authContext}
         onSignOut={handleSignOut}
         isSigningOut={isSigningOut}
