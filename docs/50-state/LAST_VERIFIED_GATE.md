@@ -1,38 +1,8 @@
 # Last Verified Gate
 
-Stage 00 = **ACCEPTED / MERGED — CLOSED** on `main` at `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
-Stage 01 = **ACCEPTED / MERGED — CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
-Stage 02 = **ACCEPTED / MERGED — CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
-Stage 03 = **ACCEPTED / MERGED — CLOSED** on `main` at `a17cd03e28d0fdc4b9d7757e502918dbc32af22a`.
-Stage 04 = **ACCEPTED / MERGED — CLOSED** on `main` at `9bd83ab8f05ace193d026de896b70f3a4eff363d`.
-Stage 05 = **ACCEPTED / MERGED — CLOSED** on `main` at `65c7eb371652c3f272b75bda55c437481867abc1` (branch tip / fast-forward merge) with closeout baseline at `19284eeb83db32c2e02d72f38010c1ac91a08b6f`.
+**REPOSITORY-RECORDED PRODUCTION EVIDENCE.** Historical gates must not be carried forward as Stage 16 test or runtime PASS claims.
 
-Schedule (Stage 06) = **NOT STARTED / NOT INITIATED**.
-
-## Verification Record
-
-- **Pre-Stage Base (PRE_STAGE_MAIN_SHA)**: `9bd83ab8f05ace193d026de896b70f3a4eff363d` on `main`.
-- **Accepted Stage Branch Tip (ACCEPTED_STAGE_BRANCH_TIP)**: `65c7eb371652c3f272b75bda55c437481867abc1` (`stage/05-canonical-module-workspace`).
-- **Main Immediately After Fast-Forward (MAIN_AFTER_FAST_FORWARD)**: `65c7eb371652c3f272b75bda55c437481867abc1`.
-- **Stage 05 Closeout Main SHA (STAGE_05_CLOSEOUT_MAIN_SHA)**: `19284eeb83db32c2e02d72f38010c1ac91a08b6f`.
-- **Implementation Code SHA (IMPLEMENTATION_HEAD_SHA)**: `409c712f1e12ec855b787bfa2d4c94c1ed2dfc85`.
-- **Canonical Hosted Reference (HOSTED_REFERENCE)**: `aac89fb49d5c5fe87fc6ee4c072dbcb425237f1e`.
-- **Owner Confirmation**: Owner explicitly accepted Stage 05 after independent review.
-- **Runtime Assessment**: AGENT VIEWPORT QA: NOT PERFORMED — exact runtime inspection unavailable in the agent environment. Visual impact: NO INTENTIONAL VISUAL CHANGE.
-- **Checks Record on Merged `main`**:
-  - `pnpm format:check` — PASSED (Prettier clean across all files)
-  - `pnpm lint` — PASSED (0 errors, 0 warnings across all files)
-  - `pnpm typecheck` — PASSED (`tsc --noEmit` clean)
-  - `pnpm test` — PASSED (14 test files, 290/290 vitest tests passed)
-  - `pnpm build` — PASSED (Vite production build clean)
-  - `git diff --check` — PASSED (0 whitespace / conflict errors)
-- **Scope Integrity**:
-  - Zero schema or migration modifications.
-  - No changes to hosted repo.
-  - No new renderer privileges or service credentials.
-  - Bookings and Staff migrated to canonical workspace with no intentional visual change (repository-level structural and automated regression checks passed; runtime visual equivalence was not independently agent-verified).
-  - Customers compatibility preserved.
-  - No speculative caching, hidden DOM persistence, or polling systems.
-- **Stage Status**: Stage 05 Canonical Module Workspace Extraction accepted, merged, and closed.
-
-Consult `docs/50-state/evidence/stage-05-canonical-module-workspace.md` for full discovery and implementation evidence.
+- The latest merged stage shown in desktop `main` history is Stage 15 (`merge(stage-15): local persistence foundation`, `413d20fd35d589622899c08243f7400ce13d6421`). Its exact recorded checks, qualifications, and unobserved runtime items are in [Stage 15 evidence](../30-delivery/STAGE_15_EVIDENCE.md).
+- Subsequent accepted-main correction history ends at `5399ad6dbb1d447fdf3f47f47ef641ede3cfe1f2`, the Stage 16 base. See [retained-workspace correction evidence](../evidence/2026-10-15-persistent-workspace-performance-foundation.md).
+- Stage 16 is discovery-only, ACTIVE / UNACCEPTED. Its own check results belong in [Stage 16 evidence](../30-delivery/STAGE_16_DISCOVERY_EVIDENCE.md). No Stage 16 implementation or runtime gate has passed.
+- No independently observed deployed booking workflow, native modal viewport, Home Service distance quote, or production database behavior is claimed by these repository records.
