@@ -1,5 +1,14 @@
 # Current State
 
+## Current development state (2026-10-23)
+
+- Desktop `main` contains the published UI modernization at `5c7173ecc479d2b9e655d7ea83340948e404437e`. Independent review returned **CHANGES REQUIRED**; owner visual acceptance is pending.
+- The active authorized task is the focused review correction on `fix/ui-modernization-review`, based on that published commit. The correction remains unaccepted and local until separately authorized for publication.
+- Stage 16 discovery on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` was independently reviewed and owner confirmed. That branch was not merged into desktop `main`.
+- No next implementation stage has been authorized. The hosted CRM remains authoritative for business data and actions.
+
+## Historical accepted-stage record
+
 Stage 00 is **ACCEPTED / MERGED / CLOSED** at `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
 Stage 01 is **ACCEPTED / MERGED / CLOSED** at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 Stage 02 is **ACCEPTED / MERGED / CLOSED** at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
@@ -43,6 +52,6 @@ Stage 05 (Canonical Module Workspace) is **ACCEPTED / MERGED / CLOSED** on `main
   - Vite production build clean.
   - `pnpm format:check` clean.
   - `git diff --check` clean.
-- **Next Authorized Architectural Work**: Schedule / Stage 06 has NOT started and requires separate explicit owner authorization.
+- **Stage 05 closeout next-step note**: At that closeout, Schedule / Stage 06 had not started and required separate owner authorization. Current development status is recorded above.
 
 See [Stage 05 evidence](evidence/stage-05-canonical-module-workspace.md) for full implementation details.

@@ -1,5 +1,13 @@
 # Handoff
 
+## Current review handoff (2026-10-23)
+
+Desktop `main` contains the published UI modernization commit `5c7173ecc479d2b9e655d7ea83340948e404437e`. Independent review returned **CHANGES REQUIRED** and owner visual acceptance is pending. The active correction is on `fix/ui-modernization-review`, based on that commit, and is limited to active documentation, Today/Intake selection, regression tests, and the review evidence. Stop after the local correction commit for independent re-review; no next stage is authorized.
+
+Stage 16 discovery was independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d`. It was not merged into desktop `main`.
+
+## Historical Stage 05 handoff
+
 Stage 00: **ACCEPTED / MERGED / CLOSED** on `main` at `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
 Stage 01: **ACCEPTED / MERGED / CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 Stage 02: **ACCEPTED / MERGED / CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
@@ -42,8 +50,8 @@ Summary of Stage 05 Deliverables:
    - All 14 test suites and 290 tests passing cleanly on merged `main`.
    - ESLint, TypeScript, Vite build, Prettier format check, and git diff check passing with 0 errors.
    - Runtime visual assessment: AGENT VIEWPORT QA: NOT PERFORMED; visual impact: NO INTENTIONAL VISUAL CHANGE.
-4. **Next Steps**:
-   - Awaiting explicit owner authorization for the next stage.
-   - Schedule / Stage 06 has NOT started and is NOT part of Stage 05.
+4. **Stage 05 closeout next-step note**:
+   - The next stage required explicit owner authorization.
+   - Schedule / Stage 06 had not started at that closeout and was not part of Stage 05. Current work is recorded above.
 
 Consult `docs/50-state/evidence/stage-05-canonical-module-workspace.md` for full discovery, implementation, and closeout records.

@@ -274,6 +274,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       }
 
       setData(result);
+      setSelectedBookingId(null);
       return true;
     } catch (err: unknown) {
       const message =
@@ -347,11 +348,13 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const handleStageFilterChange = (filter: StageScopeFilter) => {
     setStageFilter(filter);
     setCurrentPage(1);
+    setSelectedBookingId(null);
   };
 
   const handleSearchChange = (val: string) => {
     setSearch(val);
     setCurrentPage(1);
+    setSelectedBookingId(null);
   };
 
   const handleRefresh = useCallback(() => {
@@ -489,7 +492,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const startRecord = totalItems === 0 ? 0 : startIndex + 1;
   const endRecord = Math.min(startIndex + pageSize, totalItems);
   const selectedBooking =
-    data?.queue.find((booking) => booking.id === selectedBookingId) ?? null;
+    paginatedQueue.find((booking) => booking.id === selectedBookingId) ?? null;
 
   return (
     <ModuleWorkspace
@@ -944,7 +947,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
                                     type="button"
                                     className="today-booking-select"
                                     onClick={() =>
-                                      setSelectedBookingId(booking.id)
+                                      setSelectedBookingId((current) =>
+                                        current === booking.id
+                                          ? null
+                                          : booking.id,
+                                      )
                                     }
                                     aria-pressed={
                                       selectedBookingId === booking.id
@@ -1098,7 +1105,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   pageSize={pageSize}
                   currentPage={validCurrentPage}
                   totalPages={totalPages}
-                  onPageChange={setCurrentPage}
+                  onPageChange={(page) => {
+                    setCurrentPage(page);
+                    setSelectedBookingId(null);
+                  }}
                   showPageSizeSelector={false}
                   className="today-pagination"
                   testId="today-pagination"

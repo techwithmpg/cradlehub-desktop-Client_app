@@ -1,5 +1,11 @@
 # Last Verified Gate
 
+## Current review gate (2026-10-23)
+
+The published UI modernization on desktop `main` at `5c7173ecc479d2b9e655d7ea83340948e404437e` received **CHANGES REQUIRED** in independent review. Owner visual acceptance remains pending. Focused corrections are active on `fix/ui-modernization-review` from that published base; this is not an accepted gate. Stage 16 discovery was independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` but was not merged into desktop `main`. No next stage is authorized.
+
+## Historical Stage 05 verified gate
+
 Stage 00 = **ACCEPTED / MERGED — CLOSED** on `main` at `79ef30b9da7267b6f01a6bf9a462712a2b8cfc13`.
 Stage 01 = **ACCEPTED / MERGED — CLOSED** on `main` at `c9720805975004dbe11367f1ad9999270ad4ae7c`.
 Stage 02 = **ACCEPTED / MERGED — CLOSED** on `main` at `59f69fc7e321c32f040f6f9a79aca47e77547675`.
@@ -7,7 +13,7 @@ Stage 03 = **ACCEPTED / MERGED — CLOSED** on `main` at `a17cd03e28d0fdc4b9d775
 Stage 04 = **ACCEPTED / MERGED — CLOSED** on `main` at `9bd83ab8f05ace193d026de896b70f3a4eff363d`.
 Stage 05 = **ACCEPTED / MERGED — CLOSED** on `main` at `65c7eb371652c3f272b75bda55c437481867abc1` (branch tip / fast-forward merge) with closeout baseline at `19284eeb83db32c2e02d72f38010c1ac91a08b6f`.
 
-Schedule (Stage 06) = **NOT STARTED / NOT INITIATED**.
+At Stage 05 closeout, Schedule (Stage 06) was **NOT STARTED / NOT INITIATED**. Current development status is recorded above.
 
 ## Verification Record
 
