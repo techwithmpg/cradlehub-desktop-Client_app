@@ -2,7 +2,7 @@
 
 ## Current review gate (2026-10-23)
 
-The published UI modernization on desktop `main` at `5c7173ecc479d2b9e655d7ea83340948e404437e` received **CHANGES REQUIRED** in independent review. Owner visual acceptance remains pending. Focused corrections are active on `fix/ui-modernization-review` from that published base; this is not an accepted gate. Stage 16 discovery was independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` but was not merged into desktop `main`. No next stage is authorized.
+The UI modernization is published on desktop `main` at `5c7173ecc479d2b9e655d7ea83340948e404437e`. The correction branch `fix/ui-modernization-review` was published at the previously reviewed checkpoint `703586f89b2d37f5fb83c90bb152c9952a5eecf0`; the latest independent review returned **CHANGES REQUIRED**. The correction is not merged into `main`, owner visual acceptance remains pending, and this is not an accepted gate. Stage 16 discovery was independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` but was not merged into desktop `main`. No next stage is authorized.
 
 ## Historical Stage 05 verified gate
 

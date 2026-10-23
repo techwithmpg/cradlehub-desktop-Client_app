@@ -2,7 +2,7 @@
 
 ## Current review handoff (2026-10-23)
 
-Desktop `main` contains the published UI modernization commit `5c7173ecc479d2b9e655d7ea83340948e404437e`. Independent review returned **CHANGES REQUIRED** and owner visual acceptance is pending. The active correction is on `fix/ui-modernization-review`, based on that commit, and is limited to active documentation, Today/Intake selection, regression tests, and the review evidence. Stop after the local correction commit for independent re-review; no next stage is authorized.
+Desktop `main` contains the published UI modernization commit `5c7173ecc479d2b9e655d7ea83340948e404437e`. The correction branch `fix/ui-modernization-review` was published at the previously reviewed checkpoint `703586f89b2d37f5fb83c90bb152c9952a5eecf0`; the latest independent review returned **CHANGES REQUIRED**. Owner visual acceptance is pending. The active final correction is limited to accepted-refresh selection reconciliation, regression tests, and publication-status evidence. Push the same branch after verification and stop for independent re-review; no merge or next stage is authorized.
 
 Stage 16 discovery was independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d`. It was not merged into desktop `main`.
 

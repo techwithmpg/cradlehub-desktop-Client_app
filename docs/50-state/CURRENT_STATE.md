@@ -3,7 +3,7 @@
 ## Current development state (2026-10-23)
 
 - Desktop `main` contains the published UI modernization at `5c7173ecc479d2b9e655d7ea83340948e404437e`. Independent review returned **CHANGES REQUIRED**; owner visual acceptance is pending.
-- The active authorized task is the focused review correction on `fix/ui-modernization-review`, based on that published commit. The correction remains unaccepted and local until separately authorized for publication.
+- The correction branch `fix/ui-modernization-review` was published to GitHub at the previously reviewed checkpoint `703586f89b2d37f5fb83c90bb152c9952a5eecf0`. The latest independent review returned **CHANGES REQUIRED**. Final focused corrections are active on the same branch; it remains unmerged into `main` and unaccepted.
 - Stage 16 discovery on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` was independently reviewed and owner confirmed. That branch was not merged into desktop `main`.
 - No next implementation stage has been authorized. The hosted CRM remains authoritative for business data and actions.
 

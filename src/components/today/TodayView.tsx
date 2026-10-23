@@ -168,6 +168,49 @@ function renderStageBadge(item: DesktopTodayQueueItem) {
   return <span className="today-badge badge-default">{item.status}</span>;
 }
 
+function filterTodayQueue(
+  queue: DesktopTodayQueueItem[],
+  stageFilter: StageScopeFilter,
+  search: string,
+): DesktopTodayQueueItem[] {
+  return queue.filter((item) => {
+    if (stageFilter !== 'all') {
+      if (stageFilter === 'waiting' && item.stage !== 'waiting') return false;
+      if (stageFilter === 'in_service' && item.stage !== 'in_service')
+        return false;
+      if (stageFilter === 'ready_to_pay' && item.stage !== 'ready_to_pay')
+        return false;
+      if (stageFilter === 'completed' && item.stage !== 'completed')
+        return false;
+    }
+
+    if (search.trim()) {
+      const query = search.toLowerCase().trim();
+      const matchesCustomer = item.customerName?.toLowerCase().includes(query);
+      const matchesPhone = item.customerPhone?.toLowerCase().includes(query);
+      const matchesService = item.serviceName?.toLowerCase().includes(query);
+      const matchesStaff = item.staffName?.toLowerCase().includes(query);
+      const matchesResource = item.resourceName?.toLowerCase().includes(query);
+      const matchesAddress = item.homeServiceAddress
+        ?.toLowerCase()
+        .includes(query);
+
+      if (
+        !matchesCustomer &&
+        !matchesPhone &&
+        !matchesService &&
+        !matchesStaff &&
+        !matchesResource &&
+        !matchesAddress
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
 export const TodayView: React.FC<TodayViewProps> = ({
   authContext,
   onNavigate,
@@ -205,7 +248,22 @@ export const TodayView: React.FC<TodayViewProps> = ({
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(5);
+  const visibleQueueStateRef = useRef({
+    stageFilter,
+    search,
+    currentPage,
+    pageSize,
+  });
   const observerRef = useRef<ResizeObserver | null>(null);
+
+  useEffect(() => {
+    visibleQueueStateRef.current = {
+      stageFilter,
+      search,
+      currentPage,
+      pageSize,
+    };
+  }, [stageFilter, search, currentPage, pageSize]);
 
   const tableContainerCallbackRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -273,8 +331,27 @@ export const TodayView: React.FC<TodayViewProps> = ({
         return false;
       }
 
+      const visibleState = visibleQueueStateRef.current;
+      const filtered = filterTodayQueue(
+        result.queue,
+        visibleState.stageFilter,
+        visibleState.search,
+      );
+      const page = Math.min(
+        Math.max(1, visibleState.currentPage),
+        Math.max(1, Math.ceil(filtered.length / visibleState.pageSize)),
+      );
+      const start = (page - 1) * visibleState.pageSize;
+      const visibleBookings = filtered.slice(
+        start,
+        start + visibleState.pageSize,
+      );
       setData(result);
-      setSelectedBookingId(null);
+      setSelectedBookingId((current) =>
+        current && visibleBookings.some((booking) => booking.id === current)
+          ? current
+          : null,
+      );
       return true;
     } catch (err: unknown) {
       const message =
@@ -433,51 +510,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   // Filtered queue based on lifecycle stage and search query
-  const filteredQueue = useMemo(() => {
-    if (!data) return [];
-    return data.queue.filter((item) => {
-      // Stage filtering
-      if (stageFilter !== 'all') {
-        if (stageFilter === 'waiting' && item.stage !== 'waiting') return false;
-        if (stageFilter === 'in_service' && item.stage !== 'in_service')
-          return false;
-        if (stageFilter === 'ready_to_pay' && item.stage !== 'ready_to_pay')
-          return false;
-        if (stageFilter === 'completed' && item.stage !== 'completed')
-          return false;
-      }
-
-      // Search query filtering
-      if (search.trim()) {
-        const query = search.toLowerCase().trim();
-        const matchesCustomer = item.customerName
-          ?.toLowerCase()
-          .includes(query);
-        const matchesPhone = item.customerPhone?.toLowerCase().includes(query);
-        const matchesService = item.serviceName?.toLowerCase().includes(query);
-        const matchesStaff = item.staffName?.toLowerCase().includes(query);
-        const matchesResource = item.resourceName
-          ?.toLowerCase()
-          .includes(query);
-        const matchesAddress = item.homeServiceAddress
-          ?.toLowerCase()
-          .includes(query);
-
-        if (
-          !matchesCustomer &&
-          !matchesPhone &&
-          !matchesService &&
-          !matchesStaff &&
-          !matchesResource &&
-          !matchesAddress
-        ) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [data, stageFilter, search]);
+  const filteredQueue = useMemo(
+    () => (data ? filterTodayQueue(data.queue, stageFilter, search) : []),
+    [data, stageFilter, search],
+  );
 
   // Pagination calculation
   const totalItems = filteredQueue.length;

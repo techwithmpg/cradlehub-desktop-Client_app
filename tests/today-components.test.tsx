@@ -960,7 +960,7 @@ describe('TodayView Component Suite', () => {
       ).toContain('Select a booking');
     });
 
-    it('clears selection after a successful refresh removes the booking', async () => {
+    it('does not restore selection when a removed booking reappears later', async () => {
       mockedFetchToday
         .mockResolvedValueOnce(createTodayData())
         .mockResolvedValueOnce(
@@ -972,7 +972,8 @@ describe('TodayView Component Suite', () => {
               }),
             ],
           }),
-        );
+        )
+        .mockResolvedValueOnce(createTodayData());
       renderTodayView();
 
       fireEvent.click(
@@ -990,6 +991,129 @@ describe('TodayView Component Suite', () => {
         screen.getByTestId('today-booking-inspector').textContent,
       ).toContain('Select a booking');
       expect(mockedFetchToday).toHaveBeenCalledTimes(2);
+
+      fireEvent.click(screen.getByTestId('today-refresh-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
+      });
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('Select a booking');
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Review booking for Alice Walker',
+        }),
+      );
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('booking-01');
+    });
+
+    it('preserves a visible selection and refreshes its authoritative details', async () => {
+      mockedFetchToday
+        .mockResolvedValueOnce(createTodayData())
+        .mockResolvedValueOnce(
+          createTodayData({
+            queue: [
+              createQueueItem({
+                serviceName: 'Updated Massage',
+                staffName: 'Updated Therapist',
+              }),
+            ],
+          }),
+        );
+      renderTodayView();
+
+      const selectBooking = await screen.findByRole('button', {
+        name: 'Review booking for Alice Walker',
+      });
+      fireEvent.click(selectBooking);
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('Aromatherapy Massage');
+
+      fireEvent.click(screen.getByTestId('today-refresh-button'));
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('today-booking-inspector').textContent,
+        ).toContain('Updated Massage');
+      });
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('Updated Therapist');
+      expect(selectBooking.getAttribute('aria-pressed')).toBe('true');
+      expect(mockedFetchToday).toHaveBeenCalledTimes(2);
+    });
+
+    it('preserves validated details and selection when refresh fails', async () => {
+      let rejectRefresh!: (reason: Error) => void;
+      const failedRefresh = new Promise<DesktopTodayData>((_, reject) => {
+        rejectRefresh = reject;
+      });
+      mockedFetchToday
+        .mockResolvedValueOnce(createTodayData())
+        .mockReturnValueOnce(failedRefresh);
+      renderTodayView();
+
+      const selectBooking = await screen.findByRole('button', {
+        name: 'Review booking for Alice Walker',
+      });
+      fireEvent.click(selectBooking);
+      fireEvent.click(screen.getByTestId('today-refresh-button'));
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('Aromatherapy Massage');
+
+      rejectRefresh(new Error('Refresh network failed'));
+      await waitFor(() => {
+        expect(screen.getByTestId('today-error-banner').textContent).toContain(
+          'Refresh network failed',
+        );
+      });
+      expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('Aromatherapy Massage');
+      expect(selectBooking.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('keeps a booking deselected when refresh moves it off the visible page', async () => {
+      const items = Array.from({ length: 6 }, (_, index) =>
+        createQueueItem({
+          id: `booking-${index + 1}`,
+          customerName: `Customer ${index + 1}`,
+        }),
+      );
+      mockedFetchToday
+        .mockResolvedValueOnce(createTodayData({ queue: items }))
+        .mockResolvedValueOnce(
+          createTodayData({ queue: [...items.slice(1), items[0]] }),
+        )
+        .mockResolvedValueOnce(createTodayData({ queue: items }));
+      renderTodayView();
+
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'Review booking for Customer 1',
+        }),
+      );
+      fireEvent.click(screen.getByTestId('today-refresh-button'));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('today-row-booking-1')).toBeNull();
+      });
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('Select a booking');
+
+      fireEvent.click(screen.getByTestId('today-refresh-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('today-row-booking-1')).toBeDefined();
+      });
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('Select a booking');
     });
 
     it('first loaded booking is not automatically selected or expanded', async () => {

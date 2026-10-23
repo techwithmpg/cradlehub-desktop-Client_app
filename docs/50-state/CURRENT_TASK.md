@@ -3,10 +3,11 @@
 UI Modernization Independent Review Corrections: **ACTIVE / UNACCEPTED** on `fix/ui-modernization-review`.
 
 - **BASE_SHA**: `5c7173ecc479d2b9e655d7ea83340948e404437e`, the published modernization commit on desktop `main`.
-- **Review result**: **CHANGES REQUIRED**. Owner visual acceptance remains pending.
-- **Authorized scope**: Reconcile active status documents, keep the Today/Intake inspector selection aligned with the displayed booking page, add focused regression tests, and complete the review handoff.
+- **Previously reviewed correction HEAD**: `703586f89b2d37f5fb83c90bb152c9952a5eecf0`, published on `fix/ui-modernization-review` and independently reviewed.
+- **Latest review result**: **CHANGES REQUIRED**. Owner visual acceptance remains pending.
+- **Authorized scope**: Reconcile selected Today/Intake booking state only after an accepted authoritative refresh, add focused regression tests, and correct publication-status documentation and evidence.
 - **Stage 16 discovery**: Independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d`; not merged into desktop `main`.
-- **Delivery**: Commit locally on this correction branch and stop for independent re-review. No publication, merge, owner visual acceptance, or next stage is authorized by completion of this task.
+- **Delivery**: Commit and push the same correction branch, then stop for independent re-review. No merge into `main`, owner visual acceptance, or next stage is authorized by completion of this task.
 
 ## Historical Stage 05 task and closeout record
 
