@@ -1,14 +1,14 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-canvas: #f4f6f8;
+  --color-canvas: #f6f5f1;
   --color-surface: #ffffff;
-  --color-surface-hover: #f8fafc;
+  --color-surface-hover: #f7f8f5;
   --color-ink: #0f172a;
   --color-ink-secondary: #334155;
   --color-muted: #64748b;
-  --color-line: #e2e8f0;
-  --color-line-subtle: #edf2f7;
+  --color-line: #e2e6e0;
+  --color-line-subtle: #edf0e9;
 
   /* Dark Green Navigation Palette */
   --color-nav-bg: #0d2b20;
@@ -38,6 +38,23 @@
 
   --font-sans:
     'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+}
+
+/* shadcn semantic names point at the existing CradleHub palette. */
+@theme inline {
+  --color-background: var(--color-surface);
+  --color-foreground: var(--color-ink);
+  --color-primary: var(--color-nav-bg);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--color-surface-hover);
+  --color-secondary-foreground: var(--color-ink-secondary);
+  --color-ui-muted: var(--color-surface-hover);
+  --color-muted-foreground: var(--color-muted);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-accent);
+  --color-destructive: var(--color-error);
+  --radius-md: 8px;
 }
 
 :root {
@@ -458,7 +475,7 @@ body {
 
 /* Sidebar (Dark Green) - 224px width */
 .shell-sidebar {
-  width: 224px;
+  width: 228px;
   flex-shrink: 0;
   background: var(--color-nav-bg);
   border-right: 1px solid var(--color-nav-border);
@@ -472,7 +489,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 16px;
   border-bottom: 1px solid var(--color-nav-border);
   background: var(--color-nav-header);
 }
@@ -549,7 +566,7 @@ body {
   align-items: center;
   gap: 10px;
   width: 100%;
-  height: 36px;
+  min-height: 38px;
   padding: 0 10px;
   border: none;
   background: transparent;
@@ -625,7 +642,7 @@ body {
 }
 
 .workspace-header {
-  height: 50px;
+  height: 54px;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-line);
   padding: 0 20px;
@@ -8853,10 +8870,10 @@ button.bookings-kpi-cell:focus-visible {
 
 .today-title {
   margin: 0;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--color-ink, #0f172a);
+  color: var(--color-nav-bg);
 }
 
 .today-subtitle {
@@ -8951,18 +8968,19 @@ button.bookings-kpi-cell:focus-visible {
 .today-action-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .today-action-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 9px;
+  min-height: 58px;
+  padding: 9px 11px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   text-align: left;
   position: relative;
@@ -8973,6 +8991,14 @@ button.bookings-kpi-cell:focus-visible {
 .today-action-card:hover {
   border-color: #cbd5e1;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+
+.today-action-card:focus-visible,
+.today-quick-action-item:focus-visible,
+.today-booking-select:focus-visible,
+.today-inspector-open-bookings:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .today-action-card-primary {
@@ -8987,8 +9013,8 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .today-action-card-icon-box {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   background: #f1f5f9;
   display: flex;
@@ -9082,7 +9108,7 @@ button.bookings-kpi-cell:focus-visible {
 /* Active Service Workflow Card */
 .today-workflow-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-line);
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   padding: 14px 16px;
@@ -9147,9 +9173,9 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .today-wf-tab.active {
-  background: #f0fdf4;
-  border-color: #86efac;
-  color: #166534;
+  background: #eaf3ed;
+  border-color: #95baa3;
+  color: var(--color-nav-bg);
 }
 
 .today-wf-count {
@@ -9240,6 +9266,25 @@ button.bookings-kpi-cell:focus-visible {
 
 .today-queue-table tbody tr:hover {
   background: #f8fafc;
+}
+
+.today-queue-table tbody tr.today-table-row-selected {
+  background: #edf5ef;
+}
+
+.today-booking-select {
+  border: 0;
+  background: transparent;
+  color: var(--color-nav-bg);
+  padding: 3px 0;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.today-booking-select:hover {
+  text-decoration: underline;
 }
 
 .today-queue-table tbody td {
@@ -9469,11 +9514,76 @@ button.bookings-kpi-cell:focus-visible {
 /* Right Rail Cards */
 .today-right-rail {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: 12px;
+  grid-template-rows: auto minmax(170px, 1fr) auto auto;
+  gap: 10px;
   min-width: 0;
   height: 100%;
   min-height: 0;
+  overflow-y: auto;
+  padding: 1px 2px 2px;
+}
+
+.today-booking-inspector {
+  padding: 12px 14px;
+  gap: 8px;
+  border-color: var(--color-line);
+  border-radius: 10px;
+  min-height: 150px;
+}
+
+.today-inspector-customer {
+  margin: 0;
+  color: var(--color-nav-bg);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.today-inspector-details {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  font-size: 11px;
+}
+
+.today-inspector-details > div {
+  display: grid;
+  grid-template-columns: 75px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.today-inspector-details dt,
+.today-inspector-empty {
+  color: var(--color-muted);
+}
+
+.today-inspector-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-ink-secondary);
+  font-weight: 600;
+}
+
+.today-inspector-empty,
+.today-inspector-warning {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.today-inspector-warning {
+  color: var(--color-warning-text);
+}
+
+.today-inspector-open-bookings {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  padding: 3px 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .today-right-card {
@@ -9903,10 +10013,17 @@ button.bookings-kpi-cell:focus-visible {
 
   .today-right-rail {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: auto;
     height: auto;
     gap: 10px;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 700px) {
+  .today-right-rail {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

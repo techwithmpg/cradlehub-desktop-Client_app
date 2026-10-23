@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  BookmarkCheck,
   CalendarRange,
   ChevronRight,
   Truck,
@@ -25,6 +26,27 @@ export const TodayQuickActionsCard: React.FC<TodayQuickActionsCardProps> = ({
       </div>
 
       <div className="today-quick-actions-list">
+        <button
+          type="button"
+          className="today-quick-action-item"
+          onClick={() => onNavigate?.('bookings')}
+          data-testid="quick-action-bookings"
+        >
+          <div className="today-quick-action-icon-box">
+            <BookmarkCheck size={16} aria-hidden="true" />
+          </div>
+          <div className="today-quick-action-text">
+            <strong className="today-quick-action-label">View Bookings</strong>
+            <span className="today-quick-action-desc">
+              Search all branch bookings
+            </span>
+          </div>
+          <ChevronRight
+            size={14}
+            className="today-quick-action-chevron"
+            aria-hidden="true"
+          />
+        </button>
         <button
           type="button"
           className="today-quick-action-item"

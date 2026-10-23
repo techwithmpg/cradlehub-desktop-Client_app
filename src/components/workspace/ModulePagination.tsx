@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '../ui/button';
 
 export interface ModulePaginationProps {
   startRecord: number;
@@ -76,22 +77,26 @@ export const ModulePagination: React.FC<ModulePaginationProps> = ({
         )}
 
         <div className="pagination-buttons">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             className="pagination-btn"
             onClick={() => onPageChange(Math.max(1, validCurrentPage - 1))}
             disabled={validCurrentPage <= 1}
             aria-label={prevPageAriaLabel}
           >
             &larr; Prev
-          </button>
+          </Button>
 
           <span className="pagination-page-indicator">
             Page {validCurrentPage} of {totalPages || 1}
           </span>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             className="pagination-btn"
             onClick={() =>
               onPageChange(Math.min(totalPages, validCurrentPage + 1))
@@ -100,7 +105,7 @@ export const ModulePagination: React.FC<ModulePaginationProps> = ({
             aria-label={nextPageAriaLabel}
           >
             Next &rarr;
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '../ui/button';
 
 export interface ModuleHeaderPrimaryAction {
   label: string;
@@ -54,8 +55,10 @@ export const ModuleHeader: React.FC<ModuleHeaderProps> = ({
 
       <div className="bookings-header-right">
         {onRefresh && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             className="bookings-header-refresh-btn"
             onClick={onRefresh}
             disabled={isRefreshing}
@@ -78,14 +81,15 @@ export const ModuleHeader: React.FC<ModuleHeaderProps> = ({
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
             <span className="bookings-header-refresh-text">Refresh</span>
-          </button>
+          </Button>
         )}
 
         {customActions}
 
         {primaryAction && (
-          <button
+          <Button
             type="button"
+            size="sm"
             className="bookings-header-primary-btn"
             onClick={primaryAction.onClick}
             disabled={primaryAction.disabled}
@@ -109,7 +113,7 @@ export const ModuleHeader: React.FC<ModuleHeaderProps> = ({
               </svg>
             )}
             <span>{primaryAction.label}</span>
-          </button>
+          </Button>
         )}
       </div>
 

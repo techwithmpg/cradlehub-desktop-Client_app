@@ -46,6 +46,10 @@ import { calculateAdaptivePageSize } from './adaptive-page-size';
 import { TodayActivityCard } from './TodayActivityCard';
 import { TodayQuickActionsCard } from './TodayQuickActionsCard';
 import { TodayMoneyCard } from './TodayMoneyCard';
+import { TodayBookingInspectorCard } from './TodayBookingInspectorCard';
+import { Input } from '../ui/input';
+import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
+import { Button } from '../ui/button';
 
 export interface TodayViewProps {
   authContext: AuthContext;
@@ -187,6 +191,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>('');
   const [stageFilter, setStageFilter] = useState<StageScopeFilter>('all');
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
+    null,
+  );
   const [mutatingBookingId, setMutatingBookingId] = useState<string | null>(
     null,
   );
@@ -481,6 +488,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
   );
   const startRecord = totalItems === 0 ? 0 : startIndex + 1;
   const endRecord = Math.min(startIndex + pageSize, totalItems);
+  const selectedBooking =
+    data?.queue.find((booking) => booking.id === selectedBookingId) ?? null;
 
   return (
     <ModuleWorkspace
@@ -491,7 +500,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       {/* Header Area */}
       <header className="today-header-row" data-testid="today-header">
         <div className="today-header-left">
-          <h1 className="today-title">Today</h1>
+          <h1 className="today-title">Intake</h1>
           <p className="today-subtitle">
             <span className="today-business-date">
               {formatDateLabel(data?.context.businessDate)}
@@ -502,7 +511,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             </span>
           </p>
           <p className="today-helper-text">
-            Prioritized front-desk work, without losing context.
+            Arrivals, booking actions, and the next front-desk step.
           </p>
         </div>
 
@@ -518,8 +527,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </div>
 
           {/* Manual Refresh Action */}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             className="today-refresh-button"
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -533,7 +544,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               aria-hidden="true"
             />
             <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -593,11 +604,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   <strong className="today-action-card-title">
                     New Booking
                   </strong>
-                  <span className="today-action-card-desc">Open Bookings</span>
+                  <span className="today-action-card-desc">
+                    Choose a booking type
+                  </span>
                 </div>
-                <span className="today-action-card-key" aria-hidden="true">
-                  F1
-                </span>
               </button>
 
               {/* Card 2: Walk-in */}
@@ -616,9 +626,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     Start an in-spa visit
                   </span>
                 </div>
-                <span className="today-action-card-key" aria-hidden="true">
-                  F2
-                </span>
               </button>
 
               {/* Card 3: Book for Later */}
@@ -639,9 +646,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     Phone or future booking
                   </span>
                 </div>
-                <span className="today-action-card-key" aria-hidden="true">
-                  F3
-                </span>
               </button>
 
               {/* Card 4: Home Service */}
@@ -661,12 +665,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   <span className="today-action-card-desc">
                     {data.summary.homeService > 0
                       ? `${data.summary.homeService} dispatch booking${data.summary.homeService === 1 ? '' : 's'}`
-                      : 'Open dispatch workspace'}
+                      : 'Review booking options'}
                   </span>
                 </div>
-                <span className="today-action-card-key" aria-hidden="true">
-                  F4
-                </span>
               </button>
             </section>
 
@@ -729,11 +730,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
               {/* Card Title & Subtitle */}
               <div className="today-workflow-header">
                 <div>
-                  <h2 className="today-workflow-title">
-                    Active Service Workflow
-                  </h2>
+                  <h2 className="today-workflow-title">Arrivals & bookings</h2>
                   <p className="today-workflow-subtitle">
-                    One clear next action for every customer visit.
+                    Find a booking, review its details, and take the permitted
+                    next action.
                   </p>
                 </div>
               </div>
@@ -741,17 +741,20 @@ export const TodayView: React.FC<TodayViewProps> = ({
               {/* Workflow Controls Row: Tabs + Search */}
               <div className="today-workflow-controls">
                 {/* Workflow Tabs with Counts */}
-                <div
+                <ToggleGroup
+                  type="single"
+                  value={stageFilter}
+                  onValueChange={(value) => {
+                    if (value)
+                      handleStageFilterChange(value as StageScopeFilter);
+                  }}
                   className="today-workflow-tabs"
-                  role="tablist"
                   aria-label="Workflow lifecycle stages"
                 >
-                  <button
+                  <ToggleGroupItem
                     type="button"
-                    role="tab"
-                    aria-selected={stageFilter === 'waiting'}
+                    value="waiting"
                     className={`today-wf-tab ${stageFilter === 'waiting' ? 'active' : ''}`}
-                    onClick={() => handleStageFilterChange('waiting')}
                     data-testid="kpi-waiting"
                   >
                     <Hourglass size={14} aria-hidden="true" />
@@ -759,14 +762,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     <span className="today-wf-count">
                       {data.summary.waiting}
                     </span>
-                  </button>
+                  </ToggleGroupItem>
 
-                  <button
+                  <ToggleGroupItem
                     type="button"
-                    role="tab"
-                    aria-selected={stageFilter === 'in_service'}
+                    value="in_service"
                     className={`today-wf-tab ${stageFilter === 'in_service' ? 'active' : ''}`}
-                    onClick={() => handleStageFilterChange('in_service')}
                     data-testid="kpi-in-service"
                   >
                     <CheckCircle2 size={14} aria-hidden="true" />
@@ -774,14 +775,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     <span className="today-wf-count">
                       {data.summary.inService}
                     </span>
-                  </button>
+                  </ToggleGroupItem>
 
-                  <button
+                  <ToggleGroupItem
                     type="button"
-                    role="tab"
-                    aria-selected={stageFilter === 'ready_to_pay'}
+                    value="ready_to_pay"
                     className={`today-wf-tab ${stageFilter === 'ready_to_pay' ? 'active' : ''}`}
-                    onClick={() => handleStageFilterChange('ready_to_pay')}
                     data-testid="kpi-ready-to-pay"
                   >
                     <CreditCard size={14} aria-hidden="true" />
@@ -789,14 +788,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     <span className="today-wf-count">
                       {data.summary.readyToPay}
                     </span>
-                  </button>
+                  </ToggleGroupItem>
 
-                  <button
+                  <ToggleGroupItem
                     type="button"
-                    role="tab"
-                    aria-selected={stageFilter === 'completed'}
+                    value="completed"
                     className={`today-wf-tab ${stageFilter === 'completed' ? 'active' : ''}`}
-                    onClick={() => handleStageFilterChange('completed')}
                     data-testid="kpi-completed"
                   >
                     <CheckCircle2 size={14} aria-hidden="true" />
@@ -804,21 +801,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     <span className="today-wf-count">
                       {data.summary.completedService}
                     </span>
-                  </button>
+                  </ToggleGroupItem>
 
                   {/* All Queue filter option */}
-                  <button
+                  <ToggleGroupItem
                     type="button"
-                    role="tab"
-                    aria-selected={stageFilter === 'all'}
+                    value="all"
                     className={`today-wf-tab ${stageFilter === 'all' ? 'active' : ''}`}
-                    onClick={() => handleStageFilterChange('all')}
                     data-testid="tab-all-queue"
                   >
                     <span>All</span>
                     <span className="today-wf-count">{data.summary.total}</span>
-                  </button>
-                </div>
+                  </ToggleGroupItem>
+                </ToggleGroup>
 
                 {/* Queue Search Input */}
                 <div className="today-search-wrapper">
@@ -827,7 +822,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     className="today-search-icon"
                     aria-hidden="true"
                   />
-                  <input
+                  <Input
                     type="search"
                     className="today-search-input"
                     placeholder="Search customer, booking ID, assignee..."
@@ -914,7 +909,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         return (
                           <tr
                             key={booking.id}
-                            className="today-table-row"
+                            className={`today-table-row ${selectedBookingId === booking.id ? 'today-table-row-selected' : ''}`}
                             data-testid={`today-row-${booking.id}`}
                           >
                             {/* TIME */}
@@ -945,11 +940,23 @@ export const TodayView: React.FC<TodayViewProps> = ({
                                   {customerInitials}
                                 </span>
                                 <div className="today-cell-text">
-                                  <strong className="today-primary-name">
-                                    {booking.customerName || 'Walk-in Customer'}
-                                  </strong>
+                                  <button
+                                    type="button"
+                                    className="today-booking-select"
+                                    onClick={() =>
+                                      setSelectedBookingId(booking.id)
+                                    }
+                                    aria-pressed={
+                                      selectedBookingId === booking.id
+                                    }
+                                    aria-label={`Review booking for ${booking.customerName || 'customer name unavailable'}`}
+                                  >
+                                    {booking.customerName ||
+                                      'Customer name unavailable'}
+                                  </button>
                                   <span className="today-secondary-text">
-                                    {booking.customerPhone || 'Front Desk'}
+                                    {booking.customerPhone ||
+                                      'No phone on record'}
                                   </span>
                                 </div>
                               </div>
@@ -960,7 +967,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
                               <div className="today-cell-text">
                                 <div className="today-primary-name-row">
                                   <strong className="today-primary-name">
-                                    {booking.serviceName || 'Standard Service'}
+                                    {booking.serviceName ||
+                                      'Service unavailable'}
                                   </strong>
                                   {booking.serviceDuration ? (
                                     <span className="today-service-duration">
@@ -974,7 +982,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                                     ? booking.homeServiceAddress ||
                                       'Home dispatch'
                                     : booking.resourceName ||
-                                      'Standard Treatment'}
+                                      'Room unavailable'}
                                 </span>
                               </div>
                             </td>
@@ -1020,7 +1028,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                                         {booking.driverName
                                           ? `Driver: ${booking.driverName}`
                                           : !booking.dispatchContextAvailable
-                                            ? 'Home Dispatch'
+                                            ? 'Dispatch details unavailable'
                                             : 'No driver assigned'}
                                       </>
                                     ) : (
@@ -1105,6 +1113,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
             aria-label="Today contextual activity and actions"
             data-testid="today-right-rail"
           >
+            <TodayBookingInspectorCard
+              booking={selectedBooking}
+              timeLabel={
+                selectedBooking
+                  ? `${formatClock(selectedBooking.startTime)}–${formatClock(selectedBooking.endTime)}`
+                  : undefined
+              }
+              onOpenBookings={
+                onNavigate ? () => onNavigate('bookings') : undefined
+              }
+            />
             {/* Card 1: Activity */}
             <TodayActivityCard
               attendance={data.attendance}

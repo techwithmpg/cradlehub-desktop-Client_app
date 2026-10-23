@@ -361,6 +361,28 @@ describe('Stage 01 UI Components', () => {
       expect(screen.queryByTestId('notification-panel')).toBeNull();
     });
 
+    it('opens the account menu by keyboard and restores focus on Escape', async () => {
+      render(
+        <CanonicalShell
+          authContext={mockAuthContext}
+          onSignOut={vi.fn()}
+          isSigningOut={false}
+          signOutError={null}
+        />,
+      );
+
+      const trigger = screen.getByTestId('user-menu-trigger');
+      trigger.focus();
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+      expect(document.activeElement).toBe(
+        screen.getByTestId('dropdown-signout-button'),
+      );
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByTestId('user-menu-dropdown')).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
+
     it('opens user avatar dropdown menu and supports dropdown sign-out as exclusive sign-out point', async () => {
       const handleSignOut = vi.fn().mockResolvedValue(undefined);
       const user = userEvent.setup();

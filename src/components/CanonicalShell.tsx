@@ -110,6 +110,8 @@ export function CanonicalShell({
   const [notificationBusy, setNotificationBusy] = useState(false);
   const notificationPending = useRef(false);
   const notificationButtonRef = useRef<HTMLButtonElement>(null);
+  const userButtonRef = useRef<HTMLButtonElement>(null);
+  const signOutButtonRef = useRef<HTMLButtonElement>(null);
 
   const runNotificationAction = async (
     operation: () => Promise<DesktopNotificationResult>,
@@ -127,6 +129,10 @@ export function CanonicalShell({
 
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isUserMenuOpen) signOutButtonRef.current?.focus();
+  }, [isUserMenuOpen]);
 
   const currentNavConfig =
     AUTHORIZED_NAV_ITEMS.find((item) => item.id === activeModule) ||
@@ -159,6 +165,8 @@ export function CanonicalShell({
       if (event.key === 'Escape') {
         if (notificationRef.current?.contains(document.activeElement))
           notificationButtonRef.current?.focus();
+        if (userMenuRef.current?.contains(document.activeElement))
+          userButtonRef.current?.focus();
         setIsNotificationOpen(false);
         setIsUserMenuOpen(false);
       }
@@ -366,9 +374,17 @@ export function CanonicalShell({
               <button
                 type="button"
                 className={`avatar-menu-trigger ${isUserMenuOpen ? 'avatar-menu-trigger-active' : ''}`}
+                ref={userButtonRef}
                 onClick={() => {
                   setIsUserMenuOpen(!isUserMenuOpen);
                   setIsNotificationOpen(false);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    setIsUserMenuOpen(true);
+                    setIsNotificationOpen(false);
+                  }
                 }}
                 aria-label="User Account Menu"
                 aria-expanded={isUserMenuOpen}
@@ -435,6 +451,7 @@ export function CanonicalShell({
                   <div className="user-dropdown-actions">
                     <button
                       type="button"
+                      ref={signOutButtonRef}
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         onSignOut();

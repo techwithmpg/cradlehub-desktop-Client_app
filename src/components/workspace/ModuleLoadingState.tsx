@@ -23,6 +23,7 @@ export const ModuleLoadingState: React.FC<ModuleLoadingStateProps> = ({
   return (
     <div
       className={`bookings-loading-state ${className}`.trim()}
+      role="status"
       aria-busy="true"
       aria-label={ariaLabel}
       data-testid={testId}

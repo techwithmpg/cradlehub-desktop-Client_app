@@ -758,7 +758,7 @@ describe('TodayView Component Suite', () => {
       expect(onNavigate).toHaveBeenCalledWith('attendance');
     });
 
-    it('Quick Actions card renders 4 canonical actions and navigates correctly', async () => {
+    it('Quick Actions card opens the connected module workspaces', async () => {
       const onNavigate = vi.fn();
       mockedFetchToday.mockResolvedValue(createTodayData());
 
@@ -767,6 +767,10 @@ describe('TodayView Component Suite', () => {
       await waitFor(() => {
         expect(screen.getByTestId('today-quick-actions-card')).toBeDefined();
       });
+
+      // Bookings and Customers are the primary intake destinations.
+      fireEvent.click(screen.getByTestId('quick-action-bookings'));
+      expect(onNavigate).toHaveBeenCalledWith('bookings');
 
       // Customers
       fireEvent.click(screen.getByTestId('quick-action-customers'));
@@ -835,8 +839,8 @@ describe('TodayView Component Suite', () => {
     });
   });
 
-  describe('Section 33 — Booking Details Removed', () => {
-    it('does not render selected-booking-detail card on initial load', async () => {
+  describe('Intake booking inspector', () => {
+    it('starts empty and shows only authoritative details after selection', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
       renderTodayView();
 
@@ -844,20 +848,18 @@ describe('TodayView Component Suite', () => {
         expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
       });
 
-      expect(screen.queryByTestId('selected-booking-detail')).toBeNull();
-      expect(screen.queryByText(/Booking Details —/)).toBeNull();
-    });
+      const inspector = screen.getByTestId('today-booking-inspector');
+      expect(inspector.textContent).toContain('Select a booking');
+      expect(inspector.textContent).not.toContain('booking-01');
 
-    it('clicking a queue row does not open an inline details card', async () => {
-      mockedFetchToday.mockResolvedValue(createTodayData());
-      renderTodayView();
-
-      await waitFor(() => {
-        expect(screen.getByTestId('today-row-booking-01')).toBeDefined();
+      const selectBooking = screen.getByRole('button', {
+        name: 'Review booking for Alice Walker',
       });
-
-      fireEvent.click(screen.getByTestId('today-row-booking-01'));
-      expect(screen.queryByTestId('selected-booking-detail')).toBeNull();
+      fireEvent.click(selectBooking);
+      expect(selectBooking.getAttribute('aria-pressed')).toBe('true');
+      expect(inspector.textContent).toContain('booking-01');
+      expect(inspector.textContent).toContain('Aromatherapy Massage');
+      expect(inspector.textContent).toContain('Maria Santos');
     });
 
     it('first loaded booking is not automatically selected or expanded', async () => {
@@ -871,7 +873,9 @@ describe('TodayView Component Suite', () => {
       const row = screen.getByTestId('today-row-booking-01');
       expect(row.classList.contains('selected')).toBe(false);
       expect(row.getAttribute('tabindex')).toBeNull();
-      expect(screen.queryByTestId('selected-booking-detail')).toBeNull();
+      expect(
+        screen.getByTestId('today-booking-inspector').textContent,
+      ).toContain('Select a booking');
     });
 
     it('queue action buttons remain fully interactive without row selection', async () => {
