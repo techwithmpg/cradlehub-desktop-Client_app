@@ -2,10 +2,13 @@
 
 ## Current development state (2026-10-23)
 
-- Desktop `main` contains the published UI modernization at `5c7173ecc479d2b9e655d7ea83340948e404437e`. Independent review returned **CHANGES REQUIRED**; owner visual acceptance is pending.
-- The correction branch `fix/ui-modernization-review` was published to GitHub at the previously reviewed checkpoint `703586f89b2d37f5fb83c90bb152c9952a5eecf0`. The latest independent review returned **CHANGES REQUIRED**. Final focused corrections are active on the same branch; it remains unmerged into `main` and unaccepted.
-- Stage 16 discovery on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` was independently reviewed and owner confirmed. That branch was not merged into desktop `main`.
-- No next implementation stage has been authorized. The hosted CRM remains authoritative for business data and actions.
+- Desktop `main` is at `1faa7493de961de3b314b8c1b28409ecdabf91ba`.
+- Hosted `main` is at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
+- Stage 17 is **PARKED / UNACCEPTED — OUTSTANDING REVIEW CORRECTIONS**.
+  - Desktop branch: `stage/17-intake-booking-modal` at `a76a32d665b1b702ec4cff3337ef4fbdf6ceb56b` (clean, 762/762 passing tests, unmerged).
+  - Hosted branch: `stage/17-desktop-location-endpoints` at `272339a5d49e39b86160c541bb63d5c09841f81a` (clean, 10/10 passing tests, unmerged).
+- Stage 18 (CRM Cashier Workspace) is **ACTIVE** on desktop `stage/18-crm-cashier` and hosted `stage/18-desktop-cashier-endpoints`.
+- Pass A (Cashier Contract Audit) is complete. Pass B (Hosted Desktop Financial API) is underway.
 
 ## Historical accepted-stage record
 
