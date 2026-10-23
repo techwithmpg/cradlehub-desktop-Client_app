@@ -1,17 +1,17 @@
 # Current Task
 
-Stage 18 — CRM Cashier Workspace: **ACTIVE** on `stage/18-crm-cashier`.
+Stage 18 — CRM Cashier Workspace: **COMPLETE ON STAGE BRANCH / STOPPED FOR INDEPENDENT REVIEW**.
 
 - **BASE_SHA**: `1faa7493de961de3b314b8c1b28409ecdabf91ba` on desktop `main`.
 - **HOSTED_BASE_SHA**: `2b3bab3c9e71274c25d747daf37d7928ee670e2c` on hosted `main`.
 - **Desktop Branch**: `stage/18-crm-cashier`.
-- **Hosted Branch**: `stage/18-desktop-cashier-endpoints`.
+- **Hosted Branch**: `stage/18-desktop-cashier-endpoints` (`6f648c946983152a7995f5e9fe7fde3e8b524b0d`).
 - **Authorized Scope**: Complete CRM Cashier workspace (Today, Ledger, Record Payment, Record Expense, Cash Drawer, Day Close, History) adhering strictly to the 5 owner-approved visual references and backed by authoritative server-side contracts.
 - **Stage 17 Gate Status**: **PARKED / UNACCEPTED — OUTSTANDING REVIEW CORRECTIONS**.
   - Desktop branch preserved at `a76a32d665b1b702ec4cff3337ef4fbdf6ceb56b` (`stage/17-intake-booking-modal`).
   - Hosted branch preserved at `272339a5d49e39b86160c541bb63d5c09841f81a` (`stage/17-desktop-location-endpoints`).
   - Neither branch is merged into `main` or claimed as accepted.
-- **Current Phase**: Pass B — Hosted Desktop Financial API implementation on `stage/18-desktop-cashier-endpoints`.
+- **Current Phase**: Pass G Complete — Evidence documented, all test suites passing, stopped for independent review. Not merged to `main`.
 
 
 ## Historical Stage 05 task and closeout record

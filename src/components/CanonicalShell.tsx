@@ -17,6 +17,7 @@ import {
   CalendarRange,
   Truck,
   UserCog,
+  Banknote,
   Settings,
   Bell,
   ChevronDown,
@@ -54,6 +55,7 @@ const ICON_MAP: Record<NavModuleId, LucideIcon> = {
   schedule: CalendarRange,
   'home-service': Truck,
   staff: UserCog,
+  cashier: Banknote,
   settings: Settings,
 };
 
@@ -504,7 +506,8 @@ export function CanonicalShell({
               activeModule === 'customers' ||
               activeModule === 'schedule' ||
               activeModule === 'home-service' ||
-              activeModule === 'staff'
+              activeModule === 'staff' ||
+              activeModule === 'cashier'
             }
             className={activeModule === 'today' ? 'today-workspace-host' : ''}
           >

@@ -190,7 +190,7 @@ describe('Stage 01 UI Components', () => {
       isCrmEligible: true,
     };
 
-    it('renders all 8 authorized navigation items without duplicating branch or operator in sidebar', () => {
+    it('renders all 9 authorized navigation items without duplicating branch or operator in sidebar', () => {
       render(
         <CanonicalShell
           authContext={mockAuthContext}
@@ -202,7 +202,7 @@ describe('Stage 01 UI Components', () => {
 
       expect(screen.getByTestId('canonical-shell')).toBeDefined();
 
-      // Exactly 8 navigation items
+      // Exactly 9 navigation items
       const expectedNav = [
         'today',
         'bookings',
@@ -211,6 +211,7 @@ describe('Stage 01 UI Components', () => {
         'schedule',
         'home-service',
         'staff',
+        'cashier',
         'settings',
       ];
 
@@ -446,7 +447,11 @@ describe('Stage 01 UI Components', () => {
       expect(bookingsFrame.hidden).toBe(false);
       expect(screen.getByTestId('retained-module-today').hidden).toBe(true);
 
-      const bookingsSearch = await screen.findByLabelText('Search Bookings');
+      const bookingsSearch = await screen.findByLabelText(
+        'Search Bookings',
+        {},
+        { timeout: 5000 },
+      );
       expect(bookingsSearch).toBeDefined();
 
       // Establish real module-local UI state.

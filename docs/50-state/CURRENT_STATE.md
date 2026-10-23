@@ -7,8 +7,11 @@
 - Stage 17 is **PARKED / UNACCEPTED — OUTSTANDING REVIEW CORRECTIONS**.
   - Desktop branch: `stage/17-intake-booking-modal` at `a76a32d665b1b702ec4cff3337ef4fbdf6ceb56b` (clean, 762/762 passing tests, unmerged).
   - Hosted branch: `stage/17-desktop-location-endpoints` at `272339a5d49e39b86160c541bb63d5c09841f81a` (clean, 10/10 passing tests, unmerged).
-- Stage 18 (CRM Cashier Workspace) is **ACTIVE** on desktop `stage/18-crm-cashier` and hosted `stage/18-desktop-cashier-endpoints`.
-- Pass A (Cashier Contract Audit) is complete. Pass B (Hosted Desktop Financial API) is underway.
+- Stage 18 (CRM Cashier Workspace) is **COMPLETE ON STAGE BRANCH / STOPPED FOR INDEPENDENT REVIEW**.
+  - Desktop branch: `stage/18-crm-cashier` (clean, 758/758 passing tests across 35 test files, 0 lint warnings, clean build).
+  - Hosted branch: `stage/18-desktop-cashier-endpoints` at `6f648c946983152a7995f5e9fe7fde3e8b524b0d` (pushed to origin, 12/12 cashier tests passing, 123/123 desktop v1 tests passing).
+  - Pass A (Cashier Contract Audit), Pass B (Hosted Financial API), Pass C (Navigation & Design System), Pass D (Fast Workflows & Modals), Pass E (Drawer & Day Close), Pass F (History & Ledger), and Pass G (Closeout & Evidence) are all complete.
+  - See [Stage 18 Evidence](evidence/stage-18-crm-cashier.md) for full implementation and verification details.
 
 ## Historical accepted-stage record
 

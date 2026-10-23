@@ -20,6 +20,12 @@ export const READ_OPERATION_NAMES = [
   'staff.assignable-services',
   'staff.applications',
   'staff.schedule-week',
+  'cashier.fetchOverview',
+  'cashier.fetchPayableOrders',
+  'cashier.fetchLedger',
+  'cashier.fetchDrawers',
+  'cashier.fetchDayClose',
+  'cashier.fetchHistory',
 ] as const;
 
 export type ReadOperationName = (typeof READ_OPERATION_NAMES)[number];
