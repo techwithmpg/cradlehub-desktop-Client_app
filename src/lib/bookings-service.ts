@@ -576,6 +576,24 @@ async function fetchBranchBookingOptionsUnmeasured(
         name: service.name,
         durationMinutes,
         price,
+        category:
+          typeof (service as unknown as Record<string, unknown>).category ===
+          'string'
+            ? ((service as unknown as Record<string, unknown>)
+                .category as string)
+            : null,
+        description:
+          typeof (service as unknown as Record<string, unknown>).description ===
+          'string'
+            ? ((service as unknown as Record<string, unknown>)
+                .description as string)
+            : null,
+        imageUrl:
+          typeof (service as unknown as Record<string, unknown>).image_url ===
+          'string'
+            ? ((service as unknown as Record<string, unknown>)
+                .image_url as string)
+            : null,
         availableInSpa,
         availableHomeService,
         isActive: true,
@@ -822,6 +840,9 @@ export async function createBranchBooking(
   const payload = {
     branchId: input.branchId,
     serviceIds: input.serviceIds,
+    idempotencyKey: input.idempotencyKey,
+    bookingFor: input.bookingFor,
+    attendees: input.attendees,
     date: input.date,
     startTime: input.startTime,
     deliveryType: 'in_spa',

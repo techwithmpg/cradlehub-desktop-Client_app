@@ -820,6 +820,70 @@ describe('Bookings Service', () => {
       }
     });
 
+    it('serializes a group as one authenticated booking request with stable attendee identities', async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ ok: true, bookingId: 'first-group-line' }),
+      } as unknown as Response);
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+      const attendees = [
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          name: 'Main Customer',
+          isOrganizer: true,
+          serviceIds: ['service-a'],
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000002',
+          name: 'Second Guest',
+          isOrganizer: false,
+          serviceIds: ['service-b'],
+        },
+      ];
+      const result = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Main Customer',
+          phone: '09171234567',
+          serviceIds: ['service-a', 'service-b'],
+          bookingFor: 'me_and_others',
+          attendees,
+          idempotencyKey: '00000000-0000-4000-8000-000000000003',
+          date: '2026-10-23',
+          startTime: '11:00',
+          mode: 'walkin',
+          paymentReceived: false,
+        },
+        client,
+        customFetch,
+      );
+      expect(result).toEqual({
+        ok: true,
+        bookingId: 'first-group-line',
+        warning: undefined,
+      });
+      expect(customFetch).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(customFetch.mock.calls[0][1]?.body as string);
+      expect(payload).toMatchObject({
+        bookingFor: 'me_and_others',
+        attendees,
+        serviceIds: ['service-a', 'service-b'],
+        idempotencyKey: '00000000-0000-4000-8000-000000000003',
+        paymentReceived: false,
+        type: 'walkin',
+        deliveryType: 'in_spa',
+      });
+      expect(payload.staffId).toBeUndefined();
+      expect(payload.resourceId).toBeUndefined();
+    });
+
     it('fails closed with SERVER_ERROR when success response lacks a valid bookingId', async () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {

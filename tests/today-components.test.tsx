@@ -1191,7 +1191,7 @@ describe('TodayView Component Suite', () => {
         expect(screen.getByRole('dialog')).toBeDefined();
       });
       expect(
-        screen.getByRole('heading', { name: 'New Booking' }),
+        screen.getByRole('heading', { name: 'New Booking – Walk-in' }),
       ).toBeDefined();
     });
 

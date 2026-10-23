@@ -2,7 +2,7 @@
 
 ## Current review gate (2026-10-23)
 
-The UI modernization is published on desktop `main` at `5c7173ecc479d2b9e655d7ea83340948e404437e`. The correction branch `fix/ui-modernization-review` was published at the previously reviewed checkpoint `703586f89b2d37f5fb83c90bb152c9952a5eecf0`; the latest independent review returned **CHANGES REQUIRED**. The correction is not merged into `main`, owner visual acceptance remains pending, and this is not an accepted gate. Stage 16 discovery was independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` but was not merged into desktop `main`. No next stage is authorized.
+Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. The owner-supplied Stage 17 brief reports that the prior UI correction passed independent code review and was merged; the owner explicitly confirmed real Windows visual acceptance in this conversation (“Yes, I inspected and accept it”). The current agent did not independently observe that earlier native review. This is the prior gate relied on for the separately authorized Stage 17. Stage 17 itself remains unreviewed and unaccepted. Hosted `main` was verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
 
 ## Historical Stage 05 verified gate
 

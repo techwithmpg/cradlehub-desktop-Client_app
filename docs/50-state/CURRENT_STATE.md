@@ -2,10 +2,10 @@
 
 ## Current development state (2026-10-23)
 
-- Desktop `main` contains the published UI modernization at `5c7173ecc479d2b9e655d7ea83340948e404437e`. Independent review returned **CHANGES REQUIRED**; owner visual acceptance is pending.
-- The correction branch `fix/ui-modernization-review` was published to GitHub at the previously reviewed checkpoint `703586f89b2d37f5fb83c90bb152c9952a5eecf0`. The latest independent review returned **CHANGES REQUIRED**. Final focused corrections are active on the same branch; it remains unmerged into `main` and unaccepted.
+- Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. This contains the final UI modernization correction. The Stage 17 owner brief reports that correction passed independent code review and was merged. In this conversation, the owner explicitly confirmed, “Yes, I inspected and accept it,” referring to the real Windows app. The current agent did not personally observe that earlier native-window review.
+- Stage 17 booking-modal implementation is active on `stage/17-intake-booking-modal`, based on `1faa7493de961de3b314b8c1b28409ecdabf91ba`. The design reference is owner-provided. This branch is not merged or independently reviewed. Hosted source reference was verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
 - Stage 16 discovery on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` was independently reviewed and owner confirmed. That branch was not merged into desktop `main`.
-- No next implementation stage has been authorized. The hosted CRM remains authoritative for business data and actions.
+- No stage after Stage 17 is authorized. The hosted CRM remains authoritative for business data and actions.
 
 ## Historical accepted-stage record
 

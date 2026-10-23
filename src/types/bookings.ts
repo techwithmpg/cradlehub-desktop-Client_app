@@ -138,6 +138,9 @@ export interface QuickBookingOptionService {
   name: string;
   durationMinutes: number;
   price: number;
+  category?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
   availableInSpa?: boolean;
   availableHomeService?: boolean;
   isActive?: boolean;
@@ -164,6 +167,15 @@ export interface CreateBookingInput {
   phone: string;
   email?: string;
   serviceIds: string[];
+  /** Stable across retries of the same group draft. */
+  idempotencyKey?: string;
+  bookingFor?: 'me_and_others';
+  attendees?: Array<{
+    id: string;
+    name: string;
+    isOrganizer: boolean;
+    serviceIds: string[];
+  }>;
   staffId?: string;
   resourceId?: string;
   date: string;
