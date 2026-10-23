@@ -3343,6 +3343,60 @@ body {
   line-height: 1.35;
 }
 
+.hs-address-suggestions-dropdown {
+  max-height: 220px;
+}
+
+.hs-suggestion-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+}
+
+.hs-suggestion-item.active {
+  background: #ecfdf5;
+}
+
+.hs-verified-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.hs-verified-details {
+  background: #ffffff;
+  border: 1px solid #d1fae5;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hs-verified-address {
+  font-size: 12px;
+  font-weight: 600;
+  color: #065f46;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.hs-quote-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: #047857;
+}
+
+.hs-quote-metrics strong {
+  color: #064e3b;
+}
+
 /* Guests & Services Section */
 .booking-guests-section {
   padding: 10px 12px;

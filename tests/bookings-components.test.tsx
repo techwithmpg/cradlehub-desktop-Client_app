@@ -529,8 +529,7 @@ describe('Stage 02 Bookings UI Components', () => {
         screen.getByText('Cradle Wellness Living • Makati Branch'),
       ).toBeDefined();
       expect(screen.getByText('Walk-in')).toBeDefined();
-      expect(screen.getByText('Phone')).toBeDefined();
-      expect(screen.getByText('Future')).toBeDefined();
+      expect(screen.getByText('Phone / Future')).toBeDefined();
       expect(screen.getByText('Home Service')).toBeDefined();
 
       // Enter customer info to make form dirty

@@ -1,125 +1,184 @@
 # Stage 17 — Evidence
 
-**Target:** Booking Modal Layout, Density, and Functional Mode Activation (Phone, Future, Home Service)
+**Target:** Booking Modal Layout, Density, Mode Unification, and Real Google Places Home Service Location Verification
 
-**Stage / Task:** Stage 17 — Intake Booking Modal Parity Corrections & Mode Activation
+**Stage / Task:** Stage 17 — Intake Booking Modal Parity Corrections, Unified Phone / Future Mode & Home Service Location Integration
 
 **Status:** `READY FOR INDEPENDENT REVIEW`
 
-**Branch:** `stage/17-intake-booking-modal`
+**Desktop Branch:** `stage/17-intake-booking-modal`
 
-**BASE_SHA:** `1faa7493de961de3b314b8c1b28409ecdabf91ba`
+**Desktop Base SHA:** `1faa7493de961de3b314b8c1b28409ecdabf91ba`
 
-**PRE_CORRECTION_HEAD_SHA:** `035263ca64f2a13ade27cb6691bb3566df8090b0`
+**Desktop Previous Head SHA:** `c4f0e721a40390eacdb29104a5a13a291ec75f2c`
 
-**HEAD_SHA:** `846eec29d42a8550f0446decb430a127a226e3db`
+**Desktop HEAD SHA:** `b5028e12dfce05b9dfd660e5aa0f3fc0d09a0f4a`
 
-**Hosted web reference SHA:** `2b3bab3c9e71274c25d747daf37d7928ee670e2c`
+**Hosted Repository:** `https://github.com/techwithmpg/Cradlehub`
 
-## Authorized scope
+**Hosted Branch:** `stage/17-desktop-location-endpoints`
 
-1. **Layout & Density (Owner Accepted):**
-   - Corrected `NewBookingModal` layout, density, and workflow to match the owner-approved reference (`media_1792744377414.jpg`) without rebuilding from scratch.
-   - Dialog geometry (~1220px max width, ~86vh max height, 70/30 split, controlled scroll).
-   - Single compact Customer Information card with merged searchable customer name (`#customer-fullname`), phone, email, notes.
-   - Self-contained Guest Cards with category filter pills, service carousel, duration pills, auto/override therapist & room, date/start/finish time.
-   - Non-financial intake constraints respected (`showFinancialFields=false`).
+**Hosted Commit SHA:** `272339a5d49e39b86160c541bb63d5c09841f81a` (pushed to origin)
 
-2. **Phone & Future Booking Mode Activation:**
-   - Phone and Future options made visibly selectable, keyboard accessible, and functionally active inside the Phone / Future mode card.
-   - **Phone Mode:**
-     - Header displays `New Booking – Phone Booking`.
-     - Summary banner displays `Phone booking`.
-     - Editable date and start time.
-     - Automatically calculated expected finish time.
-     - Preserves customer information, guest services, therapist/room assignment options.
-     - Submits via authenticated desktop API (`POST /api/desktop/v1/bookings`) with `mode: 'phone'`, `type: 'phone'`, `crmBookingMode: 'phone'`.
-   - **Future Mode:**
-     - Header displays `New Booking – Future Booking`.
-     - Summary banner displays `Future booking`.
-     - Editable date and start time, initializing date to tomorrow if currently today (`min={defaults.date}`).
-     - Automatically calculated expected finish time.
-     - Preserves all guest service configurations.
-     - Submits via authenticated desktop API (`POST /api/desktop/v1/bookings`) with `mode: 'standard_future'`, `type: 'walkin'`, `crmBookingMode: 'standard_future'`.
-   - **Walk-in Preservation:**
-     - Walk-in continues using automatic read-only branch business date/time.
-     - Switching between modes preserves customer details, phone, email, notes, and guest services without silent discard. Switching back to Walk-in resets date/time to branch defaults.
+**Hosted Main Reference SHA:** `2b3bab3c9e71274c25d747daf37d7928ee670e2c`
 
-3. **Home Service Mode & Geolocation Contract:**
-   - Mode card selectable (`disabled: true` removed).
-   - Retains Customer Information card with merged customer name search, phone, email, and notes.
-   - Added clearly labeled Home Service Address field (`#hs-address`) inside Customer Information.
-   - Address input is fully editable (not disabled).
-   - Preserves 6 distinct location states: `not_entered`, `entering`, `pending`, `verified`, `failed`, `service_unavailable`.
-   - Services filtered to `availableHomeService === true`.
-   - Spa room selector replaced with "No room required (Home Service)" (`data-testid="hs-no-room"`).
-   - Header displays `New Booking – Home Service` and summary displays `Home Service booking`.
-   - **Fail-Closed Creation Boundary:**
-     - Hosted booking schema requires precise location data (`place_id`, formatted address, `latitude`, `longitude`, and computed transportation fee).
-     - The Tauri client capability strictly restricts requests to `/api/desktop/v1/*`. No endpoint exists on the hosted desktop API for Google Places autocomplete, geocoding, or transportation fee calculation.
-     - Privileged Google API keys are NOT placed in the renderer.
-     - Free-text address is NOT interpreted as verified location; no coordinates or fees are fabricated.
-     - Save button is disabled with explanatory notice (`data-testid="hs-save-blocked-notice"`).
-     - `createBranchBooking` fails closed with code `HOME_SERVICE_LOCATION_REQUIRED`.
+---
 
-## Changed files
+## 1. Owner-Provided Manual Runtime Evidence
 
-- `src/components/bookings/NewBookingModal.tsx`: Activated Phone, Future, and Home Service modes; interactive Phone/Future tabs; editable date/time with finish time calculation; editable Home Service address field with 6 status states; room selector replacement for Home Service; disabled Save button with explanatory notice; state preservation across mode switching.
-- `src/lib/bookings-service.ts`: Mapped `type` and `crmBookingMode` for Phone and Future bookings; preserved fail-closed `HOME_SERVICE_LOCATION_REQUIRED` guard for Home Service creation.
-- `src/styles.css`: Added styles for Phone/Future sub-buttons, Home Service address card, location status badges (neutral, info, warning, success, error), service-unavailable wrap, and Home Service save blocked notice.
-- `tests/bookings-service.test.ts`: Added unit tests verifying Phone mode payload (`type: 'phone'`, `crmBookingMode: 'phone'`), Future mode payload (`type: 'walkin'`, `crmBookingMode: 'standard_future'`), and Home Service creation fail-closed rejection.
-- `tests/booking-preview.test.tsx`: Updated Home Service test from testing disabled tab to testing selectable tab, editable address input, replaced spa room, and blocked save.
-- `tests/booking-modal-layout-corrections.test.tsx`: Added comprehensive tests covering Phone mode selection and submission, Future mode selection and submission, mode switching state preservation, and Home Service address status transitions and blocked save.
-- `docs/30-delivery/STAGE_17_EVIDENCE.md`: This evidence record.
-- `docs/50-state/CURRENT_STATE.md`: Updated active state documentation.
-- `docs/50-state/CURRENT_TASK.md`: Updated current task documentation.
-- `docs/50-state/HANDOFF.md`: Updated handoff notes.
-- `docs/50-state/LAST_VERIFIED_GATE.md`: Updated gate notes.
+- The owner visually inspected the redesigned booking modal on desktop runtime and approved its visual layout, geometry, density, customer card, guest cards, and finish-time presentation.
+- Screenshots provided by the owner are recorded as **OWNER-PROVIDED MANUAL RUNTIME EVIDENCE**, acknowledging visual satisfaction while establishing that functional API corrections, mode unification, and geolocation connectivity were required before delivery.
 
-## Contract evidence
+---
 
-### Repositories verified
+## 2. Phone / Future Mode Unification
 
-- Desktop base commit: `1faa7493de961de3b314b8c1b28409ecdabf91ba`.
-- Desktop pre-functional head: `035263ca64f2a13ade27cb6691bb3566df8090b0`.
-- Hosted reference commit: `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
-- Approved design: Owner visual inspection of layout and density approved; functional mode corrections requested.
+1. **Exactly Three Visible Mode Options:**
+   - `Walk-in` — customer is at the branch (Now · In branch).
+   - `Phone / Future` — booking made in advance, with editable date and time (Call or schedule in advance).
+   - `Home Service` — booking at customer's verified location (We go to customer).
+2. **Removed Nested Buttons:**
+   - Removed nested `.new-booking-mode-pair-actions` (`[ Phone ]` and `[ Future ]`) inside the Phone / Future card.
+   - Entire card is a single `<button role="tab">` element with standard ARIA semantics.
+   - Clicking anywhere on the Phone / Future card selects the unified mode.
+3. **Behavior When Phone / Future Selected:**
+   - Booking date is editable (`min={defaults.date}`).
+   - Start time is editable (`<input type="time">`).
+   - Expected finish time automatically updates based on service duration and start time.
+   - Preserves customer lookup, customer details, therapist selection, and room assignment validation.
+   - Summary panel displays `Phone / Future booking`.
+   - Single-guest and group drafts supported.
+4. **Backend Payload Contract Alignment:**
+   - Hosted `createInhouseBookingMultiSchema` accepts only `'walkin'` and `'home_service'` for the booking `type` field.
+   - Fixed desktop mismatch: unified Phone / Future bookings send hosted-valid `type: 'walkin'` with canonical `crmBookingMode: 'phone'`.
+   - Preserves compatibility for callers passing `initialMode: 'phone'` or `initialMode: 'standard_future'`; both normalize cleanly to the unified Phone / Future state.
+5. **Walk-in Mode Preservation:**
+   - Automatic branch business date (`defaults.date`) and proposed quarter-hour start time (`defaults.startTime`).
+   - Read-only date and start time controls.
+   - Automatic time is not claimed as guaranteed available slot unless validated.
+   - Switching between modes preserves customer info, phone, email, notes, and guest services. Switching back to Walk-in resets date/time to branch defaults.
 
-### Missing server contracts
+---
 
-- Home Service requires an authoritative place-search and transportation-fee service on `/api/desktop/v1/` to satisfy the hosted booking schema without exposing Google Maps API credentials in the desktop renderer.
-- Until an authorized desktop endpoint (`/api/desktop/v1/places/search`, `/api/desktop/v1/home-service/quote`) is published by the hosted platform, Home Service creation remains blocked fail-closed.
+## 3. Hosted Location API Implementation (`E:\cradlehub`)
 
-## Exact checks
+Branch `stage/17-desktop-location-endpoints` at SHA `272339a5d49e39b86160c541bb63d5c09841f81a`:
 
-| Command / Check        | Result | Notes                                                                            |
-| ---------------------- | ------ | -------------------------------------------------------------------------------- |
-| `npm run typecheck`    | PASSED | `tsc --noEmit` exited 0 with 0 errors                                            |
-| `npm run lint`         | PASSED | `eslint . --max-warnings 0` exited 0 with 0 warnings                             |
-| `npm run format:check` | PASSED | Prettier verified all source files                                               |
-| `npm test`             | PASSED | 754 tests passed across 34 test files (including new mode activation unit tests) |
-| `npm run build`        | PASSED | `tsc --noEmit && vite build` bundled client in 2.16s                             |
-| `git diff --check`     | PASSED | 0 whitespace or formatting anomalies                                             |
+1. **`POST /api/desktop/v1/locations/autocomplete`**:
+   - Authenticated via bearer token and staff branch authorization.
+   - Validates input: `query` (min 2 chars), `branchId`, optional `sessionToken`.
+   - Resolves active branch coordinates for Philippine circular location bias (15 km radius) and country restriction (`ph`).
+   - Calls Google Places API (New) autocomplete endpoint server-side.
+   - Returns normalized predictions: `placeId`, `description`, `mainText`, `secondaryText`.
+   - Protects Google API credentials server-side; zero secrets in response.
+2. **`POST /api/desktop/v1/locations/resolve`**:
+   - Authenticated and branch-authorized.
+   - Validates `placeId` and optional `sessionToken`.
+   - Calls Google Place Details endpoint using strict field mask (`id,formattedAddress,location,addressComponents`).
+   - Returns authoritative place details: `placeId`, `formattedAddress`, `lat`, `lng`, `addressComponents`, `mapUrl`.
+3. **`POST /api/desktop/v1/locations/distance-quote`**:
+   - Authenticated and branch-authorized.
+   - Uses hosted `calculateHomeServiceDistanceQuote` service.
+   - Calculates authoritative Google driving distance (meters, km) and duration via Google Routes API.
+   - Calculates branch-specific transportation fee according to branch pricing rules.
+   - Returns authoritative quote: `distanceKm`, `drivingDistanceKm`, `distanceSource`, `travelFee`, `baseFee`, `includedKm`, `perKmFee`.
+   - Zero straight-line approximations; fails closed if routes or pricing unavailable.
 
-## Security and data impact
+---
 
-- Production data changed? No.
-- Schema/migration changed? No.
-- Auth/RLS/Storage policy changed? No.
-- Secrets introduced/exposed? No. No Google API keys in Tauri bundle/renderer.
-- Privileged server behavior changed? No.
-- Tauri capabilities changed? No.
+## 4. Desktop Home Service Google Location Integration (`E:\Cradle-Destop-Client`)
 
-## Limitations
+1. **Address Input & States:**
+   - Single primary field labeled `Home Service Address` (`#hs-address-input`) inside the Customer Information card.
+   - Local state lifecycle: `not_entered` -> `entering` (< 3 chars) -> `searching` (debounced 250ms) -> `suggestions_available` -> `resolving` -> `quoting` -> `quote_available` (or `failed` / `service_unavailable`).
+   - Autocomplete suggestions dropdown (`.hs-address-suggestions-dropdown`) with keyboard navigation (ArrowUp, ArrowDown, Enter, Escape).
+2. **Immediate Invalidation:**
+   - Typing into the address field or clicking `Clear` immediately clears previous `placeId`, `resolvedLocation`, coordinates, and `distanceQuote`.
+   - Free text alone is never treated as verified Google location.
+3. **Authoritative Place Resolution & Quote Display:**
+   - Selecting a suggestion calls hosted `resolveLocationPlace`.
+   - Automatically requests authoritative `fetchDistanceQuote` using branch origin and resolved destination coordinates.
+   - Verified location panel displays formatted address, driving distance (`X.X km`), travel fee (`₱XXX.XX`), and routes provider tag.
+   - Summary panel updates with `Transportation Fee (X.X km)` line and recalculates `Total Amount` including travel fee.
+4. **Conditional Save Enablement:**
+   - Save button remains disabled with clear notice (`hs-save-blocked-notice`) while location is unverified or quote is missing.
+   - Save becomes enabled ONLY when: valid customer name/phone, eligible Home Service service selected, date/time valid, Google location verified, and authoritative distance quote obtained.
+   - On submission, sends payload:
+     - `mode: 'home_service'`
+     - `type: 'home_service'`
+     - `deliveryType: 'home_service'`
+     - `crmBookingMode: 'home_service'`
+     - `homeServiceAddress`, `homeServicePlaceId`, `homeServiceFormattedAddress`, `homeServiceLat`, `homeServiceLng`, `homeServiceDistanceKm`, `homeServiceTravelFee`
+     - Spa room (`resourceId`) omitted (`No room required (Home Service)`).
 
-- Multi-guest group bookings share a single booking date and start time per hosted platform constraints.
-- Home Service bookings cannot be submitted until the hosted backend provides an authenticated desktop place-search and transportation quotation endpoint.
+---
 
-## Rollback
+## 5. Security & Zero Secret Exposure
 
-- Revert the branch to pre-functional commit:
-  `git checkout stage/17-intake-booking-modal && git reset --hard 035263ca64f2a13ade27cb6691bb3566df8090b0`
+- Zero Google Maps API keys or service role credentials exist in the Tauri client, renderer bundle, or API responses.
+- All Google API calls are mediated server-side through authenticated `/api/desktop/v1/locations/*` endpoints.
+- Rate limiting, session token rotation, request cancellation, and field masks are enforced to prevent credential leakage and uncontrolled API consumption.
 
-## Gate
+---
 
-`READY FOR INDEPENDENT REVIEW — NOT MERGED — NEXT STAGE NOT AUTHORIZED`
+## 6. Changed Files
+
+### Desktop Repository (`E:\Cradle-Destop-Client`)
+
+- `src/types/bookings.ts`: Added `LocationPrediction`, `ResolvedLocation`, `DistanceQuote`, `HomeServiceLocationStatus` types; added location and quote fields to `CreateBookingInput`.
+- `src/lib/bookings-service.ts`: Updated `createBranchBooking` payload mapping (`type: 'walkin'` for in-spa advance bookings, `type: 'home_service'` for home service, canonical `crmBookingMode`); added `generateLocationSessionToken`, `fetchLocationAutocomplete`, `resolveLocationPlace`, and `fetchDistanceQuote`.
+- `src/components/bookings/NewBookingModal.tsx`: Unified Phone / Future into single card; removed nested sub-buttons; integrated debounced Google Places autocomplete, place resolution, distance quoting, immediate invalidation, and conditional Save enablement.
+- `src/styles.css`: Added styles for suggestions dropdown, verified location metrics card, distance quote line, and keyboard focus states.
+- `tests/bookings-service.test.ts`: Added unit tests for session token generation, autocomplete, place resolution, distance quote, and payload construction.
+- `tests/booking-preview.test.tsx`: Updated mode tab tests for unified Phone / Future mode; added legacy initial mode normalization test; updated Home Service tests.
+- `tests/booking-modal-layout-corrections.test.tsx`: Added tests verifying exactly 3 visible mode tabs, no nested buttons, unified Phone / Future selection, legacy mode normalization, Home Service autocomplete, suggestion selection, distance quote, and invalidation on edit.
+- `tests/bookings-components.test.tsx`: Updated mode tab assertion from separate Phone/Future to unified Phone / Future.
+
+### Hosted Repository (`E:\cradlehub`)
+
+- `src/app/api/desktop/v1/locations/autocomplete/route.ts` & test (4 tests)
+- `src/app/api/desktop/v1/locations/resolve/route.ts` & test (3 tests)
+- `src/app/api/desktop/v1/locations/distance-quote/route.ts` & test (3 tests)
+
+---
+
+## 7. Verification Evidence
+
+### Desktop Checks (`E:\Cradle-Destop-Client`)
+
+| Command / Check        | Result | Details                                                      |
+| ---------------------- | ------ | ------------------------------------------------------------ |
+| `npm run typecheck`    | PASSED | `tsc --noEmit` exited 0 with zero errors                     |
+| `npm run lint`         | PASSED | `eslint . --max-warnings 0` exited 0 with zero warnings      |
+| `npm run format:check` | PASSED | Prettier checked all files; 100% formatted                   |
+| `npm test`             | PASSED | **762 passed across 34 test files (100% passing)**           |
+| `npm run build`        | PASSED | `tsc --noEmit && vite build` built production client in 6.1s |
+| `git diff --check`     | PASSED | 0 whitespace or conflict marker issues                       |
+
+### Hosted Checks (`E:\cradlehub`)
+
+| Command / Check                 | Result | Details                                                 |
+| ------------------------------- | ------ | ------------------------------------------------------- |
+| `pnpm test .../locations`       | PASSED | 10 passed across 3 test files (100% passing)            |
+| `pnpm tsc --noEmit`             | PASSED | Zero TypeScript errors in hosted location routes        |
+| `pnpm eslint .../locations/...` | PASSED | Zero ESLint warnings / errors in hosted location routes |
+
+---
+
+## 8. Deployment Prerequisites
+
+- The hosted branch `stage/17-desktop-location-endpoints` contains the authenticated Desktop v1 location routes and must be deployed to the hosted environment before live end-to-end Google Places queries can succeed in production.
+- Until deployed, the desktop client fails closed truthfully with `service_unavailable` status, informing the receptionist that location services are not yet configured on the target server.
+
+---
+
+## 9. Rollback Plan
+
+- **Desktop:** `git checkout stage/17-intake-booking-modal && git reset --hard c4f0e721a40390eacdb29104a5a13a291ec75f2c`
+- **Hosted:** `git checkout stage/17-desktop-location-endpoints && git reset --hard 2b3bab3c9e71274c25d747daf37d7928ee670e2c`
+
+---
+
+## 10. Gate Status
+
+`READY FOR INDEPENDENT SOURCE REVIEW AND OWNER RUNTIME INSPECTION — NOT MERGED — NEXT STAGE NOT AUTHORIZED`

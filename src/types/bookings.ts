@@ -160,6 +160,57 @@ export interface QuickBookingOptionResource {
   capacity?: number | null;
 }
 
+export interface LocationPrediction {
+  placeId: string;
+  description: string;
+  mainText: string;
+  secondaryText: string;
+}
+
+export interface ResolvedLocation {
+  placeId: string;
+  formattedAddress: string;
+  lat: number;
+  lng: number;
+  addressComponents?: Array<{
+    long_name: string;
+    short_name: string;
+    types: string[];
+  }>;
+  mapUrl?: string;
+}
+
+export interface DistanceQuote {
+  branchId: string;
+  branchName: string;
+  distanceKm: number;
+  drivingDistanceKm: number;
+  distanceSource: string;
+  baseFee: number;
+  includedKm: number;
+  perKmFee: number;
+  billableDistanceKm: number;
+  rawFee: number;
+  travelFee: number;
+  freeKm?: number;
+  extraKm?: number;
+  feePerExtraKm?: number;
+  transportSnapshot?: Record<string, unknown>;
+  warning?: string;
+}
+
+export type HomeServiceLocationStatus =
+  | 'not_entered'
+  | 'entering'
+  | 'searching'
+  | 'suggestions_available'
+  | 'resolving'
+  | 'verified'
+  | 'quoting'
+  | 'quote_available'
+  | 'failed'
+  | 'service_unavailable';
+
 export interface CreateBookingInput {
   branchId: string;
   customerId?: string;
@@ -188,8 +239,20 @@ export interface CreateBookingInput {
   paymentMethod?: string;
   notes?: string;
   homeServiceAddress?: string;
+  homeServicePlaceId?: string;
+  homeServiceFormattedAddress?: string;
+  homeServiceLat?: number;
+  homeServiceLng?: number;
+  homeServiceAddressComponents?: Array<{
+    long_name: string;
+    short_name: string;
+    types: string[];
+  }>;
+  homeServiceMapUrl?: string;
   homeServiceBarangay?: string;
   homeServiceCity?: string;
+  homeServiceDistanceKm?: number;
+  homeServiceTravelFee?: number;
 }
 
 export interface CreateBookingResult {

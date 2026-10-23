@@ -61,13 +61,16 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
-function mount() {
+function mount(
+  overrides?: Partial<React.ComponentProps<typeof NewBookingModal>>,
+) {
   const props = {
     isOpen: true,
     onClose: vi.fn(),
     onBookingCreated: vi.fn(),
     branchId: 'branch-1',
     branchName: 'Branch One',
+    ...overrides,
   };
   const view = render(<NewBookingModal {...props} />);
   return {
@@ -88,7 +91,7 @@ const change = (id: string, value: string) =>
   fireEvent.change(input(id), { target: { value } });
 const close = () => fireEvent.click(screen.getByLabelText('Close modal'));
 const mode = (label: string) =>
-  fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${label}`) }));
+  fireEvent.click(screen.getByRole('tab', { name: new RegExp(label, 'i') }));
 const ready = () => screen.findByRole('button', { name: /Spa only/ });
 beforeEach(() => {
   vi.spyOn(service, 'fetchBranchBookingOptions').mockResolvedValue(options);
@@ -101,7 +104,7 @@ afterEach(() => {
 });
 
 describe('booking preview selection and availability', () => {
-  it.each(['Walk-in', 'Phone', 'Future'])(
+  it.each(['Walk-in', 'Phone / Future'])(
     '%s offers only in-spa services',
     async (label) => {
       mount();
@@ -111,7 +114,7 @@ describe('booking preview selection and availability', () => {
       expect(screen.getByRole('button', { name: /Both modes/ })).toBeDefined();
     },
   );
-  it('makes Home Service mode tab selectable, renders editable address and blocks save', async () => {
+  it('makes Home Service mode tab selectable, renders editable address and blocks save when unverified', async () => {
     mount();
     await ready();
     const homeTab = screen.getByRole('tab', { name: /^Home Service/ });
@@ -130,7 +133,7 @@ describe('booking preview selection and availability', () => {
     // Spa room is replaced with Home Service no-room indicator
     expect(screen.getByTestId('hs-no-room')).toBeDefined();
 
-    // Save button is disabled for Home Service
+    // Save button is disabled for unverified Home Service
     const saveButton = screen.getByRole('button', {
       name: 'Create Booking',
     }) as HTMLButtonElement;
@@ -154,8 +157,7 @@ describe('booking preview selection and availability', () => {
   });
   it.each([
     { label: 'Walk-in', modeVal: 'walkin' },
-    { label: 'Phone', modeVal: 'phone' },
-    { label: 'Future', modeVal: 'standard_future' },
+    { label: 'Phone / Future', modeVal: 'phone' },
   ])(
     'submits creation in $label mode when valid',
     async ({ label, modeVal }) => {
@@ -192,6 +194,41 @@ describe('booking preview selection and availability', () => {
       });
     },
   );
+
+  it('normalizes legacy standard_future initialMode to Phone / Future state and submits mode phone', async () => {
+    const create = vi
+      .spyOn(service, 'createBranchBooking')
+      .mockResolvedValue({ ok: true, bookingId: 'b-new-legacy' });
+    mount({ initialMode: 'standard_future' });
+    await ready();
+    const phoneFutureTab = screen.getByRole('tab', {
+      name: /Phone \/ Future/i,
+    });
+    expect(phoneFutureTab.getAttribute('aria-selected')).toBe('true');
+    expect(
+      screen.getByRole('heading', { name: /New Booking – Phone \/ Future/ }),
+    ).toBeDefined();
+    expect(screen.getByText('Phone / Future booking')).toBeDefined();
+
+    change('customer-fullname', 'Legacy Client');
+    change('customer-phone', '09111111111');
+    const button = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          branchId: 'branch-1',
+          fullName: 'Legacy Client',
+          phone: '09111111111',
+          mode: 'phone',
+        }),
+      );
+    });
+  });
 
   it('handles payment confirmation and requires explicit payment method selection', async () => {
     const create = vi

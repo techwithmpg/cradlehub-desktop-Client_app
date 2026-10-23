@@ -28,6 +28,10 @@ import type {
   QuickBookingOptionStaff,
   QuickBookingOptionResource,
   BookingCustomer,
+  LocationPrediction,
+  ResolvedLocation,
+  DistanceQuote,
+  HomeServiceLocationStatus,
 } from '../../types/bookings';
 import {
   fetchBranchBookingOptions,
@@ -38,6 +42,10 @@ import {
   getTodayDateString,
   formatCurrency,
   createBranchBooking,
+  generateLocationSessionToken,
+  fetchLocationAutocomplete,
+  resolveLocationPlace,
+  fetchDistanceQuote,
 } from '../../lib/bookings-service';
 
 export interface NewBookingModalProps {
@@ -64,13 +72,8 @@ const MODES: Array<{
   },
   {
     value: 'phone',
-    label: 'Phone',
+    label: 'Phone / Future',
     description: 'Call or schedule in advance',
-  },
-  {
-    value: 'standard_future',
-    label: 'Future',
-    description: 'Scheduled in-spa booking',
   },
   {
     value: 'home_service',
@@ -95,14 +98,6 @@ interface GuestDraft {
   serviceIds: string[];
 }
 
-export type HomeServiceLocationStatus =
-  | 'not_entered'
-  | 'entering'
-  | 'pending'
-  | 'verified'
-  | 'failed'
-  | 'service_unavailable';
-
 export const NewBookingModal: React.FC<NewBookingModalProps> = (props) =>
   props.isOpen ? (
     <BookingPreview
@@ -119,7 +114,8 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
   initialMode,
   showFinancialFields = true,
 }) => {
-  const openingMode = initialMode || 'walkin';
+  const openingMode: QuickBookingMode =
+    initialMode === 'standard_future' ? 'phone' : initialMode || 'walkin';
   const [defaults] = useState(() => ({
     date: getTodayDateString(),
     startTime: getCurrentQuarterTime(),
@@ -183,33 +179,189 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
   const [date, setDate] = useState(defaults.date);
   const [startTime, setStartTime] = useState(defaults.startTime);
 
-  // Home Service fields
+  // Home Service fields & location autocomplete
   const [homeServiceAddress, setHomeServiceAddress] = useState('');
+  const [locationPredictions, setLocationPredictions] = useState<
+    LocationPrediction[]
+  >([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [resolvedLocation, setResolvedLocation] =
+    useState<ResolvedLocation | null>(null);
+  const [distanceQuote, setDistanceQuote] = useState<DistanceQuote | null>(
+    null,
+  );
   const [locationStatus, setLocationStatus] =
-    useState<HomeServiceLocationStatus>(
-      homeServiceAddress.trim() ? 'service_unavailable' : 'not_entered',
-    );
+    useState<HomeServiceLocationStatus>('not_entered');
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const locationSessionTokenRef = useRef(generateLocationSessionToken());
   const locationDebounceRef = useRef<number | null>(null);
+  const locationQueryVersionRef = useRef(0);
 
   const handleHomeServiceAddressChange = (val: string) => {
     setHomeServiceAddress(val);
+    locationQueryVersionRef.current += 1;
+    const currentVersion = locationQueryVersionRef.current;
+
+    // Immediately invalidate previously verified location and quote
+    setResolvedLocation(null);
+    setDistanceQuote(null);
+    setActiveSuggestionIndex(-1);
+
     if (locationDebounceRef.current) {
       window.clearTimeout(locationDebounceRef.current);
     }
+
     if (!val.trim()) {
+      setLocationPredictions([]);
       setLocationStatus('not_entered');
+      setLocationError(null);
+      setIsSearchingLocation(false);
       return;
     }
-    setLocationStatus('entering');
-    locationDebounceRef.current = window.setTimeout(() => {
-      // Authoritative place-search and transportation fee APIs are not yet exposed on Desktop v1.
-      // We truthfully report location service unavailable.
-      setLocationStatus('service_unavailable');
+
+    if (val.trim().length < 3) {
+      setLocationPredictions([]);
+      setLocationStatus('entering');
+      setLocationError(null);
+      setIsSearchingLocation(false);
+      return;
+    }
+
+    setLocationStatus('searching');
+    setIsSearchingLocation(true);
+    setLocationError(null);
+
+    locationDebounceRef.current = window.setTimeout(async () => {
+      try {
+        const result = await fetchLocationAutocomplete(
+          val.trim(),
+          branchId,
+          locationSessionTokenRef.current,
+        );
+
+        if (currentVersion !== locationQueryVersionRef.current) return;
+
+        if (result.ok && result.predictions) {
+          setLocationPredictions(result.predictions);
+          if (result.predictions.length > 0) {
+            setLocationStatus('suggestions_available');
+          } else {
+            setLocationStatus('failed');
+            setLocationError(
+              'No matching locations found. Try entering a different street or landmark.',
+            );
+          }
+        } else {
+          setLocationPredictions([]);
+          setLocationError(result.error || 'Failed to search locations.');
+          if (
+            result.code === 'API_CONFIG_REQUIRED' ||
+            result.code === 'GOOGLE_MAPS_DISABLED' ||
+            result.code === 'PLACES_DISABLED'
+          ) {
+            setLocationStatus('service_unavailable');
+          } else {
+            setLocationStatus('failed');
+          }
+        }
+      } catch {
+        if (currentVersion !== locationQueryVersionRef.current) return;
+        setLocationPredictions([]);
+        setLocationStatus('failed');
+        setLocationError(
+          'Could not search locations. Please check your network.',
+        );
+      } finally {
+        if (currentVersion === locationQueryVersionRef.current) {
+          setIsSearchingLocation(false);
+        }
+      }
     }, 250);
+  };
+
+  const handleSelectLocation = async (prediction: LocationPrediction) => {
+    locationQueryVersionRef.current += 1;
+    if (locationDebounceRef.current) {
+      window.clearTimeout(locationDebounceRef.current);
+    }
+    setLocationPredictions([]);
+    setActiveSuggestionIndex(-1);
+    setIsSearchingLocation(false);
+    setHomeServiceAddress(prediction.description);
+    setLocationStatus('resolving');
+    setLocationError(null);
+
+    const tokenUsed = locationSessionTokenRef.current;
+    locationSessionTokenRef.current = generateLocationSessionToken();
+
+    try {
+      const resolveRes = await resolveLocationPlace(
+        prediction.placeId,
+        tokenUsed,
+      );
+      if (!resolveRes.ok || !resolveRes.location) {
+        setLocationStatus(
+          resolveRes.code === 'API_CONFIG_REQUIRED'
+            ? 'service_unavailable'
+            : 'failed',
+        );
+        setLocationError(
+          resolveRes.error || 'Failed to resolve location details.',
+        );
+        return;
+      }
+
+      setResolvedLocation(resolveRes.location);
+      setHomeServiceAddress(resolveRes.location.formattedAddress);
+      setLocationStatus('quoting');
+
+      const quoteRes = await fetchDistanceQuote(branchId, {
+        lat: resolveRes.location.lat,
+        lng: resolveRes.location.lng,
+      });
+
+      if (!quoteRes.ok || !quoteRes.quote) {
+        setLocationStatus(
+          quoteRes.code === 'API_CONFIG_REQUIRED'
+            ? 'service_unavailable'
+            : 'failed',
+        );
+        setLocationError(
+          quoteRes.error ||
+            'Failed to calculate transportation distance quote.',
+        );
+        return;
+      }
+
+      setDistanceQuote(quoteRes.quote);
+      setLocationStatus('quote_available');
+    } catch {
+      setLocationStatus('failed');
+      setLocationError(
+        'Network error while verifying location. Please try again.',
+      );
+    }
+  };
+
+  const handleClearLocation = () => {
+    locationQueryVersionRef.current += 1;
+    if (locationDebounceRef.current) {
+      window.clearTimeout(locationDebounceRef.current);
+    }
+    setHomeServiceAddress('');
+    setResolvedLocation(null);
+    setDistanceQuote(null);
+    setLocationPredictions([]);
+    setActiveSuggestionIndex(-1);
+    setLocationError(null);
+    setLocationStatus('not_entered');
+    locationSessionTokenRef.current = generateLocationSessionToken();
   };
 
   useEffect(() => {
     return () => {
+      locationQueryVersionRef.current += 1;
       if (locationDebounceRef.current) {
         window.clearTimeout(locationDebounceRef.current);
       }
@@ -552,6 +704,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     email !== '' ||
     notes !== '' ||
     homeServiceAddress !== '' ||
+    resolvedLocation !== null ||
     staffId !== '' ||
     resourceId !== '' ||
     date !== defaults.date ||
@@ -563,6 +716,17 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+
+    const isHomeServiceValid =
+      mode !== 'home_service' ||
+      (resolvedLocation !== null &&
+        Boolean(resolvedLocation.placeId?.trim()) &&
+        typeof resolvedLocation.lat === 'number' &&
+        Number.isFinite(resolvedLocation.lat) &&
+        typeof resolvedLocation.lng === 'number' &&
+        Number.isFinite(resolvedLocation.lng) &&
+        distanceQuote !== null);
+
     if (
       submittingRef.current ||
       isSubmitting ||
@@ -573,7 +737,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
       fullName.trim().length < 2 ||
       phone.trim().length < 7 ||
       (showFinancialFields && paymentReceived && !paymentMethod) ||
-      mode === 'home_service'
+      !isHomeServiceValid
     ) {
       return;
     }
@@ -630,14 +794,46 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
           additionalGuests.length > 0
             ? groupAttemptRef.current?.key
             : undefined,
-        staffId: additionalGuests.length > 0 ? undefined : staffId || undefined,
+        staffId:
+          mode === 'home_service' || additionalGuests.length > 0
+            ? undefined
+            : staffId || undefined,
         resourceId:
-          additionalGuests.length > 0 ? undefined : resourceId || undefined,
+          mode === 'home_service' || additionalGuests.length > 0
+            ? undefined
+            : resourceId || undefined,
         date,
         startTime,
         totalDurationMinutes,
-        totalPrice,
+        totalPrice:
+          mode === 'home_service' && distanceQuote
+            ? totalPrice + distanceQuote.travelFee
+            : totalPrice,
         mode,
+        homeServiceAddress:
+          mode === 'home_service'
+            ? homeServiceAddress || resolvedLocation?.formattedAddress
+            : undefined,
+        homeServicePlaceId:
+          mode === 'home_service' ? resolvedLocation?.placeId : undefined,
+        homeServiceFormattedAddress:
+          mode === 'home_service'
+            ? resolvedLocation?.formattedAddress
+            : undefined,
+        homeServiceLat:
+          mode === 'home_service' ? resolvedLocation?.lat : undefined,
+        homeServiceLng:
+          mode === 'home_service' ? resolvedLocation?.lng : undefined,
+        homeServiceAddressComponents:
+          mode === 'home_service'
+            ? resolvedLocation?.addressComponents
+            : undefined,
+        homeServiceMapUrl:
+          mode === 'home_service' ? resolvedLocation?.mapUrl : undefined,
+        homeServiceDistanceKm:
+          mode === 'home_service' ? distanceQuote?.distanceKm : undefined,
+        homeServiceTravelFee:
+          mode === 'home_service' ? distanceQuote?.travelFee : undefined,
         paymentReceived:
           additionalGuests.length > 0
             ? false
@@ -716,11 +912,9 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                 New Booking –{' '}
                 {mode === 'walkin'
                   ? 'Walk-in'
-                  : mode === 'phone'
-                    ? 'Phone Booking'
-                    : mode === 'standard_future'
-                      ? 'Future Booking'
-                      : 'Home Service'}
+                  : mode === 'home_service'
+                    ? 'Home Service'
+                    : 'Phone / Future'}
               </h2>
               <span className="new-booking-branch-badge">
                 <Building2 size={12} aria-hidden="true" />
@@ -744,47 +938,13 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
 
         {/* Compact Mode Selector */}
         <div className="new-booking-mode-tabs" role="tablist">
-          {MODES.filter((item) => item.value !== 'standard_future').map((m) => {
-            if (m.value === 'phone') {
-              return (
-                <div
-                  className={`new-booking-mode-pair ${mode === 'phone' || mode === 'standard_future' ? 'active' : ''}`}
-                  key="phone-future"
-                >
-                  <div className="new-booking-mode-pair-heading">
-                    <Phone size={18} aria-hidden="true" />
-                    <span>
-                      <strong>Phone / Future</strong>
-                      <small>Call or schedule in advance</small>
-                    </span>
-                  </div>
-                  <div className="new-booking-mode-pair-actions">
-                    {MODES.filter(
-                      (item) =>
-                        item.value === 'phone' ||
-                        item.value === 'standard_future',
-                    ).map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        role="tab"
-                        aria-selected={mode === option.value}
-                        className={mode === option.value ? 'active' : ''}
-                        disabled={isLoadingOptions || isSubmitting}
-                        onClick={() => handleModeChange(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            }
-            const isActive = mode === m.value;
+          {MODES.map((m) => {
+            const isActive =
+              m.value === 'phone'
+                ? mode === 'phone' || mode === 'standard_future'
+                : mode === m.value;
             const isDisabled =
-              (m.disabled && mode !== m.value) ||
-              isLoadingOptions ||
-              isSubmitting;
+              (m.disabled && !isActive) || isLoadingOptions || isSubmitting;
             return (
               <button
                 key={m.value}
@@ -801,8 +961,10 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
               >
                 {m.value === 'walkin' ? (
                   <User size={18} aria-hidden="true" />
-                ) : (
+                ) : m.value === 'home_service' ? (
                   <Home size={18} aria-hidden="true" />
+                ) : (
+                  <Phone size={18} aria-hidden="true" />
                 )}
                 <span className="mode-tab-label">{m.label}</span>
                 <span className="mode-tab-desc">{m.description}</span>
@@ -811,7 +973,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
           })}
         </div>
 
-        {mode === 'home_service' && (
+        {mode === 'home_service' && (!resolvedLocation || !distanceQuote) && (
           <div
             className="new-booking-error-banner"
             role="alert"
@@ -1024,26 +1186,106 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                   className="home-service-location-card"
                   data-testid="home-service-location-card"
                 >
-                  <div className="form-group">
+                  <div className="form-group customer-combined-group">
                     <label className="form-label" htmlFor="hs-address">
                       Home Service Address <span className="required">*</span>
                     </label>
-                    <input
-                      id="hs-address"
-                      data-testid="hs-address-input"
-                      type="text"
-                      className="form-input"
-                      placeholder="Enter customer street address or delivery location"
-                      value={homeServiceAddress}
-                      onChange={(e) =>
-                        handleHomeServiceAddressChange(e.target.value)
-                      }
-                      disabled={isSubmitting}
-                      required={mode === 'home_service'}
-                    />
+                    <div className="customer-search-input-wrapper">
+                      <Search
+                        size={14}
+                        className="search-icon"
+                        aria-hidden="true"
+                      />
+                      <input
+                        id="hs-address"
+                        data-testid="hs-address-input"
+                        type="text"
+                        className="form-input search-input"
+                        placeholder="Search address with Google Places (e.g. Ayala Ave, Makati)"
+                        value={homeServiceAddress}
+                        onChange={(e) =>
+                          handleHomeServiceAddressChange(e.target.value)
+                        }
+                        onKeyDown={(e) => {
+                          if (locationPredictions.length === 0) return;
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setActiveSuggestionIndex((prev) =>
+                              prev < locationPredictions.length - 1
+                                ? prev + 1
+                                : 0,
+                            );
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setActiveSuggestionIndex((prev) =>
+                              prev > 0
+                                ? prev - 1
+                                : locationPredictions.length - 1,
+                            );
+                          } else if (e.key === 'Enter') {
+                            if (
+                              activeSuggestionIndex >= 0 &&
+                              activeSuggestionIndex < locationPredictions.length
+                            ) {
+                              e.preventDefault();
+                              handleSelectLocation(
+                                locationPredictions[activeSuggestionIndex],
+                              );
+                            }
+                          } else if (e.key === 'Escape') {
+                            setLocationPredictions([]);
+                            setActiveSuggestionIndex(-1);
+                          }
+                        }}
+                        disabled={isSubmitting}
+                        required={mode === 'home_service'}
+                      />
+                      {isSearchingLocation && (
+                        <span className="search-loading-hint">
+                          Searching...
+                        </span>
+                      )}
+                      {(homeServiceAddress || resolvedLocation) && (
+                        <button
+                          type="button"
+                          className="clear-customer-btn"
+                          onClick={handleClearLocation}
+                          title="Clear address selection"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Autocomplete Predictions Dropdown */}
+                    {locationPredictions.length > 0 && (
+                      <div
+                        className="customer-autocomplete-dropdown hs-address-suggestions-dropdown"
+                        data-testid="hs-autocomplete-dropdown"
+                      >
+                        {locationPredictions.map((pred, idx) => (
+                          <button
+                            key={pred.placeId}
+                            type="button"
+                            className={`customer-autocomplete-item hs-suggestion-item ${idx === activeSuggestionIndex ? 'active' : ''}`}
+                            data-testid={`hs-suggestion-${pred.placeId}`}
+                            onClick={() => handleSelectLocation(pred)}
+                          >
+                            <span className="cust-name">
+                              {pred.mainText || pred.description}
+                            </span>
+                            {pred.secondaryText && (
+                              <span className="cust-phone">
+                                {pred.secondaryText}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* 6 distinct location verification states */}
+                  {/* Location Verification Status */}
                   <div
                     className={`home-service-location-status status-${locationStatus}`}
                     data-testid="hs-location-status"
@@ -1059,20 +1301,73 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                         Address being entered.
                       </span>
                     )}
-                    {locationStatus === 'pending' && (
-                      <span className="location-status-badge badge-warning">
-                        Location verification pending.
+                    {locationStatus === 'searching' && (
+                      <span className="location-status-badge badge-info">
+                        Searching Google Places...
                       </span>
                     )}
-                    {locationStatus === 'verified' && (
+                    {locationStatus === 'suggestions_available' && (
+                      <span className="location-status-badge badge-info">
+                        Select a verified address from suggestions above.
+                      </span>
+                    )}
+                    {locationStatus === 'resolving' && (
+                      <span className="location-status-badge badge-warning">
+                        Resolving authoritative location...
+                      </span>
+                    )}
+                    {locationStatus === 'quoting' && (
+                      <span className="location-status-badge badge-warning">
+                        Calculating driving distance and transportation fee...
+                      </span>
+                    )}
+                    {locationStatus === 'quote_available' && distanceQuote && (
+                      <div
+                        className="hs-verified-box"
+                        data-testid="hs-verified-box"
+                      >
+                        <span className="location-status-badge badge-success">
+                          Verified precise location.
+                        </span>
+                        <div className="hs-verified-details">
+                          <p className="hs-verified-address">
+                            {resolvedLocation?.formattedAddress ||
+                              homeServiceAddress}
+                          </p>
+                          <div className="hs-quote-metrics">
+                            <span>
+                              Distance:{' '}
+                              <strong>
+                                {distanceQuote.drivingDistanceKm.toFixed(1)} km
+                              </strong>{' '}
+                              ({distanceQuote.distanceSource})
+                            </span>
+                            <span>
+                              Travel Fee:{' '}
+                              <strong>
+                                {formatCurrency(distanceQuote.travelFee)}
+                              </strong>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {locationStatus === 'verified' && !distanceQuote && (
                       <span className="location-status-badge badge-success">
                         Verified precise location.
                       </span>
                     )}
                     {locationStatus === 'failed' && (
-                      <span className="location-status-badge badge-error">
-                        Location validation failed.
-                      </span>
+                      <div className="location-status-unavailable-wrap">
+                        <span className="location-status-badge badge-error">
+                          Location validation failed.
+                        </span>
+                        {locationError && (
+                          <p className="location-unavailable-hint">
+                            {locationError}
+                          </p>
+                        )}
+                      </div>
                     )}
                     {locationStatus === 'service_unavailable' && (
                       <div className="location-status-unavailable-wrap">
@@ -1080,11 +1375,8 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                           Location service unavailable.
                         </span>
                         <p className="location-unavailable-hint">
-                          Authoritative place-search and transportation
-                          quotation APIs are not yet exposed on the Desktop
-                          Client boundary. Free-text address cannot be verified
-                          or submitted without server-side Google Places and
-                          distance verification.
+                          {locationError ||
+                            'Authoritative place-search and transportation quotation APIs are not yet configured on this installation.'}
                         </p>
                       </div>
                     )}
@@ -1781,17 +2073,18 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                     <strong>
                       {mode === 'walkin'
                         ? 'Walk-in booking'
-                        : mode === 'phone'
-                          ? 'Phone booking'
-                          : mode === 'standard_future'
-                            ? 'Future booking'
-                            : 'Home Service booking'}
+                        : mode === 'home_service'
+                          ? 'Home Service booking'
+                          : 'Phone / Future booking'}
                     </strong>
                     <span className="summary-branch-pill">{branchName}</span>
                   </div>
                   <div className="summary-banner-meta">
                     {date} • {allGuests.length} Guest
                     {allGuests.length > 1 ? 's' : ''}
+                    {mode === 'home_service' && distanceQuote
+                      ? ` • ${distanceQuote.drivingDistanceKm.toFixed(1)} km`
+                      : ''}
                   </div>
                 </div>
               </div>
@@ -1882,6 +2175,18 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                     <span>Service Subtotal</span>
                     <span>{formatCurrency(totalPrice)}</span>
                   </div>
+                  {mode === 'home_service' && distanceQuote && (
+                    <div
+                      className="summary-calc-row"
+                      data-testid="summary-transportation-fee"
+                    >
+                      <span>
+                        Transportation Fee (
+                        {distanceQuote.drivingDistanceKm.toFixed(1)} km)
+                      </span>
+                      <span>{formatCurrency(distanceQuote.travelFee)}</span>
+                    </div>
+                  )}
                   <div className="summary-calc-row">
                     <span>Discount</span>
                     <span>₱0.00</span>
@@ -1889,7 +2194,12 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                   <div className="summary-total-amount-row">
                     <span className="total-label">Total Amount</span>
                     <span className="total-amount-number">
-                      {formatCurrency(totalPrice)}
+                      {formatCurrency(
+                        totalPrice +
+                          (mode === 'home_service' && distanceQuote
+                            ? distanceQuote.travelFee
+                            : 0),
+                      )}
                     </span>
                   </div>
 
@@ -1970,22 +2280,23 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
             </div>
 
             {/* Pinned Action Buttons: Always visible without scrolling */}
-            {mode === 'home_service' && (
-              <div
-                className="home-service-save-blocked-notice"
-                data-testid="hs-save-blocked-notice"
-                role="status"
-              >
-                <AlertCircle size={14} aria-hidden="true" />
-                <span>
-                  Home Service save is unavailable: Authoritative server
-                  location verification, place ID, coordinates, and
-                  transportation fee quotation are required by the hosted
-                  booking schema but not yet connected to the Desktop Client
-                  API.
-                </span>
-              </div>
-            )}
+            {mode === 'home_service' &&
+              (!resolvedLocation || !distanceQuote) && (
+                <div
+                  className="home-service-save-blocked-notice"
+                  data-testid="hs-save-blocked-notice"
+                  role="status"
+                >
+                  <AlertCircle size={14} aria-hidden="true" />
+                  <span>
+                    Home Service save is unavailable: Authoritative server
+                    location verification, place ID, coordinates, and
+                    transportation fee quotation are required by the hosted
+                    booking schema but not yet connected to the Desktop Client
+                    API.
+                  </span>
+                </div>
+              )}
 
             <div className="summary-footer-actions">
               <button
@@ -2001,7 +2312,8 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                 className="new-booking-submit-btn"
                 aria-label="Create Booking"
                 title={
-                  mode === 'home_service'
+                  mode === 'home_service' &&
+                  (!resolvedLocation || !distanceQuote)
                     ? 'Home Service save is unavailable: Authoritative server location verification, place ID, coordinates, and transportation fee quotation are required by the hosted booking schema but not yet connected to the Desktop Client API.'
                     : undefined
                 }
@@ -2014,7 +2326,14 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                   fullName.trim().length < 2 ||
                   phone.trim().length < 7 ||
                   (showFinancialFields && paymentReceived && !paymentMethod) ||
-                  mode === 'home_service'
+                  (mode === 'home_service' &&
+                    (!resolvedLocation ||
+                      !resolvedLocation.placeId?.trim() ||
+                      typeof resolvedLocation.lat !== 'number' ||
+                      !Number.isFinite(resolvedLocation.lat) ||
+                      typeof resolvedLocation.lng !== 'number' ||
+                      !Number.isFinite(resolvedLocation.lng) ||
+                      !distanceQuote))
                 }
                 onClick={handleSubmit}
               >

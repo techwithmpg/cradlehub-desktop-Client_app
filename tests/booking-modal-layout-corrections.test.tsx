@@ -11,6 +11,7 @@ import { NewBookingModal } from '../src/components/bookings/NewBookingModal';
 import * as service from '../src/lib/bookings-service';
 import type {
   BookingCustomer,
+  DistanceQuote,
   QuickBookingOptionResource,
   QuickBookingOptionService,
   QuickBookingOptionStaff,
@@ -227,10 +228,14 @@ describe('Booking Modal Layout & Workflow Corrections (Approved Reference Parity
     // Initial state: Address not entered.
     expect(screen.getByText('Address not entered.')).toBeDefined();
 
-    // Typing transitions to Address being entered.
-    fireEvent.change(addressInput, { target: { value: 'Tower 2, Makati' } });
-    expect(addressInput.value).toBe('Tower 2, Makati');
+    // Typing short address transitions to Address being entered.
+    fireEvent.change(addressInput, { target: { value: 'To' } });
+    expect(addressInput.value).toBe('To');
     expect(screen.getByText('Address being entered.')).toBeDefined();
+
+    // Typing >= 3 characters transitions to searching
+    fireEvent.change(addressInput, { target: { value: 'Tower 2, Makati' } });
+    expect(screen.getByText('Searching Google Places...')).toBeDefined();
 
     // Room control is replaced
     expect(screen.getByTestId('hs-no-room')).toBeDefined();
@@ -369,23 +374,35 @@ describe('Booking Modal Layout & Workflow Corrections (Approved Reference Parity
     expect(screen.getByText('Guests & Services (2)')).toBeDefined();
   });
 
-  it('selects Phone Booking mode, enables date/time editing, updates header/summary, and submits with phone mode', async () => {
+  it('renders exactly THREE visible mode tabs without nested buttons and selects unified Phone / Future mode', async () => {
     const create = vi
       .spyOn(service, 'createBranchBooking')
       .mockResolvedValue({ ok: true, bookingId: 'phone-b-1' });
     const { container } = mountModal();
     await screen.findByText('Swedish Massage');
 
-    // Click Phone tab
-    const phoneTab = screen.getByRole('tab', { name: /^Phone$/ });
-    fireEvent.click(phoneTab);
-    expect(phoneTab.getAttribute('aria-selected')).toBe('true');
+    // Exactly 3 mode tabs
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.length).toBe(3);
+    expect(tabs[0].textContent).toContain('Walk-in');
+    expect(tabs[1].textContent).toContain('Phone / Future');
+    expect(tabs[2].textContent).toContain('Home Service');
 
-    // Header & summary show Phone Booking
+    // No nested buttons inside any tab
+    tabs.forEach((tab) => {
+      expect(tab.querySelectorAll('button').length).toBe(0);
+    });
+
+    // Click Phone / Future tab
+    const phoneFutureTab = tabs[1];
+    fireEvent.click(phoneFutureTab);
+    expect(phoneFutureTab.getAttribute('aria-selected')).toBe('true');
+
+    // Header & summary show Phone / Future
     expect(
-      screen.getByRole('heading', { name: 'New Booking – Phone Booking' }),
+      screen.getByRole('heading', { name: 'New Booking – Phone / Future' }),
     ).toBeDefined();
-    expect(screen.getByText('Phone booking')).toBeDefined();
+    expect(screen.getByText('Phone / Future booking')).toBeDefined();
 
     // Date & time are editable
     const dateInput = container.querySelector(
@@ -428,51 +445,40 @@ describe('Booking Modal Layout & Workflow Corrections (Approved Reference Parity
     });
   });
 
-  it('selects Future Booking mode, initializes future date, enables date/time editing, and submits with standard_future mode', async () => {
+  it('normalizes legacy standard_future initialMode to Phone / Future state and submits mode phone', async () => {
     const create = vi
       .spyOn(service, 'createBranchBooking')
-      .mockResolvedValue({ ok: true, bookingId: 'future-b-1' });
-    const { container } = mountModal();
+      .mockResolvedValue({ ok: true, bookingId: 'legacy-future-b' });
+    const { container } = mountModal({ initialMode: 'standard_future' });
     await screen.findByText('Swedish Massage');
 
-    // Click Future tab
-    const futureTab = screen.getByRole('tab', { name: /^Future$/ });
-    fireEvent.click(futureTab);
-    expect(futureTab.getAttribute('aria-selected')).toBe('true');
+    const tabs = screen.getAllByRole('tab');
+    const phoneFutureTab = tabs[1];
+    expect(phoneFutureTab.getAttribute('aria-selected')).toBe('true');
 
-    // Header & summary show Future Booking
     expect(
-      screen.getByRole('heading', { name: 'New Booking – Future Booking' }),
+      screen.getByRole('heading', { name: 'New Booking – Phone / Future' }),
     ).toBeDefined();
-    expect(screen.getByText('Future booking')).toBeDefined();
+    expect(screen.getByText('Phone / Future booking')).toBeDefined();
 
-    // Date is initialized to future (tomorrow or beyond)
-    const dateInput = container.querySelector(
-      '#booking-date',
-    ) as HTMLInputElement;
-    expect(dateInput.readOnly).toBe(false);
-    expect(dateInput.value).not.toBe('');
-
-    // Customer details
     const nameInput = screen.getByTestId(
       'customer-search-input',
     ) as HTMLInputElement;
-    fireEvent.change(nameInput, { target: { value: 'Future Client' } });
+    fireEvent.change(nameInput, { target: { value: 'Legacy Future Client' } });
     const phoneInput = container.querySelector(
       '#customer-phone',
     ) as HTMLInputElement;
     fireEvent.change(phoneInput, { target: { value: '09191234567' } });
 
-    // Submit
     const saveBtn = screen.getByRole('button', { name: 'Create Booking' });
     fireEvent.click(saveBtn);
 
     await waitFor(() => {
       expect(create).toHaveBeenCalledWith(
         expect.objectContaining({
-          fullName: 'Future Client',
+          fullName: 'Legacy Future Client',
           phone: '09191234567',
-          mode: 'standard_future',
+          mode: 'phone',
         }),
       );
     });
@@ -498,14 +504,20 @@ describe('Booking Modal Layout & Workflow Corrections (Approved Reference Parity
       target: { value: 'Prefers lavender scent' },
     });
 
-    // Switch to Phone mode
-    fireEvent.click(screen.getByRole('tab', { name: /^Phone$/ }));
+    // Switch to Phone / Future mode
+    fireEvent.click(screen.getByRole('tab', { name: /Phone \/ Future/i }));
     expect(nameInput.value).toBe('Elena Cruz');
     expect(phoneInput.value).toBe('09201234567');
     expect(notesInput.value).toBe('Prefers lavender scent');
 
-    // Switch to Future mode
-    fireEvent.click(screen.getByRole('tab', { name: /^Future$/ }));
+    // Date & time are editable in Phone / Future
+    const dateInput = container.querySelector(
+      '#booking-date',
+    ) as HTMLInputElement;
+    expect(dateInput.readOnly).toBe(false);
+
+    // Switch to Home Service mode
+    fireEvent.click(screen.getByRole('tab', { name: /Home Service/i }));
     expect(nameInput.value).toBe('Elena Cruz');
     expect(phoneInput.value).toBe('09201234567');
     expect(notesInput.value).toBe('Prefers lavender scent');
@@ -517,9 +529,244 @@ describe('Booking Modal Layout & Workflow Corrections (Approved Reference Parity
     expect(notesInput.value).toBe('Prefers lavender scent');
 
     // Date & time are reset to branch defaults and read-only for Walk-in
-    const dateInput = container.querySelector(
-      '#booking-date',
-    ) as HTMLInputElement;
     expect(dateInput.readOnly).toBe(true);
+  });
+
+  it('supports real Home Service location autocomplete, place resolution, distance quote, and enables Save safely', async () => {
+    const mockPredictions = [
+      {
+        placeId: 'ChIJ123_makati',
+        description: 'Salcedo Village, Makati, Metro Manila, Philippines',
+        mainText: 'Salcedo Village',
+        secondaryText: 'Makati, Metro Manila, Philippines',
+      },
+    ];
+
+    const mockResolved = {
+      placeId: 'ChIJ123_makati',
+      formattedAddress: 'Salcedo Village, Makati, Metro Manila, Philippines',
+      lat: 14.5586,
+      lng: 121.0244,
+      addressComponents: [
+        {
+          long_name: 'Makati',
+          short_name: 'Makati',
+          types: ['locality'],
+        },
+      ],
+      mapUrl: 'https://maps.google.com/?q=14.5586,121.0244',
+    };
+
+    const mockQuote: DistanceQuote = {
+      branchId: 'branch-main',
+      branchName: 'Main Spa',
+      distanceKm: 4.5,
+      drivingDistanceKm: 4.5,
+      distanceSource: 'google_routes',
+      baseFee: 100,
+      includedKm: 3,
+      perKmFee: 30,
+      billableDistanceKm: 1.5,
+      rawFee: 145,
+      travelFee: 150,
+    };
+
+    vi.spyOn(service, 'fetchLocationAutocomplete').mockResolvedValue({
+      ok: true,
+      predictions: mockPredictions,
+    });
+    vi.spyOn(service, 'resolveLocationPlace').mockResolvedValue({
+      ok: true,
+      location: mockResolved,
+    });
+    vi.spyOn(service, 'fetchDistanceQuote').mockResolvedValue({
+      ok: true,
+      quote: mockQuote,
+    });
+
+    const create = vi
+      .spyOn(service, 'createBranchBooking')
+      .mockResolvedValue({ ok: true, bookingId: 'home-b-1' });
+
+    const { container } = mountModal();
+    await screen.findByText('Swedish Massage');
+
+    // Switch to Home Service
+    fireEvent.click(screen.getByRole('tab', { name: /Home Service/i }));
+
+    // Facial Treatment is available for Home Service
+    const facialBtn = screen.getByRole('button', { name: /Facial Treatment/i });
+    fireEvent.click(facialBtn);
+
+    // Fill customer info
+    const nameInput = screen.getByTestId(
+      'customer-search-input',
+    ) as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Home Client' } });
+    const phoneInput = container.querySelector(
+      '#customer-phone',
+    ) as HTMLInputElement;
+    fireEvent.change(phoneInput, { target: { value: '09170001122' } });
+
+    // Address input
+    const addressInput = screen.getByTestId(
+      'hs-address-input',
+    ) as HTMLInputElement;
+    expect(addressInput).toBeDefined();
+
+    // Type address (triggers debounced autocomplete)
+    fireEvent.change(addressInput, { target: { value: 'Salcedo' } });
+
+    // Wait for autocomplete suggestions
+    await waitFor(() => {
+      expect(service.fetchLocationAutocomplete).toHaveBeenCalledWith(
+        'Salcedo',
+        'branch-main',
+        expect.any(String),
+      );
+    });
+
+    // Suggestions dropdown appears
+    const suggestionBtn = await screen.findByTestId(
+      'hs-suggestion-ChIJ123_makati',
+    );
+    expect(suggestionBtn).toBeDefined();
+
+    // Click suggestion
+    fireEvent.click(suggestionBtn);
+
+    // Resolves location place details
+    await waitFor(() => {
+      expect(service.resolveLocationPlace).toHaveBeenCalledWith(
+        'ChIJ123_makati',
+        expect.any(String),
+      );
+    });
+
+    // Fetches distance quote
+    await waitFor(() => {
+      expect(service.fetchDistanceQuote).toHaveBeenCalledWith('branch-main', {
+        lat: 14.5586,
+        lng: 121.0244,
+      });
+    });
+
+    // Verified location box and distance quote metrics are displayed
+    expect(await screen.findByText('Verified precise location.')).toBeDefined();
+    expect(screen.getByText('4.5 km')).toBeDefined();
+    expect(screen.getAllByText('₱150.00').length).toBeGreaterThanOrEqual(1);
+
+    // Transportation fee in summary
+    expect(screen.getByText(/Transportation Fee/i)).toBeDefined();
+    expect(screen.getByText('₱800.00')).toBeDefined();
+
+    // Save button is now enabled
+    const saveBtn = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(false);
+
+    // Submit booking
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fullName: 'Home Client',
+          phone: '09170001122',
+          mode: 'home_service',
+          homeServiceAddress:
+            'Salcedo Village, Makati, Metro Manila, Philippines',
+          homeServicePlaceId: 'ChIJ123_makati',
+          homeServiceFormattedAddress:
+            'Salcedo Village, Makati, Metro Manila, Philippines',
+          homeServiceLat: 14.5586,
+          homeServiceLng: 121.0244,
+          resourceId: undefined,
+        }),
+      );
+    });
+  });
+
+  it('invalidates previously verified location and quote when typing after selection', async () => {
+    const mockPredictions = [
+      {
+        placeId: 'ChIJ123_makati',
+        description: 'Salcedo Village, Makati, Metro Manila, Philippines',
+        mainText: 'Salcedo Village',
+        secondaryText: 'Makati, Metro Manila, Philippines',
+      },
+    ];
+
+    const mockResolved = {
+      placeId: 'ChIJ123_makati',
+      formattedAddress: 'Salcedo Village, Makati, Metro Manila, Philippines',
+      lat: 14.5586,
+      lng: 121.0244,
+    };
+
+    const mockQuote: DistanceQuote = {
+      branchId: 'branch-main',
+      branchName: 'Main Spa',
+      distanceKm: 4.5,
+      drivingDistanceKm: 4.5,
+      distanceSource: 'google_routes',
+      baseFee: 100,
+      includedKm: 3,
+      perKmFee: 30,
+      billableDistanceKm: 1.5,
+      rawFee: 145,
+      travelFee: 150,
+    };
+
+    vi.spyOn(service, 'fetchLocationAutocomplete').mockResolvedValue({
+      ok: true,
+      predictions: mockPredictions,
+    });
+    vi.spyOn(service, 'resolveLocationPlace').mockResolvedValue({
+      ok: true,
+      location: mockResolved,
+    });
+    vi.spyOn(service, 'fetchDistanceQuote').mockResolvedValue({
+      ok: true,
+      quote: mockQuote,
+    });
+
+    const { container } = mountModal();
+    await screen.findByText('Swedish Massage');
+
+    fireEvent.click(screen.getByRole('tab', { name: /Home Service/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Facial Treatment/i }));
+
+    const nameInput = screen.getByTestId(
+      'customer-search-input',
+    ) as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Home Client' } });
+    const phoneInput = container.querySelector(
+      '#customer-phone',
+    ) as HTMLInputElement;
+    fireEvent.change(phoneInput, { target: { value: '09170001122' } });
+
+    const addressInput = screen.getByTestId(
+      'hs-address-input',
+    ) as HTMLInputElement;
+    fireEvent.change(addressInput, { target: { value: 'Salcedo' } });
+
+    const suggestionBtn = await screen.findByTestId(
+      'hs-suggestion-ChIJ123_makati',
+    );
+    fireEvent.click(suggestionBtn);
+
+    await screen.findByText('Verified precise location.');
+    const saveBtn = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(false);
+
+    // Typing in address input immediately invalidates verified location and quote
+    fireEvent.change(addressInput, { target: { value: 'Salcedo modified' } });
+    expect(screen.queryByText('Verified precise location.')).toBeNull();
+    expect(saveBtn.disabled).toBe(true);
+    expect(screen.getByTestId('hs-save-blocked-notice')).toBeDefined();
   });
 });
