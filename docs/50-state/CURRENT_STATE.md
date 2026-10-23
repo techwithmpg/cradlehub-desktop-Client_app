@@ -2,8 +2,8 @@
 
 ## Current development state (2026-10-23)
 
-- Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. This contains the final UI modernization correction. The Stage 17 owner brief reports that correction passed independent code review and was merged. In this conversation, the owner explicitly confirmed, “Yes, I inspected and accept it,” referring to the real Windows app. The current agent did not personally observe that earlier native-window review.
-- Stage 17 booking-modal implementation is active on `stage/17-intake-booking-modal`, based on `1faa7493de961de3b314b8c1b28409ecdabf91ba`. The design reference is owner-provided. This branch is not merged or independently reviewed. Hosted source reference was verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
+- Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. The owner confirmed visual acceptance of the redesigned booking modal layout and requested functional mode activation (Phone, Future, Home Service) on `stage/17-intake-booking-modal`.
+- Stage 17 booking modal functional corrections are complete on `stage/17-intake-booking-modal` (pre-correction HEAD `035263ca64f2a13ade27cb6691bb3566df8090b0`). Phone and Future modes submit to authoritative backend API with correct CRM booking modes. Home Service is selectable with editable address input and 6 location status states; Save remains blocked fail-closed pending hosted place-search endpoint. This branch is ready for independent review.
 - Stage 16 discovery on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` was independently reviewed and owner confirmed. That branch was not merged into desktop `main`.
 - No stage after Stage 17 is authorized. The hosted CRM remains authoritative for business data and actions.
 

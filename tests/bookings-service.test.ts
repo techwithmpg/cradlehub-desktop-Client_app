@@ -884,6 +884,108 @@ describe('Bookings Service', () => {
       expect(payload.resourceId).toBeUndefined();
     });
 
+    it('submits a Phone booking with type: phone and crmBookingMode: phone', async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ ok: true, bookingId: 'phone-booking-1' }),
+      } as unknown as Response);
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+
+      const result = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Phone Customer',
+          phone: '09171234567',
+          serviceIds: ['service-1'],
+          date: '2026-10-25',
+          startTime: '14:30',
+          mode: 'phone',
+        },
+        client,
+        customFetch,
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.bookingId).toBe('phone-booking-1');
+      const payload = JSON.parse(customFetch.mock.calls[0][1]?.body as string);
+      expect(payload).toMatchObject({
+        type: 'phone',
+        crmBookingMode: 'phone',
+        deliveryType: 'in_spa',
+        date: '2026-10-25',
+        startTime: '14:30',
+      });
+    });
+
+    it('submits a Future booking with type: walkin and crmBookingMode: standard_future', async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ ok: true, bookingId: 'future-booking-1' }),
+      } as unknown as Response);
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+
+      const result = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Future Customer',
+          phone: '09171234567',
+          serviceIds: ['service-1'],
+          date: '2026-11-01',
+          startTime: '10:00',
+          mode: 'standard_future',
+        },
+        client,
+        customFetch,
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.bookingId).toBe('future-booking-1');
+      const payload = JSON.parse(customFetch.mock.calls[0][1]?.body as string);
+      expect(payload).toMatchObject({
+        type: 'walkin',
+        crmBookingMode: 'standard_future',
+        deliveryType: 'in_spa',
+        date: '2026-11-01',
+        startTime: '10:00',
+      });
+    });
+
+    it('fails closed when attempting to create a Home Service booking without authoritative location support', async () => {
+      const customFetch = vi.fn();
+      const result = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Home Customer',
+          phone: '09171234567',
+          serviceIds: ['service-1'],
+          date: '2026-10-25',
+          startTime: '14:30',
+          mode: 'home_service',
+          homeServiceAddress: '123 Fake Street',
+        },
+        undefined,
+        customFetch,
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.code).toBe('HOME_SERVICE_LOCATION_REQUIRED');
+      expect(customFetch).not.toHaveBeenCalled();
+    });
+
     it('fails closed with SERVER_ERROR when success response lacks a valid bookingId', async () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {

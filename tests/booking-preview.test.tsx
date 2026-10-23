@@ -111,15 +111,31 @@ describe('booking preview selection and availability', () => {
       expect(screen.getByRole('button', { name: /Both modes/ })).toBeDefined();
     },
   );
-  it('disables Home Service mode tab with accessible state and explanatory title', async () => {
+  it('makes Home Service mode tab selectable, renders editable address and blocks save', async () => {
     mount();
     await ready();
     const homeTab = screen.getByRole('tab', { name: /^Home Service/ });
-    expect(homeTab.getAttribute('aria-disabled')).toBe('true');
-    expect(homeTab.hasAttribute('disabled')).toBe(true);
-    expect(homeTab.getAttribute('title')).toContain(
-      'Home Service booking will be enabled after precise address/location support is connected.',
-    );
+    expect(homeTab.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(homeTab);
+    expect(homeTab.getAttribute('aria-selected')).toBe('true');
+
+    // Home Service Address field is visible and editable
+    const addressInput = screen.getByTestId(
+      'hs-address-input',
+    ) as HTMLInputElement;
+    expect(addressInput.disabled).toBe(false);
+    fireEvent.change(addressInput, { target: { value: 'Unit 12A, Makati' } });
+    expect(addressInput.value).toBe('Unit 12A, Makati');
+
+    // Spa room is replaced with Home Service no-room indicator
+    expect(screen.getByTestId('hs-no-room')).toBeDefined();
+
+    // Save button is disabled for Home Service
+    const saveButton = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(true);
+    expect(screen.getByTestId('hs-save-blocked-notice')).toBeDefined();
   });
   it('requires explicit capability for every selected service and clears an invalid provider', async () => {
     mount();

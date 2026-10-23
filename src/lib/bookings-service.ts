@@ -846,7 +846,7 @@ export async function createBranchBooking(
     date: input.date,
     startTime: input.startTime,
     deliveryType: 'in_spa',
-    type: 'walkin',
+    type: input.mode === 'phone' ? 'phone' : 'walkin',
     crmBookingMode: input.mode,
     fullName: input.fullName.trim(),
     phone: input.phone.trim(),
@@ -857,6 +857,9 @@ export async function createBranchBooking(
     notes: input.notes?.trim() || undefined,
     paymentReceived,
     paymentMethod,
+    homeServiceAddress: input.homeServiceAddress?.trim() || undefined,
+    homeServiceBarangay: input.homeServiceBarangay?.trim() || undefined,
+    homeServiceCity: input.homeServiceCity?.trim() || undefined,
   };
 
   const endpoint = `${baseUrl}/api/desktop/v1/bookings`;

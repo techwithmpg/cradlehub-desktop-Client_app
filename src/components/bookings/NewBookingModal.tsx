@@ -76,9 +76,6 @@ const MODES: Array<{
     value: 'home_service',
     label: 'Home Service',
     description: 'We go to customer',
-    disabled: true,
-    disabledReason:
-      'Home Service booking will be enabled after precise address/location support is connected.',
   },
 ];
 
@@ -97,6 +94,14 @@ interface GuestDraft {
   name: string;
   serviceIds: string[];
 }
+
+export type HomeServiceLocationStatus =
+  | 'not_entered'
+  | 'entering'
+  | 'pending'
+  | 'verified'
+  | 'failed'
+  | 'service_unavailable';
 
 export const NewBookingModal: React.FC<NewBookingModalProps> = (props) =>
   props.isOpen ? (
@@ -180,7 +185,36 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
 
   // Home Service fields
   const [homeServiceAddress, setHomeServiceAddress] = useState('');
-  const [homeServiceCity, setHomeServiceCity] = useState('');
+  const [locationStatus, setLocationStatus] =
+    useState<HomeServiceLocationStatus>(
+      homeServiceAddress.trim() ? 'service_unavailable' : 'not_entered',
+    );
+  const locationDebounceRef = useRef<number | null>(null);
+
+  const handleHomeServiceAddressChange = (val: string) => {
+    setHomeServiceAddress(val);
+    if (locationDebounceRef.current) {
+      window.clearTimeout(locationDebounceRef.current);
+    }
+    if (!val.trim()) {
+      setLocationStatus('not_entered');
+      return;
+    }
+    setLocationStatus('entering');
+    locationDebounceRef.current = window.setTimeout(() => {
+      // Authoritative place-search and transportation fee APIs are not yet exposed on Desktop v1.
+      // We truthfully report location service unavailable.
+      setLocationStatus('service_unavailable');
+    }, 250);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (locationDebounceRef.current) {
+        window.clearTimeout(locationDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Payment fields
   const [paymentReceived, setPaymentReceived] = useState(false);
@@ -341,6 +375,19 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
       kept.length ? kept : allowed.length ? [allowed[0].id] : [],
     );
     setMode(newMode);
+
+    if (newMode === 'walkin') {
+      setDate(defaults.date);
+      setStartTime(getCurrentQuarterTime());
+    } else if (newMode === 'standard_future') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = getTodayDateString(tomorrow);
+      if (date <= defaults.date) {
+        setDate(tomorrowStr);
+      }
+    }
+
     if (newMode === 'home_service') setResourceId('');
     setPaymentReceived(false);
     setPaymentMethod('');
@@ -505,7 +552,6 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     email !== '' ||
     notes !== '' ||
     homeServiceAddress !== '' ||
-    homeServiceCity !== '' ||
     staffId !== '' ||
     resourceId !== '' ||
     date !== defaults.date ||
@@ -671,9 +717,9 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                 {mode === 'walkin'
                   ? 'Walk-in'
                   : mode === 'phone'
-                    ? 'Phone'
+                    ? 'Phone Booking'
                     : mode === 'standard_future'
-                      ? 'Future'
+                      ? 'Future Booking'
                       : 'Home Service'}
               </h2>
               <span className="new-booking-branch-badge">
@@ -974,38 +1020,75 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
 
               {/* Home Service Location when in Home Service */}
               {mode === 'home_service' && (
-                <div className="home-service-location-card">
-                  <label className="form-label">
-                    Home Service Location <span className="required">*</span>
-                  </label>
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <input
-                        id="hs-address"
-                        type="text"
-                        className="form-input"
-                        placeholder="Destination Address"
-                        value={homeServiceAddress}
-                        onChange={(e) => setHomeServiceAddress(e.target.value)}
-                        disabled
-                      />
-                    </div>
-                    <div className="form-group">
-                      <input
-                        id="hs-city"
-                        type="text"
-                        className="form-input"
-                        placeholder="City / Area"
-                        value={homeServiceCity}
-                        onChange={(e) => setHomeServiceCity(e.target.value)}
-                        disabled
-                      />
-                    </div>
+                <div
+                  className="home-service-location-card"
+                  data-testid="home-service-location-card"
+                >
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="hs-address">
+                      Home Service Address <span className="required">*</span>
+                    </label>
+                    <input
+                      id="hs-address"
+                      data-testid="hs-address-input"
+                      type="text"
+                      className="form-input"
+                      placeholder="Enter customer street address or delivery location"
+                      value={homeServiceAddress}
+                      onChange={(e) =>
+                        handleHomeServiceAddressChange(e.target.value)
+                      }
+                      disabled={isSubmitting}
+                      required={mode === 'home_service'}
+                    />
                   </div>
-                  <p className="location-unavailable-hint">
-                    Precise address and location verification is required for
-                    Home Service and will be enabled once connected.
-                  </p>
+
+                  {/* 6 distinct location verification states */}
+                  <div
+                    className={`home-service-location-status status-${locationStatus}`}
+                    data-testid="hs-location-status"
+                    role="status"
+                  >
+                    {locationStatus === 'not_entered' && (
+                      <span className="location-status-badge badge-neutral">
+                        Address not entered.
+                      </span>
+                    )}
+                    {locationStatus === 'entering' && (
+                      <span className="location-status-badge badge-info">
+                        Address being entered.
+                      </span>
+                    )}
+                    {locationStatus === 'pending' && (
+                      <span className="location-status-badge badge-warning">
+                        Location verification pending.
+                      </span>
+                    )}
+                    {locationStatus === 'verified' && (
+                      <span className="location-status-badge badge-success">
+                        Verified precise location.
+                      </span>
+                    )}
+                    {locationStatus === 'failed' && (
+                      <span className="location-status-badge badge-error">
+                        Location validation failed.
+                      </span>
+                    )}
+                    {locationStatus === 'service_unavailable' && (
+                      <div className="location-status-unavailable-wrap">
+                        <span className="location-status-badge badge-warning">
+                          Location service unavailable.
+                        </span>
+                        <p className="location-unavailable-hint">
+                          Authoritative place-search and transportation
+                          quotation APIs are not yet exposed on the Desktop
+                          Client boundary. Free-text address cannot be verified
+                          or submitted without server-side Google Places and
+                          distance verification.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </section>
@@ -1275,13 +1358,20 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                     <div className="guest-control-col">
                       <label
                         className="guest-control-label"
-                        htmlFor="resource-select"
+                        htmlFor={
+                          mode === 'home_service'
+                            ? undefined
+                            : 'resource-select'
+                        }
                       >
                         <DoorClosed size={12} aria-hidden="true" /> Room
                       </label>
                       {mode === 'home_service' ? (
-                        <div className="guest-assigned-status">
-                          No room (Home Service)
+                        <div
+                          className="guest-assigned-status"
+                          data-testid="hs-no-room"
+                        >
+                          No room required (Home Service)
                         </div>
                       ) : additionalGuests.length > 0 ? (
                         <div className="guest-assigned-status">
@@ -1307,7 +1397,8 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                           ))}
                         </select>
                       )}
-                      {!isLoadingOptions &&
+                      {mode !== 'home_service' &&
+                        !isLoadingOptions &&
                         (optionsError ? (
                           <p className="summary-subtext">
                             Resource options unavailable.
@@ -1338,6 +1429,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                           value={date}
                           onChange={(e) => setDate(e.target.value)}
                           readOnly={mode === 'walkin'}
+                          min={defaults.date}
                           required
                         />
                         <input
@@ -1622,7 +1714,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                           </label>
                           <div className="guest-assigned-status">
                             {mode === 'home_service'
-                              ? 'No room (Home Service)'
+                              ? 'No room required (Home Service)'
                               : 'Automatic — assigned on save'}
                           </div>
                         </div>
@@ -1693,7 +1785,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                           ? 'Phone booking'
                           : mode === 'standard_future'
                             ? 'Future booking'
-                            : 'Home Service'}
+                            : 'Home Service booking'}
                     </strong>
                     <span className="summary-branch-pill">{branchName}</span>
                   </div>
@@ -1878,6 +1970,23 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
             </div>
 
             {/* Pinned Action Buttons: Always visible without scrolling */}
+            {mode === 'home_service' && (
+              <div
+                className="home-service-save-blocked-notice"
+                data-testid="hs-save-blocked-notice"
+                role="status"
+              >
+                <AlertCircle size={14} aria-hidden="true" />
+                <span>
+                  Home Service save is unavailable: Authoritative server
+                  location verification, place ID, coordinates, and
+                  transportation fee quotation are required by the hosted
+                  booking schema but not yet connected to the Desktop Client
+                  API.
+                </span>
+              </div>
+            )}
+
             <div className="summary-footer-actions">
               <button
                 type="button"
@@ -1891,6 +2000,11 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                 type="submit"
                 className="new-booking-submit-btn"
                 aria-label="Create Booking"
+                title={
+                  mode === 'home_service'
+                    ? 'Home Service save is unavailable: Authoritative server location verification, place ID, coordinates, and transportation fee quotation are required by the hosted booking schema but not yet connected to the Desktop Client API.'
+                    : undefined
+                }
                 disabled={
                   isSubmitting ||
                   isLoadingOptions ||

@@ -2,7 +2,7 @@
 
 ## Current review handoff (2026-10-23)
 
-Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. The owner brief reports the earlier UI correction was independently reviewed and merged; the owner explicitly confirmed inspecting and accepting it in the real Windows app in this conversation. Stage 17 is the active booking-modal implementation on `stage/17-intake-booking-modal`. Its owner-provided PNG is the design reference. Hosted source was verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`. Commit and push the Stage 17 branch after verification, then stop for independent review; do not merge or start another stage.
+Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. The owner confirmed visual acceptance of the redesigned booking modal layout and requested functional activation of remaining modes (Phone, Future, Home Service) on `stage/17-intake-booking-modal`. Stage 17 functional corrections are complete (pre-correction HEAD `035263ca64f2a13ade27cb6691bb3566df8090b0`). Phone and Future modes submit to authoritative backend API (`POST /api/desktop/v1/bookings`) with correct CRM booking modes. Home Service is selectable with editable address input and 6 location status states; Save remains blocked fail-closed pending hosted place-search endpoint. Commit and push to `stage/17-intake-booking-modal` after verification, then stop for independent review; do not merge or start another stage.
 
 Stage 16 discovery was independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d`. It was not merged into desktop `main`.
 

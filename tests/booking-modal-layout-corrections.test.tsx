@@ -202,17 +202,46 @@ describe('Booking Modal Layout & Workflow Corrections (Approved Reference Parity
     expect(screen.queryByText('Existing Customer')).toBeNull();
   });
 
-  it('renders disabled Home Service location state explaining precise address requirement', async () => {
+  it('makes Home Service mode selectable, provides editable address, replaces room, and blocks save', async () => {
     mountModal();
     await screen.findByText('Swedish Massage');
 
-    // Home service mode tab is disabled with informative title
+    // Home service mode tab is selectable
     const homeTab = screen.getByRole('tab', { name: /home service/i });
-    expect(homeTab.getAttribute('aria-disabled')).toBe('true');
-    expect(homeTab.hasAttribute('disabled')).toBe(true);
-    expect(homeTab.getAttribute('title')).toContain(
-      'precise address/location support is connected',
-    );
+    expect(homeTab.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(homeTab);
+    expect(homeTab.getAttribute('aria-selected')).toBe('true');
+
+    // Header & summary updated
+    expect(
+      screen.getByRole('heading', { name: 'New Booking – Home Service' }),
+    ).toBeDefined();
+    expect(screen.getByText('Home Service booking')).toBeDefined();
+
+    // Address input is visible, editable, and shows distinct location states
+    const addressInput = screen.getByTestId(
+      'hs-address-input',
+    ) as HTMLInputElement;
+    expect(addressInput.disabled).toBe(false);
+
+    // Initial state: Address not entered.
+    expect(screen.getByText('Address not entered.')).toBeDefined();
+
+    // Typing transitions to Address being entered.
+    fireEvent.change(addressInput, { target: { value: 'Tower 2, Makati' } });
+    expect(addressInput.value).toBe('Tower 2, Makati');
+    expect(screen.getByText('Address being entered.')).toBeDefined();
+
+    // Room control is replaced
+    expect(screen.getByTestId('hs-no-room')).toBeDefined();
+    expect(screen.getByText('No room required (Home Service)')).toBeDefined();
+
+    // Save button is disabled with explanation
+    const saveBtn = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+    expect(screen.getByTestId('hs-save-blocked-notice')).toBeDefined();
   });
 
   it('keeps guest card self-contained with categories, carousel, duration, staff, room, and schedule', async () => {
@@ -338,5 +367,159 @@ describe('Booking Modal Layout & Workflow Corrections (Approved Reference Parity
 
     // Summary displays both guests
     expect(screen.getByText('Guests & Services (2)')).toBeDefined();
+  });
+
+  it('selects Phone Booking mode, enables date/time editing, updates header/summary, and submits with phone mode', async () => {
+    const create = vi
+      .spyOn(service, 'createBranchBooking')
+      .mockResolvedValue({ ok: true, bookingId: 'phone-b-1' });
+    const { container } = mountModal();
+    await screen.findByText('Swedish Massage');
+
+    // Click Phone tab
+    const phoneTab = screen.getByRole('tab', { name: /^Phone$/ });
+    fireEvent.click(phoneTab);
+    expect(phoneTab.getAttribute('aria-selected')).toBe('true');
+
+    // Header & summary show Phone Booking
+    expect(
+      screen.getByRole('heading', { name: 'New Booking – Phone Booking' }),
+    ).toBeDefined();
+    expect(screen.getByText('Phone booking')).toBeDefined();
+
+    // Date & time are editable
+    const dateInput = container.querySelector(
+      '#booking-date',
+    ) as HTMLInputElement;
+    const timeInput = container.querySelector(
+      '#booking-start-time',
+    ) as HTMLInputElement;
+    expect(dateInput.readOnly).toBe(false);
+    expect(timeInput.readOnly).toBe(false);
+
+    // Edit date and time
+    fireEvent.change(dateInput, { target: { value: '2026-11-20' } });
+    fireEvent.change(timeInput, { target: { value: '16:00' } });
+
+    // Customer details
+    const nameInput = screen.getByTestId(
+      'customer-search-input',
+    ) as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Phone Caller' } });
+    const phoneInput = container.querySelector(
+      '#customer-phone',
+    ) as HTMLInputElement;
+    fireEvent.change(phoneInput, { target: { value: '09181234567' } });
+
+    // Submit
+    const saveBtn = screen.getByRole('button', { name: 'Create Booking' });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fullName: 'Phone Caller',
+          phone: '09181234567',
+          date: '2026-11-20',
+          startTime: '16:00',
+          mode: 'phone',
+        }),
+      );
+    });
+  });
+
+  it('selects Future Booking mode, initializes future date, enables date/time editing, and submits with standard_future mode', async () => {
+    const create = vi
+      .spyOn(service, 'createBranchBooking')
+      .mockResolvedValue({ ok: true, bookingId: 'future-b-1' });
+    const { container } = mountModal();
+    await screen.findByText('Swedish Massage');
+
+    // Click Future tab
+    const futureTab = screen.getByRole('tab', { name: /^Future$/ });
+    fireEvent.click(futureTab);
+    expect(futureTab.getAttribute('aria-selected')).toBe('true');
+
+    // Header & summary show Future Booking
+    expect(
+      screen.getByRole('heading', { name: 'New Booking – Future Booking' }),
+    ).toBeDefined();
+    expect(screen.getByText('Future booking')).toBeDefined();
+
+    // Date is initialized to future (tomorrow or beyond)
+    const dateInput = container.querySelector(
+      '#booking-date',
+    ) as HTMLInputElement;
+    expect(dateInput.readOnly).toBe(false);
+    expect(dateInput.value).not.toBe('');
+
+    // Customer details
+    const nameInput = screen.getByTestId(
+      'customer-search-input',
+    ) as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Future Client' } });
+    const phoneInput = container.querySelector(
+      '#customer-phone',
+    ) as HTMLInputElement;
+    fireEvent.change(phoneInput, { target: { value: '09191234567' } });
+
+    // Submit
+    const saveBtn = screen.getByRole('button', { name: 'Create Booking' });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fullName: 'Future Client',
+          phone: '09191234567',
+          mode: 'standard_future',
+        }),
+      );
+    });
+  });
+
+  it('preserves entered customer information and valid services when switching between modes', async () => {
+    const { container } = mountModal();
+    await screen.findByText('Swedish Massage');
+
+    // Fill customer info
+    const nameInput = screen.getByTestId(
+      'customer-search-input',
+    ) as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Elena Cruz' } });
+    const phoneInput = container.querySelector(
+      '#customer-phone',
+    ) as HTMLInputElement;
+    fireEvent.change(phoneInput, { target: { value: '09201234567' } });
+    const notesInput = container.querySelector(
+      '#booking-notes',
+    ) as HTMLTextAreaElement;
+    fireEvent.change(notesInput, {
+      target: { value: 'Prefers lavender scent' },
+    });
+
+    // Switch to Phone mode
+    fireEvent.click(screen.getByRole('tab', { name: /^Phone$/ }));
+    expect(nameInput.value).toBe('Elena Cruz');
+    expect(phoneInput.value).toBe('09201234567');
+    expect(notesInput.value).toBe('Prefers lavender scent');
+
+    // Switch to Future mode
+    fireEvent.click(screen.getByRole('tab', { name: /^Future$/ }));
+    expect(nameInput.value).toBe('Elena Cruz');
+    expect(phoneInput.value).toBe('09201234567');
+    expect(notesInput.value).toBe('Prefers lavender scent');
+
+    // Switch back to Walk-in
+    fireEvent.click(screen.getByRole('tab', { name: /Walk-in/i }));
+    expect(nameInput.value).toBe('Elena Cruz');
+    expect(phoneInput.value).toBe('09201234567');
+    expect(notesInput.value).toBe('Prefers lavender scent');
+
+    // Date & time are reset to branch defaults and read-only for Walk-in
+    const dateInput = container.querySelector(
+      '#booking-date',
+    ) as HTMLInputElement;
+    expect(dateInput.readOnly).toBe(true);
   });
 });

@@ -2,7 +2,7 @@
 
 ## Current review gate (2026-10-23)
 
-Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. The owner-supplied Stage 17 brief reports that the prior UI correction passed independent code review and was merged; the owner explicitly confirmed real Windows visual acceptance in this conversation (“Yes, I inspected and accept it”). The current agent did not independently observe that earlier native review. This is the prior gate relied on for the separately authorized Stage 17. Stage 17 itself remains unreviewed and unaccepted. Hosted `main` was verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
+Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. The owner confirmed visual acceptance of the redesigned booking modal layout and requested functional activation of remaining modes (Phone, Future, Home Service) on `stage/17-intake-booking-modal`. Stage 17 functional corrections are complete (pre-correction HEAD `035263ca64f2a13ade27cb6691bb3566df8090b0`). Phone and Future modes submit to authoritative backend API (`POST /api/desktop/v1/bookings`) with correct CRM booking modes. Home Service is selectable with editable address input and 6 location status states; Save remains blocked fail-closed pending hosted place-search endpoint. This branch is ready for independent review. Hosted `main` was verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
 
 ## Historical Stage 05 verified gate
 

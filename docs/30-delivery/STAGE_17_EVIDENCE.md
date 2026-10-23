@@ -1,8 +1,8 @@
 # Stage 17 — Evidence
 
-**Target:** Booking Modal Layout and Workflow Corrections
+**Target:** Booking Modal Layout, Density, and Functional Mode Activation (Phone, Future, Home Service)
 
-**Stage / Task:** Stage 17 — Intake Booking Modal Parity Corrections
+**Stage / Task:** Stage 17 — Intake Booking Modal Parity Corrections & Mode Activation
 
 **Status:** `READY FOR INDEPENDENT REVIEW`
 
@@ -10,102 +10,113 @@
 
 **BASE_SHA:** `1faa7493de961de3b314b8c1b28409ecdabf91ba`
 
-**HEAD_SHA:** `4452983a457412b06598bd18783b6858a413e036`
+**PRE_CORRECTION_HEAD_SHA:** `035263ca64f2a13ade27cb6691bb3566df8090b0`
 
 **Hosted web reference SHA:** `2b3bab3c9e71274c25d747daf37d7928ee670e2c`
 
 ## Authorized scope
 
-- Redesign and correct the existing `NewBookingModal` layout, density, and workflow to match the owner-approved reference (`media_1792744377414.jpg`) without rebuilding from scratch.
-- Sizing & scroll behavior:
-  - Desktop-centered dialog: max width ~1220px, max height ~86vh, proportional margins.
-  - Two-column layout: ~70% left booking configuration / ~30% right booking summary with pinned Save/Cancel actions.
-  - Controlled scroll in left column to minimize vertical scrolling for 1–2 guests; modal header, booking-mode selector, and summary remain accessible.
-- Customer Information:
-  - Single compact card with merged searchable customer name (`#customer-fullname`).
-  - Search as operator types, select existing customer to populate phone/email, or continue typing new customer name.
-  - Compact phone and optional email row, immediate notes field below.
-  - Disabled Home Service location field with clear explanation of required authoritative geolocation contract.
-- Self-contained Guest Cards:
-  - Group service search, category pills, visual service carousel with ◀/▶ controls, duration pills, therapist override/auto, room override/auto, date, start time, and calculated expected finish time inside each guest card.
-  - Support Add Guest, Copy to Guest, Remove Guest, and Clear All up to 4 guests.
-  - Preserve single-guest manual therapist/room override while maintaining group booking synchronization (shared start date/time, automatic staff/room allocation on save) per hosted backend constraints.
-- Non-financial intake:
-  - Respect non-financial intake constraints (`showFinancialFields=false`) without fake payment collection or fabricated monetary totals.
+1. **Layout & Density (Owner Accepted):**
+   - Corrected `NewBookingModal` layout, density, and workflow to match the owner-approved reference (`media_1792744377414.jpg`) without rebuilding from scratch.
+   - Dialog geometry (~1220px max width, ~86vh max height, 70/30 split, controlled scroll).
+   - Single compact Customer Information card with merged searchable customer name (`#customer-fullname`), phone, email, notes.
+   - Self-contained Guest Cards with category filter pills, service carousel, duration pills, auto/override therapist & room, date/start/finish time.
+   - Non-financial intake constraints respected (`showFinancialFields=false`).
+
+2. **Phone & Future Booking Mode Activation:**
+   - Phone and Future options made visibly selectable, keyboard accessible, and functionally active inside the Phone / Future mode card.
+   - **Phone Mode:**
+     - Header displays `New Booking – Phone Booking`.
+     - Summary banner displays `Phone booking`.
+     - Editable date and start time.
+     - Automatically calculated expected finish time.
+     - Preserves customer information, guest services, therapist/room assignment options.
+     - Submits via authenticated desktop API (`POST /api/desktop/v1/bookings`) with `mode: 'phone'`, `type: 'phone'`, `crmBookingMode: 'phone'`.
+   - **Future Mode:**
+     - Header displays `New Booking – Future Booking`.
+     - Summary banner displays `Future booking`.
+     - Editable date and start time, initializing date to tomorrow if currently today (`min={defaults.date}`).
+     - Automatically calculated expected finish time.
+     - Preserves all guest service configurations.
+     - Submits via authenticated desktop API (`POST /api/desktop/v1/bookings`) with `mode: 'standard_future'`, `type: 'walkin'`, `crmBookingMode: 'standard_future'`.
+   - **Walk-in Preservation:**
+     - Walk-in continues using automatic read-only branch business date/time.
+     - Switching between modes preserves customer details, phone, email, notes, and guest services without silent discard. Switching back to Walk-in resets date/time to branch defaults.
+
+3. **Home Service Mode & Geolocation Contract:**
+   - Mode card selectable (`disabled: true` removed).
+   - Retains Customer Information card with merged customer name search, phone, email, and notes.
+   - Added clearly labeled Home Service Address field (`#hs-address`) inside Customer Information.
+   - Address input is fully editable (not disabled).
+   - Preserves 6 distinct location states: `not_entered`, `entering`, `pending`, `verified`, `failed`, `service_unavailable`.
+   - Services filtered to `availableHomeService === true`.
+   - Spa room selector replaced with "No room required (Home Service)" (`data-testid="hs-no-room"`).
+   - Header displays `New Booking – Home Service` and summary displays `Home Service booking`.
+   - **Fail-Closed Creation Boundary:**
+     - Hosted booking schema requires precise location data (`place_id`, formatted address, `latitude`, `longitude`, and computed transportation fee).
+     - The Tauri client capability strictly restricts requests to `/api/desktop/v1/*`. No endpoint exists on the hosted desktop API for Google Places autocomplete, geocoding, or transportation fee calculation.
+     - Privileged Google API keys are NOT placed in the renderer.
+     - Free-text address is NOT interpreted as verified location; no coordinates or fees are fabricated.
+     - Save button is disabled with explanatory notice (`data-testid="hs-save-blocked-notice"`).
+     - `createBranchBooking` fails closed with code `HOME_SERVICE_LOCATION_REQUIRED`.
 
 ## Changed files
 
-- `src/types/bookings.ts`: Added optional `category`, `description`, `imageUrl` to `QuickBookingOptionService`.
-- `src/lib/bookings-service.ts`: Updated `fetchBranchBookingOptionsUnmeasured` to include category, description, imageUrl from service records.
-- `src/components/bookings/NewBookingModal.tsx`: Corrected modal geometry, merged customer name/search, integrated self-contained guest cards, category filter pills, service carousel, duration pills, auto/override therapist & room, date/start/finish time, and responsive summary panel.
-- `src/styles.css`: Added compact dialog layout, responsive 70/30 split, service carousel styles, duration button groups, and media queries for smaller viewports.
-- `tests/booking-preview.test.tsx`: Updated test input helper to target merged `#customer-fullname`.
-- `tests/bookings-components.test.tsx`: Updated modal header expectation to match canonical branch format (`Cradle Wellness Living • Makati Branch`).
-- `tests/bookings-service.test.ts`: Added unit test verifying group booking payload serialization with stable attendee identities.
-- `tests/today-components.test.tsx`: Updated modal title assertion to `New Booking – Walk-in`.
-- `tests/booking-modal-layout-corrections.test.tsx`: Added focused test suite covering merged customer input, self-contained guest controls, category carousel, duration pills, walk-in/phone scheduling, and group synchronization.
-- `docs/50-state/CURRENT_STATE.md`: Updated active state for Stage 17.
-- `docs/50-state/CURRENT_TASK.md`: Updated current task description for Stage 17.
-- `docs/50-state/HANDOFF.md`: Updated handoff notes for Stage 17.
-- `docs/50-state/LAST_VERIFIED_GATE.md`: Updated gate notes for Stage 17.
+- `src/components/bookings/NewBookingModal.tsx`: Activated Phone, Future, and Home Service modes; interactive Phone/Future tabs; editable date/time with finish time calculation; editable Home Service address field with 6 status states; room selector replacement for Home Service; disabled Save button with explanatory notice; state preservation across mode switching.
+- `src/lib/bookings-service.ts`: Mapped `type` and `crmBookingMode` for Phone and Future bookings; preserved fail-closed `HOME_SERVICE_LOCATION_REQUIRED` guard for Home Service creation.
+- `src/styles.css`: Added styles for Phone/Future sub-buttons, Home Service address card, location status badges (neutral, info, warning, success, error), service-unavailable wrap, and Home Service save blocked notice.
+- `tests/bookings-service.test.ts`: Added unit tests verifying Phone mode payload (`type: 'phone'`, `crmBookingMode: 'phone'`), Future mode payload (`type: 'walkin'`, `crmBookingMode: 'standard_future'`), and Home Service creation fail-closed rejection.
+- `tests/booking-preview.test.tsx`: Updated Home Service test from testing disabled tab to testing selectable tab, editable address input, replaced spa room, and blocked save.
+- `tests/booking-modal-layout-corrections.test.tsx`: Added comprehensive tests covering Phone mode selection and submission, Future mode selection and submission, mode switching state preservation, and Home Service address status transitions and blocked save.
 - `docs/30-delivery/STAGE_17_EVIDENCE.md`: This evidence record.
+- `docs/50-state/CURRENT_STATE.md`: Updated active state documentation.
+- `docs/50-state/CURRENT_TASK.md`: Updated current task documentation.
+- `docs/50-state/HANDOFF.md`: Updated handoff notes.
+- `docs/50-state/LAST_VERIFIED_GATE.md`: Updated gate notes.
 
 ## Contract evidence
 
-### Repository verified
+### Repositories verified
 
 - Desktop base commit: `1faa7493de961de3b314b8c1b28409ecdabf91ba`.
+- Desktop pre-functional head: `035263ca64f2a13ade27cb6691bb3566df8090b0`.
 - Hosted reference commit: `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
-- Reference design: Owner-provided screenshot `media_1792744377414.jpg`.
+- Approved design: Owner visual inspection of layout and density approved; functional mode corrections requested.
 
-### Owner-provided manual runtime evidence
+### Missing server contracts
 
-- Owner visually reviewed the desktop modal and requested the layout, sizing, and grouping corrections documented here.
-
-### Unverified / open questions
-
-- Owner visual inspection on actual Windows desktop native application (1440×900, 1366×768, 1024×768) is pending.
+- Home Service requires an authoritative place-search and transportation-fee service on `/api/desktop/v1/` to satisfy the hosted booking schema without exposing Google Maps API credentials in the desktop renderer.
+- Until an authorized desktop endpoint (`/api/desktop/v1/places/search`, `/api/desktop/v1/home-service/quote`) is published by the hosted platform, Home Service creation remains blocked fail-closed.
 
 ## Exact checks
 
-| Command / Check     | Result | Notes                                                                          |
-| ------------------- | ------ | ------------------------------------------------------------------------------ |
-| `npm run typecheck` | PASSED | `tsc --noEmit` exited 0 with 0 errors                                          |
-| `npm run lint`      | PASSED | `eslint . --max-warnings 0` exited 0 with 0 warnings                           |
-| `npm run format`    | PASSED | Prettier formatted all source files                                            |
-| `npm test`          | PASSED | 748 tests passed across 34 test files (including 6 new modal correction tests) |
-| `npm run build`     | PASSED | `tsc --noEmit && vite build` bundled client in 1.95s                           |
-| `git diff --check`  | PASSED | 0 whitespace or formatting anomalies                                           |
+| Command / Check        | Result | Notes                                                                            |
+| ---------------------- | ------ | -------------------------------------------------------------------------------- |
+| `npm run typecheck`    | PASSED | `tsc --noEmit` exited 0 with 0 errors                                            |
+| `npm run lint`         | PASSED | `eslint . --max-warnings 0` exited 0 with 0 warnings                             |
+| `npm run format:check` | PASSED | Prettier verified all source files                                               |
+| `npm test`             | PASSED | 754 tests passed across 34 test files (including new mode activation unit tests) |
+| `npm run build`        | PASSED | `tsc --noEmit && vite build` bundled client in 2.16s                             |
+| `git diff --check`     | PASSED | 0 whitespace or formatting anomalies                                             |
 
-## Runtime evidence actually observed
+## Security and data impact
 
-- Automated tests in `tests/booking-modal-layout-corrections.test.tsx` verify:
-  1. Merged `#customer-fullname` with live customer search dropdown, phone/email row, and notes field within one compact card.
-  2. Self-contained guest cards grouping service search, categories, carousel, duration, staff, room, and date/time.
-  3. Service category filtering and carousel card selection.
-  4. Duration pill selection updating draft duration and finish time.
-  5. Walk-in read-only branch business date/time vs. Phone/Future editable date/time.
-  6. Multi-guest group synchronization where date/time changes synchronize across all guests and staff/room assignment defaults to automatic allocation on save.
-- All existing booking suites (`tests/bookings-components.test.tsx`, `tests/booking-preview.test.tsx`, `tests/bookings-service.test.ts`, `tests/today-components.test.tsx`) pass cleanly without regression.
-
-## Security / data impact
-
-- production data changed? no
-- schema/migration changed? no
-- Auth/RLS/Storage policy changed? no
-- secrets introduced/exposed? no
-- privileged server behavior changed? no
-- Tauri capabilities changed? no
+- Production data changed? No.
+- Schema/migration changed? No.
+- Auth/RLS/Storage policy changed? No.
+- Secrets introduced/exposed? No. No Google API keys in Tauri bundle/renderer.
+- Privileged server behavior changed? No.
+- Tauri capabilities changed? No.
 
 ## Limitations
 
-- Multi-guest group bookings do not support independent per-guest manual therapist or room overrides; the hosted backend requires atomic automatic allocation on save.
-- Home Service location entry requires verified geolocation and transportation fee calculation from an authoritative service, currently displayed in an honest disabled state.
+- Multi-guest group bookings share a single booking date and start time per hosted platform constraints.
+- Home Service bookings cannot be submitted until the hosted backend provides an authenticated desktop place-search and transportation quotation endpoint.
 
 ## Rollback
 
-- Revert the branch to base commit:
-  `git checkout stage/17-intake-booking-modal && git reset --hard 1faa7493de961de3b314b8c1b28409ecdabf91ba`
+- Revert the branch to pre-functional commit:
+  `git checkout stage/17-intake-booking-modal && git reset --hard 035263ca64f2a13ade27cb6691bb3566df8090b0`
 
 ## Gate
 

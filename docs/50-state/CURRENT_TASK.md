@@ -1,13 +1,14 @@
 # Current Task
 
-Stage 17 — Intake booking modal from the owner-approved PNG: **ACTIVE / UNREVIEWED** on `stage/17-intake-booking-modal`.
+Stage 17 — Intake booking modal functional corrections & mode activation: **ACTIVE / UNREVIEWED** on `stage/17-intake-booking-modal`.
 
 - **BASE_SHA**: `1faa7493de961de3b314b8c1b28409ecdabf91ba`, verified on desktop `main` and `origin/main` before implementation.
-- **Previous correction gate**: The owner brief reports acceptable independent code review and merge; the owner explicitly confirmed native Windows visual acceptance in this conversation. This agent did not independently witness that earlier review.
+- **PRE_CORRECTION_HEAD_SHA**: `035263ca64f2a13ade27cb6691bb3566df8090b0` on `stage/17-intake-booking-modal`.
+- **Previous correction gate**: The owner confirmed visual acceptance of the modal layout and requested functional activation of remaining modes (Phone, Future, Home Service).
 - **Hosted reference**: `2b3bab3c9e71274c25d747daf37d7928ee670e2c`, verified on hosted `main`.
-- **Authorized scope**: Redesign the existing New Booking modal to match the supplied image where supported by real options, preserve authoritative single booking, support one atomic group request where the hosted contract allows, and test the intake flow.
+- **Authorized scope**: Activate Phone and Future modes with editable date/time, expected finish time calculation, and authoritative API submission; make Home Service selectable with editable address field, 6 location states, spa room removal, and fail-closed blocked save pending hosted place-search API contract; preserve existing Walk-in flow, customer search, and multi-guest configurations.
 - **Stage 16 discovery**: Independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d`; not merged into desktop `main`.
-- **Delivery**: Commit and push the Stage 17 branch, then stop for independent review. Do not merge into `main` or start another stage.
+- **Delivery**: Commit and push to `stage/17-intake-booking-modal`, then stop for independent review. Do not merge into `main` or start another stage.
 
 ## Historical Stage 05 task and closeout record
 
