@@ -1,0 +1,774 @@
+/* ==========================================================================
+   CradleHub Desktop — Cashier Workspace Styling
+   Strictly aligned with approved visual references
+   ========================================================================== */
+
+.cashier-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  padding-bottom: 2rem;
+}
+
+/* Header & Tabs */
+.cashier-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cashier-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cashier-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.cashier-brand-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e6f4ea;
+  color: #047857;
+}
+
+.cashier-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-ink, #0f172a);
+  line-height: 1.2;
+}
+
+.cashier-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-muted, #64748b);
+  margin-top: 0.125rem;
+}
+
+.cashier-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cashier-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--color-line, #e2e6e0);
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ink-secondary, #334155);
+}
+
+.cashier-user-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* Tab Navigation Strip */
+.cashier-tabs-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--color-line, #e2e6e0);
+  padding-bottom: 0.25rem;
+}
+
+.cashier-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-muted, #64748b);
+  border-radius: 0.5rem 0.5rem 0 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cashier-tab-btn:hover {
+  color: var(--color-ink, #0f172a);
+  background: #f1f5f9;
+}
+
+.cashier-tab-btn.active {
+  color: #047857;
+  border-bottom-color: #047857;
+  background: #ffffff;
+}
+
+/* KPI Summary Cards Grid */
+.cashier-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.cashier-kpi-card {
+  background: #ffffff;
+  border: 1px solid var(--color-line, #e2e6e0);
+  border-radius: 0.75rem;
+  padding: 1rem 1.125rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.cashier-kpi-icon-box {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cashier-kpi-icon-box.gold {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.cashier-kpi-icon-box.amber {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.cashier-kpi-icon-box.emerald {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.cashier-kpi-icon-box.blue {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.cashier-kpi-icon-box.rose {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+.cashier-kpi-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.cashier-kpi-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.cashier-kpi-value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-ink, #0f172a);
+  margin-top: 0.25rem;
+  line-height: 1.2;
+}
+
+.cashier-kpi-subtext {
+  font-size: 0.8125rem;
+  color: var(--color-muted, #64748b);
+  margin-top: 0.25rem;
+}
+
+/* Today 2-Column Workstation Layout */
+.cashier-today-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(360px, 1.25fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .cashier-today-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Surface Cards */
+.cashier-card {
+  background: #ffffff;
+  border: 1px solid var(--color-line, #e2e6e0);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.cashier-card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-line, #e2e6e0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cashier-card-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-ink, #0f172a);
+}
+
+.cashier-card-subtitle {
+  font-size: 0.8125rem;
+  color: var(--color-muted, #64748b);
+  margin-top: 0.125rem;
+}
+
+.cashier-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Quick Actions Card */
+.cashier-quick-actions-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.cashier-primary-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background-color: #0d2b20;
+  color: #ffffff;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cashier-primary-action-btn:hover {
+  background-color: #143d2e;
+}
+
+.cashier-action-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.cashier-action-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.75rem 0.5rem;
+  background: #f8fafc;
+  border: 1px solid var(--color-line, #e2e6e0);
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-ink-secondary, #334155);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.cashier-action-tile:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: var(--color-ink, #0f172a);
+}
+
+/* Tables */
+.cashier-table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.cashier-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+
+.cashier-table th {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--color-muted, #64748b);
+  border-bottom: 1px solid var(--color-line, #e2e6e0);
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.cashier-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--color-line-subtle, #edf0e9);
+  color: var(--color-ink, #0f172a);
+  vertical-align: middle;
+}
+
+.cashier-table tr:hover td {
+  background-color: #f8fafc;
+}
+
+/* Status Badges */
+.badge-service-completed {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.badge-in-progress {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #fef9c3;
+  color: #a16207;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.badge-unpaid {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.badge-partial {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #fffbeb;
+  color: #b45309;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.badge-paid {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #ecfdf5;
+  color: #047857;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.badge-voided {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #f1f5f9;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+/* Customer Cell */
+.cashier-customer-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.cashier-customer-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: #dbeafe;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Table Buttons */
+.btn-table-action {
+  padding: 0.375rem 0.75rem;
+  background-color: #0d2b20;
+  color: #ffffff;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-table-action:hover {
+  background-color: #143d2e;
+}
+
+/* Pagination Footer */
+.cashier-pagination {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--color-line, #e2e6e0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--color-muted, #64748b);
+  background: #f8fafc;
+}
+
+.cashier-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cashier-page-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  border: 1px solid var(--color-line, #e2e6e0);
+  background: #ffffff;
+  color: var(--color-ink, #0f172a);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cashier-page-btn.active {
+  background-color: #0d2b20;
+  color: #ffffff;
+  border-color: #0d2b20;
+}
+
+.cashier-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Modal Overlay & Card */
+.cashier-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.cashier-modal-card {
+  background: #ffffff;
+  border-radius: 0.875rem;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.cashier-modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-line, #e2e6e0);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.cashier-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-ink, #0f172a);
+}
+
+.cashier-modal-subtitle {
+  font-size: 0.8125rem;
+  color: var(--color-muted, #64748b);
+  margin-top: 0.125rem;
+}
+
+.cashier-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--color-muted, #64748b);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+}
+
+.cashier-modal-close:hover {
+  background: #f1f5f9;
+  color: var(--color-ink, #0f172a);
+}
+
+.cashier-modal-body {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cashier-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-line, #e2e6e0);
+  background: #f8fafc;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0 0 0.875rem 0.875rem;
+}
+
+/* Category Quick Chips in Record Expense */
+.cashier-chips-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cashier-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-line, #e2e6e0);
+  background: #ffffff;
+  color: var(--color-ink-secondary, #334155);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cashier-chip-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.cashier-chip-btn.active {
+  background: #ecfdf5;
+  border-color: #047857;
+  color: #047857;
+  font-weight: 600;
+}
+
+/* Amount Chips in Record Payment */
+.cashier-amount-chips {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cashier-amount-chip {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-line, #e2e6e0);
+  background: #f8fafc;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink-secondary, #334155);
+  cursor: pointer;
+}
+
+.cashier-amount-chip:hover {
+  background: #f1f5f9;
+}
+
+.cashier-amount-chip.active {
+  background: #ecfdf5;
+  border-color: #047857;
+  color: #047857;
+}
+
+/* Order Breakdown Box */
+.cashier-order-box {
+  background: #f8fafc;
+  border: 1px solid var(--color-line, #e2e6e0);
+  border-radius: 0.625rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cashier-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cashier-order-num {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-ink, #0f172a);
+}
+
+.cashier-order-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.cashier-order-row.total {
+  font-weight: 700;
+  border-top: 1px solid var(--color-line, #e2e6e0);
+  padding-top: 0.5rem;
+}
+
+.cashier-due-text {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+/* Form Controls */
+.cashier-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.cashier-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink-secondary, #334155);
+}
+
+.cashier-label .req {
+  color: #dc2626;
+  margin-left: 0.125rem;
+}
+
+.cashier-input,
+.cashier-select,
+.cashier-textarea {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-line, #e2e6e0);
+  background: #ffffff;
+  color: var(--color-ink, #0f172a);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.cashier-input:focus,
+.cashier-select:focus,
+.cashier-textarea:focus {
+  border-color: #047857;
+  box-shadow: 0 0 0 1px #047857;
+}
+
+.cashier-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* Ledger Filter Bar */
+.cashier-ledger-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--color-line, #e2e6e0);
+  align-items: center;
+}
+
+.cashier-search-box {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+
+.cashier-search-box input {
+  width: 100%;
+  padding-left: 2.25rem;
+}
+
+.cashier-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-muted, #64748b);
+}
+
+/* Callout and Notice Banners */
+.cashier-notice-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.cashier-notice-banner.info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.cashier-notice-banner.warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.cashier-notice-banner.disabled {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}

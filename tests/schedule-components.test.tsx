@@ -370,6 +370,7 @@ function selectedStaff(): ScheduleStaffRow {
 describe('Stage 06B Schedule component/action boundary', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.setSystemTime(new Date('2026-10-23T10:00:00'));
 
     vi.spyOn(scheduleService, 'fetchDailySchedule').mockResolvedValue(
       dailyResponse(),
@@ -398,6 +399,7 @@ describe('Stage 06B Schedule component/action boundary', () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

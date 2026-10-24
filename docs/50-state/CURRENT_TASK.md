@@ -1,14 +1,24 @@
 # Current Task
-
-Stage 17 — Intake booking modal functional corrections, unified Phone / Future mode & Home Service Google Places integration: **ACTIVE / UNREVIEWED** on `stage/17-intake-booking-modal`.
-
-- **BASE_SHA**: `1faa7493de961de3b314b8c1b28409ecdabf91ba`, verified on desktop `main` and `origin/main` before implementation.
-- **PRE_CORRECTION_HEAD_SHA**: `c4f0e721a40390eacdb29104a5a13a291ec75f2c` on `stage/17-intake-booking-modal`.
-- **Previous correction gate**: The owner confirmed visual acceptance of the modal layout and approved the visual design; requested functional mode unification (exactly three visible modes: Walk-in, Phone / Future, Home Service) and connecting real Google Places for Home Service.
-- **Hosted reference**: `2b3bab3c9e71274c25d747daf37d7928ee670e2c` on hosted `main`; location routes implemented on hosted branch `stage/17-desktop-location-endpoints` at SHA `272339a5d49e39b86160c541bb63d5c09841f81a`.
-- **Authorized scope**: Unify Phone and Future into a single card without nested buttons; map in-spa advance bookings to hosted-valid `type: 'walkin'` with canonical `crmBookingMode: 'phone'`; connect real hosted Google Places endpoints for address autocomplete, place resolution, and driving distance / travel fee quotation; enable Home Service Save safely only when all location and quote requirements are satisfied; preserve Walk-in flow and customer search.
-- **Stage 16 discovery**: Independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d`; not merged into desktop `main`.
-- **Delivery**: Commit and push to `stage/17-intake-booking-modal`, then stop for independent review. Do not merge into `main` or start another stage.
+## Integration Candidate Consolidation (Stages 17 & 18): **CONSOLIDATED / STOPPED FOR INDEPENDENT REVIEW**
+- **DESKTOP_BASE_SHA**: `1faa7493de961de3b314b8c1b28409ecdabf91ba` on desktop `main`.
+- **HOSTED_BASE_SHA**: `2b3bab3c9e71274c25d747daf37d7928ee670e2c` on hosted `main`.
+- **Desktop Candidate Branch**: `stage/integration-candidate-17-18`.
+- **Hosted Candidate Branch**: `stage/integration-candidate-17-18`.
+- **Stage 17 Branches Consolidated**:
+  - Desktop: `stage/17-intake-booking-modal` (`9e94c854ba1c66265fbf766657f10d3bf0a5d56b`).
+  - Hosted: `stage/17-desktop-location-endpoints` (`29f565fed5223a8b032fb494bdf0536a93598c15`).
+- **Stage 18 Branches Consolidated**:
+  - Desktop: `stage/18-crm-cashier` (`6e0b6b62d22fbabad497a9ccc7b51e694db08a09`).
+  - Hosted: `stage/18-desktop-cashier-endpoints` (`10a38a2314e3685eaf6a64aaa1143ee8e8b2cb73`).
+- **Authorized Scope**:
+  - Exactly one canonical desktop shell with 9 authorized CRM modules: Today, Bookings, Attendance, Customers, Schedule, Home Service, Staff, Settings, and Cashier.
+  - Booking modal preserves compact two-column layout, Walk-in, Phone/Future, Home Service with real Google Places address autocomplete, precise location verification, and driving distance quote.
+  - Cashier workspace preserves all 5 tabs (Today, Ledger, Cash Drawer, Day Close, History), Pending Payment Queue, Paid & Closed, Record Payment modal, Record Expense modal, drawer operations, and Day Close summary.
+  - Financial security, idempotency key preservation across retry attempts, partial payment queue retention, role and branch authorization checks.
+- **Merge Readiness Gate Status**:
+  - Integration candidates built, typed, linted, formatted, tested, and pushed on both repositories.
+  - STOPPED for independent GitHub review and owner runtime acceptance.
+  - NO merge into `main` has occurred. Main remains at baseline.
 
 ## Historical Stage 05 task and closeout record
 

@@ -7,6 +7,7 @@ import {
   Truck,
   UserCog,
   Settings,
+  Banknote,
   type LucideIcon,
 } from 'lucide-react';
 import type { NavModuleId } from '../types/auth';
@@ -63,6 +64,13 @@ export const AUTHORIZED_NAV_ITEMS: readonly NavItemConfig[] = [
     icon: UserCog,
     description:
       'Staff roster, provider capabilities, and service assignments.',
+  },
+  {
+    id: 'cashier',
+    label: 'Cashier',
+    icon: Banknote,
+    description:
+      'Payments, expenses, cash drawer, and financial reconciliation.',
   },
   {
     id: 'settings',

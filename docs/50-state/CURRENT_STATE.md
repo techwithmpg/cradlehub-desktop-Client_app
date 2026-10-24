@@ -2,11 +2,20 @@
 
 ## Current development state (2026-10-23)
 
-- Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. The owner confirmed visual acceptance of the redesigned booking modal layout and requested functional mode activation and unification (Phone / Future unified advance mode, Home Service with real Google Places address autocomplete, precise location verification, and authoritative distance quote) on `stage/17-intake-booking-modal`.
-- Stage 17 functional corrections are complete on desktop branch `stage/17-intake-booking-modal` (previous HEAD `c4f0e721a40390eacdb29104a5a13a291ec75f2c`). Exactly three visible modes are rendered (`Walk-in`, `Phone / Future`, `Home Service`). In-spa advance bookings send hosted-valid `type: 'walkin'` and canonical `crmBookingMode: 'phone'`. Home Service connects to real hosted Google Places endpoints (`/api/desktop/v1/locations/autocomplete`, `/api/desktop/v1/locations/resolve`, `/api/desktop/v1/locations/distance-quote`), displays verified details and distance/travel fees, and enables Save safely only when all location and quote requirements are satisfied. All 762 desktop tests pass across 34 test files.
-- Hosted location API endpoints are implemented, tested (10/10 tests passing), and pushed on branch `stage/17-desktop-location-endpoints` at SHA `272339a5d49e39b86160c541bb63d5c09841f81a` in `https://github.com/techwithmpg/Cradlehub`.
-- Stage 16 discovery on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` was independently reviewed and owner confirmed. That branch was not merged into desktop `main`.
-- No stage after Stage 17 is authorized. The hosted CRM remains authoritative for business data and actions.
+- Desktop `main` is verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba`.
+- Hosted `main` is verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
+- **Integration Candidate (`stage/integration-candidate-17-18`)**:
+  - Desktop branch: `stage/integration-candidate-17-18` consolidates Stage 17 (booking modal layout, walk-in/phone/home service, location verification) and Stage 18 (CRM Cashier workspace: Today, Ledger, Cash Drawer, Day Close, History, modals, idempotency safeguards).
+  - Hosted branch: `stage/integration-candidate-17-18` consolidates Stage 17 (location endpoints) and Stage 18 (cashier financial endpoints, drawer security, RPC validation).
+- **Stage 17 Development Status**:
+  - Desktop branch: `stage/17-intake-booking-modal` pushed at `9e94c854ba1c66265fbf766657f10d3bf0a5d56b`.
+  - Hosted branch: `stage/17-desktop-location-endpoints` pushed at `29f565fed5223a8b032fb494bdf0536a93598c15`.
+  - All review findings corrected: sliding window rate limiting, branch isolation, query sanitization, upstream timeout handling, async race condition avoidance, and immediate address invalidation.
+- **Stage 18 Development Status**:
+  - Desktop branch: `stage/18-crm-cashier` pushed at `6e0b6b62d22fbabad497a9ccc7b51e694db08a09`.
+  - Hosted branch: `stage/18-desktop-cashier-endpoints` pushed at `10a38a2314e3685eaf6a64aaa1143ee8e8b2cb73`.
+  - All review findings corrected: payment error rejection, idempotency key preservation across retries, partial payment queue retention, legacy booking fallback, active/branch category & account validation, drawer role authorization, truthful KPI mappings, non-finalizable Day Close.
+- **Gate Status**: Both integrated branches are stopped for independent GitHub review and owner runtime confirmation before any merge into `main`. Neither branch is merged into `main`. No schema or database mutation executed.
 
 ## Historical accepted-stage record
 

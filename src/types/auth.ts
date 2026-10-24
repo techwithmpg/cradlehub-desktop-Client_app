@@ -51,6 +51,7 @@ export type NavModuleId =
   | 'schedule'
   | 'home-service'
   | 'staff'
+  | 'cashier'
   | 'settings';
 
 export interface NavModuleItem {

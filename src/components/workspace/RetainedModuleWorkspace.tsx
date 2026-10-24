@@ -11,6 +11,7 @@ import { CustomersView } from '../customers/CustomersView';
 import { ScheduleView } from '../schedule/ScheduleView';
 import { HomeServiceView } from '../home-service/HomeServiceView';
 import { StaffView } from '../staff/StaffView';
+import { CashierWorkspace } from '../cashier/CashierWorkspace';
 
 interface RetainedModuleWorkspaceProps {
   authContext: AuthContext;
@@ -39,6 +40,7 @@ interface RetainedModuleFrameProps {
 const LIFECYCLE_AWARE_MODULES: ReadonlySet<NavModuleId> = new Set([
   'today',
   'bookings',
+  'cashier',
 ]);
 
 function GenerationAwareRetainedContent({ children }: { children: ReactNode }) {
@@ -82,6 +84,10 @@ const RetainedModuleFrame = memo(function RetainedModuleFrame({
 
     case 'staff':
       content = <StaffView authContext={authContext} />;
+      break;
+
+    case 'cashier':
+      content = <CashierWorkspace authContext={authContext} />;
       break;
 
     case 'settings':
