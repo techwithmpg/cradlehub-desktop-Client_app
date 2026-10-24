@@ -212,6 +212,7 @@ export interface HistoryTabSummary {
     action: string;
     details: string;
   }>;
+  isHistoricalSummarySupported?: boolean;
 }
 
 export interface RecordPaymentPayload {

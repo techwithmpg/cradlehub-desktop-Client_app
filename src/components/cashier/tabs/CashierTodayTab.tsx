@@ -396,11 +396,17 @@ export function CashierTodayTab({
                 </button>
                 <button
                   type="button"
-                  className="cashier-action-tile"
-                  onClick={() => window.print()}
+                  className="cashier-action-tile opacity-60 cursor-not-allowed"
+                  disabled
+                  title="Receipt printing is not supported by the backend server."
                 >
-                  <Printer size={18} className="text-emerald-800" />
-                  <span>Print Receipt</span>
+                  <Printer size={18} className="text-slate-400" />
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-slate-500">Print Receipt</span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Not supported
+                    </span>
+                  </div>
                 </button>
               </div>
             </div>
