@@ -213,6 +213,7 @@ const mockHistory: HistoryTabSummary = {
     },
   ],
   auditTrail: [],
+  isHistoricalSummarySupported: false,
 };
 
 async function renderCashierWorkspace() {
@@ -421,7 +422,7 @@ describe('CashierWorkspace Component', () => {
     ).toBeDefined();
   });
 
-  it('switches to History tab and displays month summary and audit log', async () => {
+  it('switches to History tab and displays truthful history state', async () => {
     const user = userEvent.setup();
     await renderCashierWorkspace();
 
@@ -430,8 +431,10 @@ describe('CashierWorkspace Component', () => {
     await waitFor(() => {
       expect(cashierService.fetchCashierHistory).toHaveBeenCalled();
       expect(screen.getByText('Closed Days (This Month)')).toBeDefined();
-      expect(screen.getByText('₱310,500')).toBeDefined();
       expect(screen.getByText('2026-10-22')).toBeDefined();
+      expect(
+        screen.getAllByText('Unavailable').length,
+      ).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -512,5 +515,37 @@ describe('CashierWorkspace Component', () => {
         /Partial payment: ₱800 will remain in the pending payment queue/i,
       ),
     ).toBeDefined();
+  });
+
+  it('disables Print Receipt in Today tab with not supported notice', async () => {
+    await renderCashierWorkspace();
+    const printBtn = screen.getByRole('button', { name: /print receipt/i });
+    expect(printBtn).toBeDefined();
+    expect((printBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/not supported/i)).toBeDefined();
+  });
+
+  it('renders History tab with truthful unavailable states for unsupported monthly aggregates', async () => {
+    const user = userEvent.setup();
+    await renderCashierWorkspace();
+
+    const historyTab = screen.getByRole('tab', { name: /history/i });
+    await user.click(historyTab);
+
+    // Shows informative banner
+    expect(
+      screen.getByText(
+        /Historical monthly aggregates, finalization logs and multi-day closing audits are pending server contract support/i,
+      ),
+    ).toBeDefined();
+
+    // Renders "Unavailable" for monthly aggregates
+    expect(screen.getAllByText('Unavailable')).toHaveLength(4);
+
+    // Displays actual historical record in table
+    expect(screen.getByText('2026-10-22')).toBeDefined();
+    expect(screen.getByText('₱28,000')).toBeDefined();
+    expect(screen.getByText('₱1,500')).toBeDefined();
+    expect(screen.getByText('₱26,500')).toBeDefined();
   });
 });

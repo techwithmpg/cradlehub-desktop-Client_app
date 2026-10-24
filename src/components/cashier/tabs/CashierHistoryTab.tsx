@@ -13,17 +13,23 @@ interface CashierHistoryTabProps {
 }
 
 export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
-  const data = historyData ?? {
-    closedDaysThisMonth: 0,
-    totalInflowThisMonth: 0,
-    totalOutflowThisMonth: 0,
-    reviewExceptions: 0,
-    records: [],
-    auditTrail: [],
-  };
+  const data = historyData;
+  const isSupported = data?.isHistoricalSummarySupported ?? false;
 
   return (
     <div className="space-y-5">
+      {/* Informational banner when backend contract does not support multi-day aggregates */}
+      {!isSupported && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 flex items-center gap-2">
+          <AlertCircle size={16} className="text-amber-600 shrink-0" />
+          <span>
+            Historical monthly aggregates, finalization logs and multi-day
+            closing audits are pending server contract support. Displaying
+            verified session reconciliation records below.
+          </span>
+        </div>
+      )}
+
       {/* Monthly History KPIs */}
       <div className="cashier-kpi-grid">
         <div className="cashier-kpi-card">
@@ -33,10 +39,10 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
           <div className="cashier-kpi-content">
             <span className="cashier-kpi-label">Closed Days (This Month)</span>
             <span className="cashier-kpi-value">
-              {data.closedDaysThisMonth}
+              {isSupported ? (data?.closedDaysThisMonth ?? 0) : 'Unavailable'}
             </span>
             <span className="cashier-kpi-subtext text-slate-500">
-              Reconciled sessions
+              {isSupported ? 'Reconciled sessions' : 'Contract not supported'}
             </span>
           </div>
         </div>
@@ -48,10 +54,12 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
           <div className="cashier-kpi-content">
             <span className="cashier-kpi-label">Total Monthly Inflows</span>
             <span className="cashier-kpi-value">
-              ₱{data.totalInflowThisMonth.toLocaleString()}
+              {isSupported
+                ? `₱${(data?.totalInflowThisMonth ?? 0).toLocaleString()}`
+                : 'Unavailable'}
             </span>
             <span className="cashier-kpi-subtext text-emerald-700 font-medium">
-              Verified deposits
+              {isSupported ? 'Verified deposits' : 'Contract not supported'}
             </span>
           </div>
         </div>
@@ -63,10 +71,14 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
           <div className="cashier-kpi-content">
             <span className="cashier-kpi-label">Total Monthly Outflows</span>
             <span className="cashier-kpi-value">
-              ₱{data.totalOutflowThisMonth.toLocaleString()}
+              {isSupported
+                ? `₱${(data?.totalOutflowThisMonth ?? 0).toLocaleString()}`
+                : 'Unavailable'}
             </span>
             <span className="cashier-kpi-subtext text-rose-700 font-medium">
-              Verified disbursements
+              {isSupported
+                ? 'Verified disbursements'
+                : 'Contract not supported'}
             </span>
           </div>
         </div>
@@ -77,9 +89,11 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
           </div>
           <div className="cashier-kpi-content">
             <span className="cashier-kpi-label">Review Exceptions</span>
-            <span className="cashier-kpi-value">{data.reviewExceptions}</span>
+            <span className="cashier-kpi-value">
+              {isSupported ? (data?.reviewExceptions ?? 0) : 'Unavailable'}
+            </span>
             <span className="cashier-kpi-subtext text-slate-500">
-              Unresolved variances
+              {isSupported ? 'Unresolved variances' : 'Contract not supported'}
             </span>
           </div>
         </div>
@@ -117,11 +131,11 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
               </tr>
             </thead>
             <tbody>
-              {data.records.length === 0 ? (
+              {!data?.records || data.records.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-10 text-slate-400">
                     No historical reconciliation records available for this
-                    period.
+                    branch.
                   </td>
                 </tr>
               ) : (
@@ -133,7 +147,9 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
                       ₱{rec.inflow.toLocaleString()}
                     </td>
                     <td className="font-bold text-rose-800">
-                      ₱{rec.outflow.toLocaleString()}
+                      {rec.outflow > 0
+                        ? `₱${rec.outflow.toLocaleString()}`
+                        : '—'}
                     </td>
                     <td className="font-bold text-slate-900">
                       ₱{rec.net.toLocaleString()}
@@ -145,7 +161,7 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
                       </span>
                     </td>
                     <td className="text-slate-500 text-xs">
-                      {rec.reviewedBy ?? 'System'}
+                      {rec.reviewedBy ?? 'Not recorded'}
                     </td>
                   </tr>
                 ))

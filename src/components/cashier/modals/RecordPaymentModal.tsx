@@ -4,7 +4,6 @@ import {
   CreditCard,
   Calendar,
   Clock,
-  Printer,
   Check,
   AlertCircle,
   Loader2,
@@ -36,7 +35,6 @@ export function RecordPaymentModal({
     order ? String(order.remainingBalance) : '',
   );
   const [notes, setNotes] = useState<string>('');
-  const [printReceipt, setPrintReceipt] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
@@ -387,19 +385,6 @@ export function RecordPaymentModal({
                 disabled={isSubmitting}
               />
             </div>
-
-            {/* Print Receipt Toggle */}
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={printReceipt}
-                onChange={(e) => setPrintReceipt(e.target.checked)}
-                className="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
-                disabled={isSubmitting}
-              />
-              <Printer size={16} className="text-slate-500" />
-              <span>Print receipt after recording payment</span>
-            </label>
           </div>
 
           {/* Footer Actions */}

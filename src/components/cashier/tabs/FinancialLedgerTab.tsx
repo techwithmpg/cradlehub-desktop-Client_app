@@ -291,8 +291,9 @@ export function FinancialLedgerTab({
             </button>
             <button
               type="button"
-              className="btn-secondary-compact flex items-center gap-1.5 text-xs py-2"
-              onClick={() => window.print()}
+              className="btn-secondary-compact flex items-center gap-1.5 text-xs py-2 opacity-60 cursor-not-allowed"
+              disabled
+              title="Ledger export is pending server contract support."
             >
               <Download size={13} />
               <span>Export</span>
