@@ -10,15 +10,14 @@
   - Desktop: `stage/17-intake-booking-modal` (`9e94c854ba1c66265fbf766657f10d3bf0a5d56b`).
   - Hosted: `stage/17-desktop-location-endpoints` (`54c992a7e722513f82029ee6faaeebf1d24bb56e`).
 - **Stage 18 Branches Consolidated**:
-  - Desktop: `stage/18-crm-cashier` (`a9d472d6ffbb101e4ec3705ef1eb9d59247dca09`).
-  - Hosted: `stage/18-desktop-cashier-endpoints` (`0dd73bb2f65a4404fb855ae2890616b2cfd52a79`).
+  - Desktop: `stage/18-crm-cashier` (`6a1113b290dfb1ebdbb99d6d7be76cb5e94b29bb`).
+  - Hosted: `stage/18-desktop-cashier-endpoints` (`3a53b24036cbff899a25b3a62886c8f85f543169`).
 - **Targeted Corrections Applied**:
-  - P0: Paid & Closed lifecycle classification separated from pending payment queue without dropping fully settled orders.
-  - P0: Legacy payment bearer token authentication refactored to domain function accepting authenticated Supabase client.
-  - P0: Operational expense KPIs isolated strictly from broad outflows and heuristic estimates.
-  - P1: Cashier history truthful reporting from actual reconciliation records with unsupported multi-day stats marked unavailable.
-  - P1: Distributed rate limiting interface added with fail-closed security when unconfigured in production.
-  - P1: Receipt printing disabled with explicit unsupported notice and window.print() removed.
+  - Correction 1 (P0): Canonical payment authorization with `canConfirmPayments()`, active staff identity verification, role boundary enforcement, and cross-branch prevention in hosted legacy payment writer and cashier routes.
+  - Correction 2 (P1): History integrity without deriving inflows/outflows from `actual_cash`; null monetary values displayed truthfully as `—`; real reviewer identities without fabricated `'Staff'`; truthful error handling with retry.
+  - Correction 3 (P0): Immutable financial retries in `RecordPaymentModal` and `RecordExpenseModal`; frozen payload and idempotency key snapshot; inputs locked during unresolved submissions; definitive (4xx) vs ambiguous (5xx/network) error differentiation; background refresh failure protection prevents double posting.
+  - Correction 4 (P1): Order payment eligibility decoupled from outstanding balance; non-payable orders show truthful lifecycle status badge (`Completed`, `In Service`, `Waiting`, `Scheduled`) and explicit ineligibility reason; payment button disabled when `paymentEligible === false`.
+  - Correction 5: Home Service location rate limiting fail-closed 503 behavior preserved cleanly without altering modal structure; infrastructure decision documented for Redis/Upstash distributed limiter in production.
 - **Authorized Scope**:
   - Exactly one canonical desktop shell with 9 authorized CRM modules: Today, Bookings, Attendance, Customers, Schedule, Home Service, Staff, Settings, and Cashier.
   - Booking modal preserves compact two-column layout, Walk-in, Phone/Future, Home Service with real Google Places address autocomplete, precise location verification, and driving distance quote.

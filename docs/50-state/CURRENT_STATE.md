@@ -5,14 +5,14 @@
 - Desktop `main` is verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba`.
 - Hosted `main` is verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
 - **Integration Candidate (`stage/integration-candidate-17-18`)**:
-  - Desktop branch: `stage/integration-candidate-17-18` consolidates Stage 17 (intake booking modal) and Stage 18 (CRM Cashier workspace) with all 6 independently reviewed defects corrected.
-  - Hosted branch: `stage/integration-candidate-17-18` consolidates Stage 17 (location endpoints) and Stage 18 (cashier endpoints) with all 6 independently reviewed defects corrected.
+  - Desktop branch: `stage/integration-candidate-17-18` consolidates Stage 17 (intake booking modal) and Stage 18 (CRM Cashier workspace) with all Stage 17 & 18 review findings resolved (immutable financial retries, locked edits during unresolved submissions, payment eligibility distinction, history integrity, canonical payment authorization).
+  - Hosted branch: `stage/integration-candidate-17-18` consolidates Stage 17 (location endpoints) and Stage 18 (cashier endpoints) pushed at `99f322c9aeed5b788ab96cf89f65915280d8aea5`.
 - **Stage 17 Development Status**:
   - Desktop branch: `stage/17-intake-booking-modal` pushed at `9e94c854ba1c66265fbf766657f10d3bf0a5d56b`.
   - Hosted branch: `stage/17-desktop-location-endpoints` pushed at `54c992a7e722513f82029ee6faaeebf1d24bb56e` (distributed rate limiter interface and fail-closed security).
 - **Stage 18 Development Status**:
-  - Desktop branch: `stage/18-crm-cashier` pushed at `a9d472d` (disabled unsupported receipt printing and truthful unavailable history state).
-  - Hosted branch: `stage/18-desktop-cashier-endpoints` pushed at `0dd73bb2` (bearer-authenticated legacy payment domain writer, Paid & Closed lifecycle partitioning, operational expense KPI isolation, and history data handling).
+  - Desktop branch: `stage/18-crm-cashier` pushed at `6a1113b290dfb1ebdbb99d6d7be76cb5e94b29bb` (immutable retries with frozen payloads, input locks on ambiguous failure, definitive vs ambiguous error handling, server refresh failure protection, payment eligibility distinction from balance, truthful reconciliation history).
+  - Hosted branch: `stage/18-desktop-cashier-endpoints` pushed at `3a53b24036cbff899a25b3a62886c8f85f543169` (canonical `canConfirmPayments()` authorization, active staff profile and role checks, branch boundary validation, truthful reconciliation grouping without derived actual_cash inflows, server-side payment eligibility).
 - **Gate Status**: Both integrated candidate branches are stopped for independent GitHub review and owner runtime confirmation before any merge into `main`. Neither branch is merged into `main`. No schema or database mutation executed.
 
 ## Historical accepted-stage record
