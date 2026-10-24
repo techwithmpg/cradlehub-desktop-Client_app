@@ -1,6 +1,6 @@
 # Stage 18 Evidence: CRM Cashier Workspace
 
-**Stage Status:** Complete on development branch `stage/18-crm-cashier`. Ready for independent GitHub review.  
+**Stage Status:** Complete on development branch `stage/18-crm-cashier`. Ready for independent GitHub review.
 **Branch Gate Policy:** Under no circumstances shall this branch be merged into `main` without explicit owner authorization.
 
 ---
