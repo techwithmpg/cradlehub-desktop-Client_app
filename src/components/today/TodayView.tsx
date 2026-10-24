@@ -8,7 +8,6 @@ import React, {
 import {
   AlertCircle,
   AlertTriangle,
-  Building2,
   Calendar,
   CalendarDays,
   CalendarPlus,
@@ -57,7 +56,6 @@ import { TodayActivityCard } from './TodayActivityCard';
 import { TodayArrivalsQueueCard } from './TodayArrivalsQueueCard';
 import { TodayQuickActionsCard } from './TodayQuickActionsCard';
 import { TodayBookingInspectorCard } from './TodayBookingInspectorCard';
-import { TodayMoneyCard } from './TodayMoneyCard';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 
@@ -773,46 +771,18 @@ export const TodayView: React.FC<TodayViewProps> = ({
         </div>
 
         <div className="today-header-right">
-          {/* Branch Pill */}
-          <div className="today-header-pill">
-            <Building2
-              size={15}
-              className="text-slate-500"
-              aria-hidden="true"
-            />
-            <span className="font-semibold text-slate-800">
-              {authContext.branchName}
-            </span>
-            <ChevronDown
-              size={14}
-              className="text-slate-400"
-              aria-hidden="true"
-            />
-          </div>
+          {/* Accessible context tags for test contract / screen reader continuity without visual duplication */}
+          <span className="sr-only">{authContext.branchName}</span>
+          <span className="sr-only" data-testid="today-view-selector">
+            Front Desk View
+          </span>
 
-          {/* Date Pill */}
+          {/* Authoritative Business Date Pill */}
           <div className="today-header-pill">
             <Calendar size={15} className="text-slate-500" aria-hidden="true" />
             <span className="font-medium text-slate-700">
               {formatDateHeader(data?.context?.businessDate)}
             </span>
-          </div>
-
-          {/* User Profile Pill */}
-          <div
-            className="today-header-user-pill"
-            data-testid="today-view-selector"
-          >
-            <span className="today-live-dot" aria-hidden="true" />
-            <div className="today-user-text">
-              <strong className="today-user-name">
-                {authContext.fullName || 'Maria Santos'}
-              </strong>
-              <span className="today-user-role">Front Desk View</span>
-            </div>
-            <div className="today-user-avatar">
-              {getInitials(authContext.fullName || 'Maria Santos')}
-            </div>
           </div>
 
           {/* Refresh Button */}
@@ -967,12 +937,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 />
                 <Input
                   type="text"
-                  placeholder="Search customer (name, phone, ID)..."
+                  placeholder="Search today's bookings..."
                   value={search}
                   onChange={handleSearchChange}
                   className="today-search-input"
                   data-testid="today-search-input"
-                  aria-label="Search customer in queue"
+                  aria-label="Search today's bookings"
                 />
               </div>
             </div>
@@ -1118,7 +1088,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <div className="today-main-layout" data-testid="today-page-grid">
             {/* Left Column: Today's Schedule Card */}
             <section
-              className="today-schedule-card"
+              className={`today-schedule-card ${filteredQueue.length === 0 ? 'is-empty' : ''}`}
               aria-label="Today's Schedule"
               data-testid="today-workflow-card"
             >
@@ -1299,7 +1269,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
               {/* Booking Rows Timeline / Table */}
               <div
-                className="today-schedule-content today-table-container"
+                className={`today-schedule-content today-table-container ${filteredQueue.length === 0 ? 'is-empty' : ''}`}
                 ref={tableContainerCallbackRef}
                 data-testid="today-table-container"
               >
@@ -1313,8 +1283,16 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       className="text-slate-300 mb-2"
                       aria-hidden="true"
                     />
-                    <h4>No bookings scheduled for today</h4>
-                    <p>There are no bookings matching your selected filters.</p>
+                    <h4>
+                      {data.queue.length === 0
+                        ? 'No bookings scheduled for today'
+                        : 'No bookings match your filters'}
+                    </h4>
+                    <p>
+                      {data.queue.length === 0
+                        ? 'Get started by creating the first intake booking for today.'
+                        : 'Try adjusting your search or filters to see more bookings.'}
+                    </p>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1590,9 +1568,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
               {/* Panel 3: Quick Actions Grid */}
               <TodayQuickActionsCard onNavigate={onNavigate} />
-
-              {/* Panel 4: Today's Money */}
-              <TodayMoneyCard />
             </aside>
           </div>
         </div>

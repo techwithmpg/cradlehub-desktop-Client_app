@@ -10257,6 +10257,12 @@ button.bookings-kpi-cell:focus-visible {
   min-width: 0;
 }
 
+.today-schedule-card.is-empty,
+.today-workflow-card.is-empty {
+  align-self: start;
+  flex: none;
+}
+
 .today-schedule-tabs-bar {
   display: flex;
   align-items: center;
@@ -10399,6 +10405,16 @@ button.bookings-kpi-cell:focus-visible {
   border: 1px solid #f1f5f9;
   border-radius: 10px;
   padding: 4px;
+}
+
+.today-schedule-content.is-empty,
+.today-table-container.is-empty {
+  flex: none;
+  min-height: 240px;
+  max-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .today-timeline-list {
@@ -10697,7 +10713,7 @@ button.bookings-kpi-cell:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 24px 20px;
   text-align: center;
   color: #94a3b8;
 }
@@ -10727,7 +10743,7 @@ button.bookings-kpi-cell:focus-visible {
 .today-right-rail {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
   height: 100%;
   min-height: 0;
@@ -10740,23 +10756,23 @@ button.bookings-kpi-cell:focus-visible {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.today-arrivals-list {
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+.today-arrivals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .today-arrival-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   background: #ffffff;
   border: 1px solid #f1f5f9;
   border-radius: 8px;
@@ -10769,15 +10785,15 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .today-arrival-avatar {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #f1f5f9;
   color: #334155;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   flex-shrink: 0;
   cursor: pointer;
@@ -10792,19 +10808,19 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .today-arrival-name {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   color: #0f172a;
   line-height: 1.2;
 }
 
 .today-arrival-phone {
-  font-size: 10.5px;
+  font-size: 10px;
   color: #64748b;
 }
 
 .today-arrival-service {
-  font-size: 10.5px;
+  font-size: 10px;
   color: #475569;
   font-weight: 500;
   overflow: hidden;
@@ -10827,7 +10843,7 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .today-arrival-time {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   color: #64748b;
 }
@@ -10836,8 +10852,8 @@ button.bookings-kpi-cell:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  font-size: 10.5px;
+  padding: 2.5px 6px;
+  font-size: 10px;
   font-weight: 600;
   background: #064e3b;
   color: #ffffff;
@@ -10883,17 +10899,17 @@ button.bookings-kpi-cell:focus-visible {
 .today-quick-actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
 .today-qa-tile {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 9px 10px;
+  gap: 4px;
+  padding: 6px 8px;
   background: #ffffff;
   border: 1px solid #f1f5f9;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   text-align: left;
   transition: all 0.12s ease;
@@ -10905,9 +10921,9 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .today-qa-icon-box {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10922,14 +10938,14 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 .today-qa-label {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   color: #0f172a;
   line-height: 1.2;
 }
 
 .today-qa-desc {
-  font-size: 10px;
+  font-size: 9.5px;
   color: #64748b;
   white-space: nowrap;
   overflow: hidden;
@@ -11113,7 +11129,7 @@ button.bookings-kpi-cell:focus-visible {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -11128,7 +11144,7 @@ button.bookings-kpi-cell:focus-visible {
 
 .today-right-card-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #0f172a;
 }
@@ -11161,8 +11177,8 @@ button.bookings-kpi-cell:focus-visible {
 
 .today-activity-tab {
   flex: 1;
-  padding: 6px 8px;
-  font-size: 11px;
+  padding: 5px 6px;
+  font-size: 10.5px;
   font-weight: 600;
   color: #64748b;
   background: transparent;
@@ -11185,18 +11201,18 @@ button.bookings-kpi-cell:focus-visible {
 .today-activity-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .today-activity-degraded {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 10px;
+  padding: 8px;
   background: #fffbeb;
   border: 1px solid #fde68a;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 10.5px;
   color: #92400e;
 }
 
@@ -11205,7 +11221,7 @@ button.bookings-kpi-cell:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 10px;
+  padding: 16px 10px;
   text-align: center;
   color: #94a3b8;
   font-size: 11px;
@@ -11221,14 +11237,14 @@ button.bookings-kpi-cell:focus-visible {
 .today-scans-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .today-scan-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 0;
+  gap: 6px;
+  padding: 4px 0;
   border-bottom: 1px solid #f8fafc;
 }
 

@@ -19,6 +19,7 @@ import { fetchToday, mutateToday } from '../src/lib/today-service';
 import { createBranchBooking } from '../src/lib/bookings-service';
 import { clearInFlightOperationsForTests } from '../src/lib/single-flight';
 import { NewBookingModal } from '../src/components/bookings/NewBookingModal';
+import { TodayMoneyCard } from '../src/components/today/TodayMoneyCard';
 
 vi.mock('../src/lib/today-service', () => ({
   fetchToday: vi.fn(),
@@ -283,6 +284,41 @@ describe('TodayView Component Suite', () => {
       expect(screen.getByTestId('today-queue-empty')).toBeDefined();
     });
     expect(screen.getByText('No bookings scheduled for today')).toBeDefined();
+    expect(
+      screen.getByText(
+        'Get started by creating the first intake booking for today.',
+      ),
+    ).toBeDefined();
+  });
+
+  it('renders "No bookings match your filters" when queue has bookings but filters exclude them', async () => {
+    const item = createQueueItem({
+      id: 'booking-only-in-service',
+      stage: 'in_service',
+      status: 'in_progress',
+    });
+    mockedFetchToday.mockResolvedValue(createTodayData({ queue: [item] }));
+
+    renderTodayView();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('today-row-booking-only-in-service'),
+      ).toBeDefined();
+    });
+
+    // Switch to waiting/arrivals tab where there are 0 bookings
+    fireEvent.click(screen.getByTestId('tab-arrivals'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('today-queue-empty')).toBeDefined();
+    });
+    expect(screen.getByText('No bookings match your filters')).toBeDefined();
+    expect(
+      screen.getByText(
+        'Try adjusting your search or filters to see more bookings.',
+      ),
+    ).toBeDefined();
   });
 
   it('does NOT render readiness as healthy when readiness.available === false', async () => {
@@ -697,7 +733,7 @@ describe('TodayView Component Suite', () => {
   });
 
   describe('Owner-Directed Layout Correction Suite', () => {
-    it('renders persistent three-card right rail and removes old persistent inspector tabs', async () => {
+    it('renders persistent right rail cards without money placeholder and removes old persistent inspector tabs', async () => {
       mockedFetchToday.mockResolvedValue(createTodayData());
 
       renderTodayView();
@@ -706,11 +742,12 @@ describe('TodayView Component Suite', () => {
         expect(screen.getByTestId('today-page-grid')).toBeDefined();
       });
 
-      // Three independent cards exist in the right rail
+      // Right rail cards exist
       expect(screen.getByTestId('today-right-rail')).toBeDefined();
       expect(screen.getByTestId('today-activity-card')).toBeDefined();
       expect(screen.getByTestId('today-quick-actions-card')).toBeDefined();
-      expect(screen.getByTestId('today-money-card')).toBeDefined();
+      // Today's Money card is removed from Today UI
+      expect(screen.queryByTestId('today-money-card')).toBeNull();
 
       // Old persistent inspector column & tabs are NOT in the right rail
       expect(screen.queryByTestId('module-inspector-column')).toBeNull();
@@ -789,15 +826,10 @@ describe('TodayView Component Suite', () => {
       expect(onNavigate).toHaveBeenCalledWith('home-service');
     });
 
-    it("Today's Money card shows truthful unavailable / web-only state with NO fake money values", async () => {
-      mockedFetchToday.mockResolvedValue(createTodayData());
+    it('TodayMoneyCard component in isolation shows truthful unavailable / web-only state with NO fake money values', () => {
+      render(<TodayMoneyCard />);
 
-      renderTodayView();
-
-      await waitFor(() => {
-        expect(screen.getByTestId('today-money-card')).toBeDefined();
-      });
-
+      expect(screen.getByTestId('today-money-card')).toBeDefined();
       expect(screen.getByText("Today's Money")).toBeDefined();
       expect(screen.getByText('Web only')).toBeDefined();
       expect(
