@@ -1,21 +1,19 @@
 # Current State
 
-## Current development state (2026-10-23)
+## Current development state (2026-10-24)
 
 - Desktop `main` is verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba`.
 - Hosted `main` is verified at `2b3bab3c9e71274c25d747daf37d7928ee670e2c`.
 - **Integration Candidate (`stage/integration-candidate-17-18`)**:
-  - Desktop branch: `stage/integration-candidate-17-18` consolidates Stage 17 (booking modal layout, walk-in/phone/home service, location verification) and Stage 18 (CRM Cashier workspace: Today, Ledger, Cash Drawer, Day Close, History, modals, idempotency safeguards).
-  - Hosted branch: `stage/integration-candidate-17-18` consolidates Stage 17 (location endpoints) and Stage 18 (cashier financial endpoints, drawer security, RPC validation).
+  - Desktop branch: `stage/integration-candidate-17-18` consolidates Stage 17 (intake booking modal) and Stage 18 (CRM Cashier workspace) with all 6 independently reviewed defects corrected.
+  - Hosted branch: `stage/integration-candidate-17-18` consolidates Stage 17 (location endpoints) and Stage 18 (cashier endpoints) with all 6 independently reviewed defects corrected.
 - **Stage 17 Development Status**:
   - Desktop branch: `stage/17-intake-booking-modal` pushed at `9e94c854ba1c66265fbf766657f10d3bf0a5d56b`.
-  - Hosted branch: `stage/17-desktop-location-endpoints` pushed at `29f565fed5223a8b032fb494bdf0536a93598c15`.
-  - All review findings corrected: sliding window rate limiting, branch isolation, query sanitization, upstream timeout handling, async race condition avoidance, and immediate address invalidation.
+  - Hosted branch: `stage/17-desktop-location-endpoints` pushed at `54c992a7e722513f82029ee6faaeebf1d24bb56e` (distributed rate limiter interface and fail-closed security).
 - **Stage 18 Development Status**:
-  - Desktop branch: `stage/18-crm-cashier` pushed at `6e0b6b62d22fbabad497a9ccc7b51e694db08a09`.
-  - Hosted branch: `stage/18-desktop-cashier-endpoints` pushed at `10a38a2314e3685eaf6a64aaa1143ee8e8b2cb73`.
-  - All review findings corrected: payment error rejection, idempotency key preservation across retries, partial payment queue retention, legacy booking fallback, active/branch category & account validation, drawer role authorization, truthful KPI mappings, non-finalizable Day Close.
-- **Gate Status**: Both integrated branches are stopped for independent GitHub review and owner runtime confirmation before any merge into `main`. Neither branch is merged into `main`. No schema or database mutation executed.
+  - Desktop branch: `stage/18-crm-cashier` pushed at `a9d472d` (disabled unsupported receipt printing and truthful unavailable history state).
+  - Hosted branch: `stage/18-desktop-cashier-endpoints` pushed at `0dd73bb2` (bearer-authenticated legacy payment domain writer, Paid & Closed lifecycle partitioning, operational expense KPI isolation, and history data handling).
+- **Gate Status**: Both integrated candidate branches are stopped for independent GitHub review and owner runtime confirmation before any merge into `main`. Neither branch is merged into `main`. No schema or database mutation executed.
 
 ## Historical accepted-stage record
 

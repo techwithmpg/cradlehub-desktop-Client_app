@@ -8,10 +8,17 @@
 - **Hosted Candidate Branch**: `stage/integration-candidate-17-18`.
 - **Stage 17 Branches Consolidated**:
   - Desktop: `stage/17-intake-booking-modal` (`9e94c854ba1c66265fbf766657f10d3bf0a5d56b`).
-  - Hosted: `stage/17-desktop-location-endpoints` (`29f565fed5223a8b032fb494bdf0536a93598c15`).
+  - Hosted: `stage/17-desktop-location-endpoints` (`54c992a7e722513f82029ee6faaeebf1d24bb56e`).
 - **Stage 18 Branches Consolidated**:
-  - Desktop: `stage/18-crm-cashier` (`6e0b6b62d22fbabad497a9ccc7b51e694db08a09`).
-  - Hosted: `stage/18-desktop-cashier-endpoints` (`10a38a2314e3685eaf6a64aaa1143ee8e8b2cb73`).
+  - Desktop: `stage/18-crm-cashier` (`a9d472d6ffbb101e4ec3705ef1eb9d59247dca09`).
+  - Hosted: `stage/18-desktop-cashier-endpoints` (`0dd73bb2f65a4404fb855ae2890616b2cfd52a79`).
+- **Targeted Corrections Applied**:
+  - P0: Paid & Closed lifecycle classification separated from pending payment queue without dropping fully settled orders.
+  - P0: Legacy payment bearer token authentication refactored to domain function accepting authenticated Supabase client.
+  - P0: Operational expense KPIs isolated strictly from broad outflows and heuristic estimates.
+  - P1: Cashier history truthful reporting from actual reconciliation records with unsupported multi-day stats marked unavailable.
+  - P1: Distributed rate limiting interface added with fail-closed security when unconfigured in production.
+  - P1: Receipt printing disabled with explicit unsupported notice and window.print() removed.
 - **Authorized Scope**:
   - Exactly one canonical desktop shell with 9 authorized CRM modules: Today, Bookings, Attendance, Customers, Schedule, Home Service, Staff, Settings, and Cashier.
   - Booking modal preserves compact two-column layout, Walk-in, Phone/Future, Home Service with real Google Places address autocomplete, precise location verification, and driving distance quote.
