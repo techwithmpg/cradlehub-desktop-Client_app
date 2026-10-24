@@ -10,16 +10,53 @@ import type { HistoryTabSummary } from '../../../types/cashier';
 
 interface CashierHistoryTabProps {
   historyData: HistoryTabSummary | null;
+  loadError?: string | null;
+  onRetry?: () => void;
 }
 
-export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
+export function CashierHistoryTab({
+  historyData,
+  loadError,
+  onRetry,
+}: CashierHistoryTabProps) {
   const data = historyData;
-  const isSupported = data?.isHistoricalSummarySupported ?? false;
+  const isSupported =
+    (data?.isHistoricalSummarySupported ?? false) && !loadError;
+
+  const formatAmount = (val: number | null | undefined): string => {
+    if (val === null || val === undefined) return '—';
+    return `₱${val.toLocaleString()}`;
+  };
+
+  const getStatusBadge = (status: string) => {
+    const norm = status.toLowerCase();
+    if (norm === 'reviewed' || norm === 'approved' || norm === 'closed') {
+      return (
+        <span className="badge-paid flex items-center gap-1 w-max">
+          <CheckCircle2 size={12} />
+          <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+        </span>
+      );
+    }
+    if (norm === 'needs_review' || norm === 'submitted') {
+      return (
+        <span className="badge-partial flex items-center gap-1 w-max">
+          <AlertCircle size={12} />
+          <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="badge-unpaid flex items-center gap-1 w-max">
+        <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-5">
       {/* Informational banner when backend contract does not support multi-day aggregates */}
-      {!isSupported && (
+      {!isSupported && !loadError && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 flex items-center gap-2">
           <AlertCircle size={16} className="text-amber-600 shrink-0" />
           <span>
@@ -27,6 +64,30 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
             closing audits are pending server contract support. Displaying
             verified session reconciliation records below.
           </span>
+        </div>
+      )}
+
+      {/* Error banner if history failed to load */}
+      {loadError && (
+        <div
+          className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-900 flex items-center justify-between gap-2"
+          role="alert"
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="text-rose-600 shrink-0" />
+            <span>
+              Failed to retrieve historical day-close data: {loadError}
+            </span>
+          </div>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="btn-secondary-compact text-xs shrink-0"
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 
@@ -42,7 +103,11 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
               {isSupported ? (data?.closedDaysThisMonth ?? 0) : 'Unavailable'}
             </span>
             <span className="cashier-kpi-subtext text-slate-500">
-              {isSupported ? 'Reconciled sessions' : 'Contract not supported'}
+              {loadError
+                ? 'Failed to load'
+                : isSupported
+                  ? 'Reconciled sessions'
+                  : 'Contract not supported'}
             </span>
           </div>
         </div>
@@ -59,7 +124,11 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
                 : 'Unavailable'}
             </span>
             <span className="cashier-kpi-subtext text-emerald-700 font-medium">
-              {isSupported ? 'Verified deposits' : 'Contract not supported'}
+              {loadError
+                ? 'Failed to load'
+                : isSupported
+                  ? 'Verified deposits'
+                  : 'Contract not supported'}
             </span>
           </div>
         </div>
@@ -76,9 +145,11 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
                 : 'Unavailable'}
             </span>
             <span className="cashier-kpi-subtext text-rose-700 font-medium">
-              {isSupported
-                ? 'Verified disbursements'
-                : 'Contract not supported'}
+              {loadError
+                ? 'Failed to load'
+                : isSupported
+                  ? 'Verified disbursements'
+                  : 'Contract not supported'}
             </span>
           </div>
         </div>
@@ -93,7 +164,11 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
               {isSupported ? (data?.reviewExceptions ?? 0) : 'Unavailable'}
             </span>
             <span className="cashier-kpi-subtext text-slate-500">
-              {isSupported ? 'Unresolved variances' : 'Contract not supported'}
+              {loadError
+                ? 'Failed to load'
+                : isSupported
+                  ? 'Unresolved variances'
+                  : 'Contract not supported'}
             </span>
           </div>
         </div>
@@ -131,7 +206,30 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
               </tr>
             </thead>
             <tbody>
-              {!data?.records || data.records.length === 0 ? (
+              {loadError ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-10 bg-rose-50/30">
+                    <div className="flex flex-col items-center justify-center gap-2 text-rose-700">
+                      <AlertCircle size={20} className="text-rose-600" />
+                      <span className="font-semibold text-sm">
+                        Failed to load historical reconciliation records
+                      </span>
+                      <span className="text-xs text-rose-600 max-w-md">
+                        {loadError}
+                      </span>
+                      {onRetry && (
+                        <button
+                          type="button"
+                          onClick={onRetry}
+                          className="mt-2 btn-secondary-compact text-xs"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : !data?.records || data.records.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-10 text-slate-400">
                     No historical reconciliation records available for this
@@ -144,22 +242,21 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
                     <td className="font-medium text-slate-800">{rec.date}</td>
                     <td className="text-slate-600">{rec.branchName}</td>
                     <td className="font-bold text-emerald-800">
-                      ₱{rec.inflow.toLocaleString()}
+                      {formatAmount(rec.inflow)}
                     </td>
                     <td className="font-bold text-rose-800">
-                      {rec.outflow > 0
+                      {rec.outflow !== null &&
+                      rec.outflow !== undefined &&
+                      rec.outflow > 0
                         ? `₱${rec.outflow.toLocaleString()}`
-                        : '—'}
+                        : rec.outflow === 0
+                          ? '₱0.00'
+                          : '—'}
                     </td>
                     <td className="font-bold text-slate-900">
-                      ₱{rec.net.toLocaleString()}
+                      {formatAmount(rec.net)}
                     </td>
-                    <td>
-                      <span className="badge-paid flex items-center gap-1 w-max">
-                        <CheckCircle2 size={12} />
-                        <span className="capitalize">{rec.status}</span>
-                      </span>
-                    </td>
+                    <td>{getStatusBadge(rec.status)}</td>
                     <td className="text-slate-500 text-xs">
                       {rec.reviewedBy ?? 'Not recorded'}
                     </td>

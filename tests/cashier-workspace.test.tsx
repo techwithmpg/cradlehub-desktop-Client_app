@@ -16,18 +16,24 @@ import {
   WorkspaceModulePresence,
 } from '../src/components/workspace';
 import * as cashierService from '../src/lib/cashier-service';
+import { CashierApiError } from '../src/lib/cashier-service';
 
-vi.mock('../src/lib/cashier-service', () => ({
-  fetchCashierOverview: vi.fn(),
-  fetchPayableOrders: vi.fn(),
-  fetchCashierLedger: vi.fn(),
-  fetchCashierDrawers: vi.fn(),
-  fetchDayClose: vi.fn(),
-  fetchCashierHistory: vi.fn(),
-  postRecordPayment: vi.fn(),
-  postRecordExpense: vi.fn(),
-  postDrawerSessionAction: vi.fn(),
-}));
+vi.mock('../src/lib/cashier-service', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../src/lib/cashier-service')>();
+  return {
+    ...actual,
+    fetchCashierOverview: vi.fn(),
+    fetchPayableOrders: vi.fn(),
+    fetchCashierLedger: vi.fn(),
+    fetchCashierDrawers: vi.fn(),
+    fetchDayClose: vi.fn(),
+    fetchCashierHistory: vi.fn(),
+    postRecordPayment: vi.fn(),
+    postRecordExpense: vi.fn(),
+    postDrawerSessionAction: vi.fn(),
+  };
+});
 
 const mockAuthContext: AuthContext = {
   userId: 'usr-100',
@@ -103,7 +109,40 @@ const mockPayableOrders: PayableOrdersResponseData = {
       remainingBalance: 1800,
       bookingDate: '2026-10-23',
       serviceTime: '10:00 AM',
+      bookingStatus: 'in_service',
+      paymentEligible: true,
       paymentStatus: 'unpaid',
+    },
+    {
+      id: 'order-102',
+      sourceKind: 'booking_order',
+      orderNumber: 'ORD-102',
+      customerName: 'Pedro Penduko',
+      serviceDescription: 'Foot Reflexology',
+      totalAmount: 1500,
+      amountPaid: 0,
+      remainingBalance: 1500,
+      bookingDate: '2026-10-23',
+      serviceTime: '11:00 AM',
+      bookingStatus: 'cancelled',
+      paymentEligible: false,
+      ineligibilityReason: 'Booking was cancelled',
+      paymentStatus: 'unpaid',
+    },
+    {
+      id: 'order-103',
+      sourceKind: 'booking_order',
+      orderNumber: 'ORD-103',
+      customerName: 'Ana Reyes',
+      serviceDescription: 'Body Scrub',
+      totalAmount: 2000,
+      amountPaid: 800,
+      remainingBalance: 1200,
+      bookingDate: '2026-10-23',
+      serviceTime: '01:00 PM',
+      bookingStatus: 'waiting',
+      paymentEligible: true,
+      paymentStatus: 'partially_paid',
     },
   ],
   paidAndClosed: [
@@ -205,11 +244,21 @@ const mockHistory: HistoryTabSummary = {
       id: 'dc-1',
       date: '2026-10-22',
       branchName: 'Makati Central Branch',
-      status: 'closed',
+      status: 'submitted',
       inflow: 28000,
       outflow: 1500,
       net: 26500,
       reviewedBy: 'Maria Santos',
+    },
+    {
+      id: 'dc-2',
+      date: '2026-10-21',
+      branchName: 'Makati Central Branch',
+      status: 'draft',
+      inflow: null,
+      outflow: null,
+      net: null,
+      reviewedBy: null,
     },
   ],
   auditTrail: [],
@@ -302,7 +351,9 @@ describe('CashierWorkspace Component', () => {
     expect(screen.getByText('Juan Dela Cruz')).toBeDefined();
 
     // Click Record Payment button for Juan Dela Cruz in pending queue
-    const payBtn = screen.getByRole('button', { name: /record payment/i });
+    const payBtn = screen.getAllByRole('button', {
+      name: /record payment/i,
+    })[0]!;
     await user.click(payBtn);
 
     // Modal opens
@@ -438,42 +489,61 @@ describe('CashierWorkspace Component', () => {
     });
   });
 
-  it('preserves idempotency key across retry when payment submission fails', async () => {
+  it('preserves idempotency key and locks inputs across retry when payment submission fails ambiguously', async () => {
     const user = userEvent.setup();
     const mockPostPayment = vi.mocked(cashierService.postRecordPayment);
-    // First attempt rejects with network/server error
+    // First attempt rejects with ambiguous network/server error
     mockPostPayment.mockRejectedValueOnce(
-      new Error('Network connection timeout'),
+      new CashierApiError('Network connection timeout', {
+        isAmbiguous: true,
+        isNetworkError: true,
+      }),
     );
     // Second attempt succeeds
     mockPostPayment.mockResolvedValueOnce({ success: true });
 
     await renderCashierWorkspace();
 
-    const payBtn = screen.getByRole('button', { name: /record payment/i });
+    const payBtn = screen.getAllByRole('button', {
+      name: /record payment/i,
+    })[0]!;
     await user.click(payBtn);
 
     const modal = await screen.findByRole('dialog');
     const confirmBtn = within(modal).getByRole('button', {
       name: /^record payment$/i,
     });
+    const amountInput = within(modal).getByLabelText(
+      /amount received/i,
+    ) as HTMLInputElement;
 
-    // First click: fails
+    // First click: fails ambiguously
     await user.click(confirmBtn);
 
     await waitFor(() => {
       expect(
-        within(modal).getByText('Network connection timeout'),
+        within(modal).getByText(/network connection timeout/i),
+      ).toBeDefined();
+      expect(
+        within(modal).getByText(
+          /form inputs are locked to preserve financial idempotency/i,
+        ),
       ).toBeDefined();
     });
+
+    // Form inputs must be disabled to prevent conflicting edits
+    expect(amountInput.disabled).toBe(true);
 
     expect(mockPostPayment).toHaveBeenCalledTimes(1);
     const firstCallPayload = mockPostPayment.mock.calls[0]![0];
     const initialKey = firstCallPayload.idempotencyKey;
     expect(initialKey).toBeDefined();
 
-    // Second click (retry): must submit the EXACT SAME idempotency key
-    await user.click(confirmBtn);
+    // Retry button appears with clear instruction
+    const retryBtn = within(modal).getByRole('button', {
+      name: /retry original submission/i,
+    });
+    await user.click(retryBtn);
 
     await waitFor(() => {
       expect(mockPostPayment).toHaveBeenCalledTimes(2);
@@ -483,11 +553,149 @@ describe('CashierWorkspace Component', () => {
     expect(secondCallPayload.idempotencyKey).toBe(initialKey);
   });
 
+  it('generates a fresh idempotency key when user modifies fields after definitive failure', async () => {
+    const user = userEvent.setup();
+    const mockPostPayment = vi.mocked(cashierService.postRecordPayment);
+    // Definitive server rejection (400 Bad Request)
+    mockPostPayment.mockRejectedValueOnce(
+      new CashierApiError('Specified financial account is inactive', {
+        isAmbiguous: false,
+        status: 400,
+      }),
+    );
+    mockPostPayment.mockResolvedValueOnce({ success: true });
+
+    await renderCashierWorkspace();
+
+    const payBtn = screen.getAllByRole('button', {
+      name: /record payment/i,
+    })[0]!;
+    await user.click(payBtn);
+
+    const modal = await screen.findByRole('dialog');
+    const confirmBtn = within(modal).getByRole('button', {
+      name: /^record payment$/i,
+    });
+    const amountInput = within(modal).getByLabelText(
+      /amount received/i,
+    ) as HTMLInputElement;
+
+    // First submission: fails definitively
+    await user.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(
+        within(modal).getByText(/specified financial account is inactive/i),
+      ).toBeDefined();
+    });
+
+    const firstKey = mockPostPayment.mock.calls[0]![0].idempotencyKey;
+
+    // Inputs must NOT be locked on definitive rejection so user can fix details
+    expect(amountInput.disabled).toBe(false);
+
+    // User modifies amount
+    await user.clear(amountInput);
+    await user.type(amountInput, '1500');
+
+    // Submit button is back to "Record Payment"
+    const submitAgainBtn = within(modal).getByRole('button', {
+      name: /^record payment$/i,
+    });
+    await user.click(submitAgainBtn);
+
+    await waitFor(() => {
+      expect(mockPostPayment).toHaveBeenCalledTimes(2);
+    });
+
+    const secondCallPayload = mockPostPayment.mock.calls[1]![0];
+    // Rule 5: Never retry a changed payload using the old key
+    expect(secondCallPayload.idempotencyKey).not.toBe(firstKey);
+    expect(secondCallPayload.payments[0]!.amount).toBe(1500);
+  });
+
+  it('handles workspace refresh failure safely without allowing duplicate payment resubmission', async () => {
+    const user = userEvent.setup();
+    const mockPostPayment = vi.mocked(cashierService.postRecordPayment);
+    // Financial mutation succeeds
+    mockPostPayment.mockResolvedValueOnce({ success: true });
+
+    await renderCashierWorkspace();
+
+    // Background refresh after payment rejects
+    vi.mocked(cashierService.fetchPayableOrders).mockRejectedValueOnce(
+      new Error('Failed to refresh payable queue'),
+    );
+
+    const payBtn = screen.getAllByRole('button', {
+      name: /record payment/i,
+    })[0]!;
+    await user.click(payBtn);
+
+    const modal = await screen.findByRole('dialog');
+    const confirmBtn = within(modal).getByRole('button', {
+      name: /^record payment$/i,
+    });
+
+    await user.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(
+        within(modal).getByText(
+          /payment was successfully posted to the ledger, but updating the local view failed/i,
+        ),
+      ).toBeDefined();
+      expect(
+        within(modal).getByText(/do not record payment again/i),
+      ).toBeDefined();
+    });
+
+    // Rule 7: If posting succeeded but UI refresh failed, do not invite another payment
+    expect(
+      within(modal).queryByRole('button', { name: /^record payment$/i }),
+    ).toBeNull();
+    const closeBtn = within(modal).getByRole('button', {
+      name: /close \(payment confirmed\)/i,
+    });
+    expect(closeBtn).toBeDefined();
+  });
+
+  it('distinguishes payable, ineligible, partially paid and fully settled orders with truthful lifecycle badges', async () => {
+    await renderCashierWorkspace();
+
+    // 1. Payable order (ORD-101): In Service, Record Payment button is enabled
+    expect(screen.getByText('ORD-101')).toBeDefined();
+    expect(screen.getByText('In Service')).toBeDefined();
+    const recordButtons = screen.getAllByRole('button', {
+      name: /^record payment$/i,
+    });
+    expect((recordButtons[0] as HTMLButtonElement).disabled).toBe(false);
+
+    // 2. Ineligible order (ORD-102): Cancelled, Record Payment button is disabled with explanation
+    expect(screen.getByText('ORD-102')).toBeDefined();
+    expect(screen.getByText('Cancelled')).toBeDefined();
+    expect(screen.getByText('Booking was cancelled')).toBeDefined();
+    expect((recordButtons[1] as HTMLButtonElement).disabled).toBe(true);
+
+    // 3. Partially paid order (ORD-103): Waiting, Partial badge
+    expect(screen.getByText('ORD-103')).toBeDefined();
+    expect(screen.getByText('Waiting')).toBeDefined();
+    expect(screen.getByText('Partial (₱800)')).toBeDefined();
+    expect((recordButtons[2] as HTMLButtonElement).disabled).toBe(false);
+
+    // 4. Fully settled order (ORD-100): in Paid & Closed table
+    expect(screen.getByText('ORD-100')).toBeDefined();
+    expect(screen.getByText('Maria Clara')).toBeDefined();
+    expect(screen.getByText('Paid')).toBeDefined();
+  });
+
   it('validates partial payments and prevents payment amounts exceeding remaining balance', async () => {
     const user = userEvent.setup();
     await renderCashierWorkspace();
 
-    const payBtn = screen.getByRole('button', { name: /record payment/i });
+    const payBtn = screen.getAllByRole('button', {
+      name: /record payment/i,
+    })[0]!;
     await user.click(payBtn);
 
     const modal = await screen.findByRole('dialog');
@@ -525,7 +733,7 @@ describe('CashierWorkspace Component', () => {
     expect(screen.getByText(/not supported/i)).toBeDefined();
   });
 
-  it('renders History tab with truthful unavailable states for unsupported monthly aggregates', async () => {
+  it('renders History tab with truthful unavailable states, nullable monetary amounts, and preserved statuses', async () => {
     const user = userEvent.setup();
     await renderCashierWorkspace();
 
@@ -542,10 +750,49 @@ describe('CashierWorkspace Component', () => {
     // Renders "Unavailable" for monthly aggregates
     expect(screen.getAllByText('Unavailable')).toHaveLength(4);
 
-    // Displays actual historical record in table
-    expect(screen.getByText('2026-10-22')).toBeDefined();
-    expect(screen.getByText('₱28,000')).toBeDefined();
-    expect(screen.getByText('₱1,500')).toBeDefined();
-    expect(screen.getByText('₱26,500')).toBeDefined();
+    // Record 1 (dc-1): verified posted figures and actual submitted status
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('2026-10-22')).toBeDefined();
+    expect(within(table).getByText('₱28,000')).toBeDefined();
+    expect(within(table).getByText('₱1,500')).toBeDefined();
+    expect(within(table).getByText('₱26,500')).toBeDefined();
+    expect(within(table).getByText('submitted')).toBeDefined();
+    expect(within(table).getByText('Maria Santos')).toBeDefined();
+
+    // Record 2 (dc-2): unverified figures rendered truthfully as '—', status 'draft', reviewer 'Not recorded'
+    expect(screen.getByText('2026-10-21')).toBeDefined();
+    expect(screen.getByText('draft')).toBeDefined();
+    expect(screen.getByText('Not recorded')).toBeDefined();
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('handles historical query errors truthfully rather than treating failure as empty success', async () => {
+    const user = userEvent.setup();
+    vi.mocked(cashierService.fetchCashierHistory).mockRejectedValueOnce(
+      new Error('Authoritative audit connection timed out'),
+    );
+
+    await renderCashierWorkspace();
+
+    const historyTab = screen.getByRole('tab', { name: /history/i });
+    await user.click(historyTab);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /failed to retrieve historical day-close data: Authoritative audit connection timed out/i,
+        ),
+      ).toBeDefined();
+      expect(
+        screen.getByText(/failed to load historical reconciliation records/i),
+      ).toBeDefined();
+    });
+
+    // Does NOT render false-empty message
+    expect(
+      screen.queryByText(
+        /no historical reconciliation records available for this branch/i,
+      ),
+    ).toBeNull();
   });
 });
