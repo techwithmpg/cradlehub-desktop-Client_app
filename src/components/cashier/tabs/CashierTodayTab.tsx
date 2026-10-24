@@ -250,10 +250,58 @@ export function CashierTodayTab({
                       .slice(0, 2)
                       .toUpperCase();
 
-                    const isCompleted = order.bookingStatus === 'completed';
+                    const isEligible = order.paymentEligible !== false;
                     const isPartial =
                       order.amountPaid > 0 &&
                       order.remainingBalance < order.totalAmount;
+
+                    const renderLifecycleBadge = (status?: string) => {
+                      const norm = status?.toLowerCase() ?? 'scheduled';
+                      switch (norm) {
+                        case 'completed':
+                          return (
+                            <span className="badge-service-completed">
+                              Completed
+                            </span>
+                          );
+                        case 'in_service':
+                          return (
+                            <span className="badge-in-progress">
+                              In Service
+                            </span>
+                          );
+                        case 'waiting':
+                          return (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-amber-100 text-amber-800">
+                              Waiting
+                            </span>
+                          );
+                        case 'scheduled':
+                          return (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-blue-100 text-blue-800">
+                              Scheduled
+                            </span>
+                          );
+                        case 'confirmed':
+                          return (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-emerald-100 text-emerald-800">
+                              Confirmed
+                            </span>
+                          );
+                        case 'cancelled':
+                          return (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-slate-200 text-slate-700">
+                              Cancelled
+                            </span>
+                          );
+                        default:
+                          return (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-slate-100 text-slate-700 capitalize">
+                              {norm.replace(/_/g, ' ')}
+                            </span>
+                          );
+                      }
+                    };
 
                     return (
                       <tr key={order.id}>
@@ -279,17 +327,7 @@ export function CashierTodayTab({
                         <td className="font-bold text-slate-900">
                           ₱{order.remainingBalance.toLocaleString()}
                         </td>
-                        <td>
-                          <span
-                            className={
-                              isCompleted
-                                ? 'badge-service-completed'
-                                : 'badge-in-progress'
-                            }
-                          >
-                            {isCompleted ? 'Service Completed' : 'In Progress'}
-                          </span>
-                        </td>
+                        <td>{renderLifecycleBadge(order.bookingStatus)}</td>
                         <td>
                           <span
                             className={
@@ -302,13 +340,30 @@ export function CashierTodayTab({
                           </span>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            className="btn-table-action"
-                            onClick={() => onSelectOrderToPay(order)}
-                          >
-                            Record Payment
-                          </button>
+                          <div className="flex flex-col items-start gap-1">
+                            <button
+                              type="button"
+                              className={`btn-table-action ${!isEligible ? 'opacity-50 cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200 border-slate-300' : ''}`}
+                              onClick={() =>
+                                isEligible && onSelectOrderToPay(order)
+                              }
+                              disabled={!isEligible}
+                              title={
+                                !isEligible
+                                  ? (order.ineligibilityReason ??
+                                    'Order is not currently eligible for payment collection')
+                                  : undefined
+                              }
+                            >
+                              Record Payment
+                            </button>
+                            {!isEligible && (
+                              <span className="text-[10px] text-amber-700 font-normal leading-tight max-w-[130px]">
+                                {order.ineligibilityReason ??
+                                  'Not eligible for payment'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

@@ -70,6 +70,7 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   // Modals state
   const [orderToPay, setOrderToPay] = useState<PayableOrderOption | null>(null);
@@ -86,7 +87,7 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
   // Workspace lifecycle integration
   const { invalidationGeneration } = useWorkspaceModuleLifecycle();
 
-  const loadTodayData = useCallback(async () => {
+  const loadTodayData = useCallback(async (options?: { rethrow?: boolean }) => {
     try {
       const [overviewRes, payableRes, drawersRes] = await Promise.all([
         fetchCashierOverview(),
@@ -103,6 +104,9 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
           ? err.message
           : 'Failed to load Cashier workspace.';
       setErrorMessage(msg);
+      if (options?.rethrow) {
+        throw err;
+      }
     }
   }, []);
 
@@ -129,8 +133,19 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
             break;
           }
           case 'history': {
-            const result = await fetchCashierHistory();
-            setHistoryData(result);
+            setHistoryError(null);
+            try {
+              const result = await fetchCashierHistory();
+              setHistoryData(result);
+            } catch (err: unknown) {
+              const msg =
+                err instanceof Error
+                  ? err.message
+                  : 'Failed to load historical records.';
+              setHistoryError(msg);
+              setHistoryData(null);
+              setErrorMessage(msg);
+            }
             break;
           }
         }
@@ -171,7 +186,10 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
 
   const handleTransactionSuccess = async () => {
     // Refresh today's queue and KPIs, plus current active tab
-    await Promise.all([loadTodayData(), loadTabData(activeTab)]);
+    await Promise.all([
+      loadTodayData({ rethrow: true }),
+      activeTab !== 'today' ? loadTabData(activeTab) : Promise.resolve(),
+    ]);
   };
 
   const userInitials = authContext.fullName
@@ -369,7 +387,11 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
             )}
 
             {activeTab === 'history' && (
-              <CashierHistoryTab historyData={historyData} />
+              <CashierHistoryTab
+                historyData={historyData}
+                loadError={historyError}
+                onRetry={() => handleTabChange('history')}
+              />
             )}
           </>
         )}

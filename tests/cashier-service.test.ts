@@ -10,6 +10,7 @@ import {
   postRecordPayment,
   postRecordExpense,
   postDrawerSessionAction,
+  CashierApiError,
 } from '../src/lib/cashier-service';
 import * as bookingsService from '../src/lib/bookings-service';
 
@@ -65,15 +66,85 @@ describe('Cashier Service (Desktop API Client)', () => {
       );
     });
 
-    it('throws friendly error on network connection failure', async () => {
+    it('throws friendly error on network connection failure and marks it ambiguous', async () => {
       const mockClient = createMockSupabaseClient();
       const mockFetch = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
 
-      await expect(
-        fetchCashierOverview(mockClient, mockFetch as unknown as typeof fetch),
-      ).rejects.toThrow(
-        'Cashier requires a connection. Please check your network and try again.',
+      try {
+        await fetchCashierOverview(
+          mockClient,
+          mockFetch as unknown as typeof fetch,
+        );
+        expect.fail('Expected to throw');
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(CashierApiError);
+        const apiErr = err as CashierApiError;
+        expect(apiErr.isAmbiguous).toBe(true);
+        expect(apiErr.isNetworkError).toBe(true);
+        expect(apiErr.message).toBe(
+          'Cashier requires a connection. Please check your network and try again.',
+        );
+      }
+    });
+
+    it('marks 5xx server errors as ambiguous', async () => {
+      const mockClient = createMockSupabaseClient();
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            code: 'GATEWAY_TIMEOUT',
+            message: 'Gateway timeout',
+          }),
+          {
+            status: 504,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
       );
+
+      try {
+        await fetchCashierOverview(
+          mockClient,
+          mockFetch as unknown as typeof fetch,
+        );
+        expect.fail('Expected to throw');
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(CashierApiError);
+        const apiErr = err as CashierApiError;
+        expect(apiErr.isAmbiguous).toBe(true);
+        expect(apiErr.status).toBe(504);
+      }
+    });
+
+    it('marks 4xx client errors as definitive (non-ambiguous)', async () => {
+      const mockClient = createMockSupabaseClient();
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            code: 'FORBIDDEN',
+            message: 'Unauthorized staff role',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      );
+
+      try {
+        await fetchCashierOverview(
+          mockClient,
+          mockFetch as unknown as typeof fetch,
+        );
+        expect.fail('Expected to throw');
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(CashierApiError);
+        const apiErr = err as CashierApiError;
+        expect(apiErr.isAmbiguous).toBe(false);
+        expect(apiErr.status).toBe(403);
+      }
     });
   });
 

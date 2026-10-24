@@ -123,6 +123,30 @@ function createEnvelopeValidator<T>(
   };
 }
 
+export class CashierApiError extends Error {
+  readonly isAmbiguous: boolean;
+  readonly isNetworkError: boolean;
+  readonly status?: number;
+  readonly code?: string;
+
+  constructor(
+    message: string,
+    options: {
+      isAmbiguous: boolean;
+      isNetworkError?: boolean;
+      status?: number;
+      code?: string;
+    },
+  ) {
+    super(message);
+    this.name = 'CashierApiError';
+    this.isAmbiguous = options.isAmbiguous;
+    this.isNetworkError = options.isNetworkError ?? false;
+    this.status = options.status;
+    this.code = options.code;
+  }
+}
+
 async function requestJson<T>(
   path: string,
   validator: (value: unknown) => value is T,
@@ -153,8 +177,12 @@ async function requestJson<T>(
         : { body: JSON.stringify(options.body) }),
     });
   } catch {
-    throw new Error(
+    throw new CashierApiError(
       'Cashier requires a connection. Please check your network and try again.',
+      {
+        isAmbiguous: true,
+        isNetworkError: true,
+      },
     );
   }
 
@@ -164,7 +192,12 @@ async function requestJson<T>(
   });
 
   if (!result.ok) {
-    throw new Error(result.message);
+    const isAmbiguous = result.status >= 500;
+    throw new CashierApiError(result.message, {
+      isAmbiguous,
+      status: result.status,
+      code: result.code,
+    });
   }
 
   return result.data.data;
