@@ -432,9 +432,9 @@ describe('CashierWorkspace Component', () => {
       expect(cashierService.fetchCashierHistory).toHaveBeenCalled();
       expect(screen.getByText('Closed Days (This Month)')).toBeDefined();
       expect(screen.getByText('2026-10-22')).toBeDefined();
-      expect(
-        screen.getAllByText('Unavailable').length,
-      ).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Unavailable').length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
   });
 
