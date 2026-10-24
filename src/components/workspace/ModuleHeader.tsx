@@ -13,6 +13,8 @@ export interface ModuleHeaderPrimaryAction {
 export interface ModuleHeaderProps {
   title: string;
   subtitle?: string;
+  brandIcon?: React.ReactNode;
+  metaBadges?: React.ReactNode;
   onRefresh?: () => void;
   isRefreshing?: boolean;
   refreshAriaLabel?: string;
@@ -28,11 +30,13 @@ export interface ModuleHeaderProps {
  * ModuleHeader
  *
  * Canonical module header primitive.
- * Standardizes title, subtitle, refresh action, primary action button, and custom slots.
+ * Standardizes title, subtitle, refresh action, primary action button, brand icon, and custom slots.
  */
 export const ModuleHeader: React.FC<ModuleHeaderProps> = ({
   title,
   subtitle,
+  brandIcon,
+  metaBadges,
   onRefresh,
   isRefreshing = false,
   refreshAriaLabel = 'Refresh',
@@ -49,11 +53,19 @@ export const ModuleHeader: React.FC<ModuleHeaderProps> = ({
       data-testid={testId}
     >
       <div className="bookings-header-left">
-        <h1 className="bookings-header-title">{title}</h1>
-        {subtitle && <p className="bookings-header-subtitle">{subtitle}</p>}
+        {brandIcon && (
+          <div className="bookings-header-brand-icon" aria-hidden="true">
+            {brandIcon}
+          </div>
+        )}
+        <div className="bookings-header-title-group">
+          <h1 className="bookings-header-title">{title}</h1>
+          {subtitle && <p className="bookings-header-subtitle">{subtitle}</p>}
+        </div>
       </div>
 
       <div className="bookings-header-right">
+        {metaBadges}
         {onRefresh && (
           <Button
             type="button"

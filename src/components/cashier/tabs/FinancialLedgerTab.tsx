@@ -7,8 +7,6 @@ import {
   Download,
   Search,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   ArrowDownLeft,
   ArrowUpRight,
   Ban,
@@ -17,6 +15,14 @@ import {
 } from 'lucide-react';
 import type { CashierLedgerResponseData } from '../../../types/cashier';
 import { fetchCashierLedger } from '../../../lib/cashier-service';
+import {
+  ModuleSummaryCard,
+  ModuleKpiGrid,
+  ModuleKpiCell,
+  ModuleDataGridFrame,
+  ModuleTable,
+  ModulePagination,
+} from '../../workspace';
 
 interface FinancialLedgerTabProps {
   branchName: string;
@@ -132,65 +138,45 @@ export function FinancialLedgerTab({
   return (
     <div className="space-y-5">
       {/* 4 Summary Cards */}
-      <div className="cashier-kpi-grid">
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box gold">
-            <Coins size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Inflows Today</span>
-            <span className="cashier-kpi-value">
-              ₱{kpis.inflow.toLocaleString()}
-            </span>
-            <span className="cashier-kpi-subtext text-emerald-700 font-medium">
-              Verified Receipts
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box rose">
-            <CreditCard size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Expenses Today</span>
-            <span className="cashier-kpi-value">
-              ₱{kpis.outflow.toLocaleString()}
-            </span>
-            <span className="cashier-kpi-subtext text-rose-700 font-medium">
-              Verified Outflows
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box emerald">
-            <ArrowRightLeft size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Net Cash Movement</span>
-            <span className="cashier-kpi-value">
-              ₱{kpis.netFlow.toLocaleString()}
-            </span>
-            <span className="cashier-kpi-subtext text-slate-500">
-              Net balance change
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box blue">
-            <FileSpreadsheet size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Posted Transactions</span>
-            <span className="cashier-kpi-value">{totalRecords}</span>
-            <span className="cashier-kpi-subtext text-slate-500">
-              Authoritative Records
-            </span>
-          </div>
-        </div>
-      </div>
+      <ModuleSummaryCard
+        ariaLabel="Financial Ledger Summary"
+        className="cashier-kpi-summary"
+      >
+        <ModuleKpiGrid className="cashier-kpi-grid grid-cols-2 lg:grid-cols-4">
+          <ModuleKpiCell
+            label="Inflows Today"
+            count={`₱${kpis.inflow.toLocaleString()}`}
+            subtext="Verified Receipts"
+            icon={<Coins size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-gold"
+            testId="cashier-kpi-ledger-inflow"
+          />
+          <ModuleKpiCell
+            label="Expenses Today"
+            count={`₱${kpis.outflow.toLocaleString()}`}
+            subtext="Verified Outflows"
+            icon={<CreditCard size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-rose"
+            testId="cashier-kpi-ledger-outflow"
+          />
+          <ModuleKpiCell
+            label="Net Cash Movement"
+            count={`₱${kpis.netFlow.toLocaleString()}`}
+            subtext="Net balance change"
+            icon={<ArrowRightLeft size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-emerald"
+            testId="cashier-kpi-ledger-net"
+          />
+          <ModuleKpiCell
+            label="Posted Transactions"
+            count={totalRecords}
+            subtext="Authoritative Records"
+            icon={<FileSpreadsheet size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-blue"
+            testId="cashier-kpi-ledger-count"
+          />
+        </ModuleKpiGrid>
+      </ModuleSummaryCard>
 
       {/* Main Ledger Card */}
       <div className="cashier-card">
@@ -302,63 +288,74 @@ export function FinancialLedgerTab({
         </div>
 
         {/* DataGrid */}
-        <div className="cashier-table-wrapper">
-          <table className="cashier-table">
-            <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>Reference</th>
-                <th>Type</th>
-                <th>Customer / Payee</th>
-                <th>Description</th>
-                <th>Payment Method</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.length === 0 ? (
+        <ModuleDataGridFrame naturalHeight>
+          {records.length === 0 ? (
+            <div className="bookings-table-empty-state py-12">
+              <FileSpreadsheet size={36} className="text-slate-300" />
+              <p className="font-medium text-slate-600 mt-2 text-sm">
+                No financial ledger transactions found for this date
+              </p>
+              <p className="text-2xs text-slate-400 mt-0.5">
+                Authoritative transaction records will appear here.
+              </p>
+            </div>
+          ) : (
+            <ModuleTable>
+              <thead>
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-slate-400">
-                    No financial ledger transactions found for this date.
-                  </td>
+                  <th style={{ width: '130px' }}>Date &amp; Time</th>
+                  <th style={{ width: '130px' }}>Reference</th>
+                  <th style={{ width: '100px' }}>Type</th>
+                  <th>Customer / Payee</th>
+                  <th>Description</th>
+                  <th style={{ width: '120px' }}>Payment Method</th>
+                  <th style={{ width: '110px', textAlign: 'right' }}>Amount</th>
+                  <th style={{ width: '90px', textAlign: 'center' }}>Status</th>
+                  <th style={{ width: '50px', textAlign: 'center' }}>
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-                records.map((row) => {
+              </thead>
+              <tbody>
+                {records.map((row) => {
                   const isPositive =
                     row.inflow !== null &&
                     (row.outflow === null || row.outflow === 0);
                   const amount = row.inflow ?? row.outflow ?? 0;
 
                   return (
-                    <tr key={row.id}>
-                      <td className="whitespace-nowrap text-slate-600 font-medium">
+                    <tr
+                      key={row.id}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
+                      <td className="whitespace-nowrap text-slate-600 font-medium text-xs">
                         {row.dateTime}
                       </td>
                       <td className="font-mono text-xs font-bold text-slate-800">
                         {row.reference}
                       </td>
                       <td>{getTypeBadge(row.category, row.inflow)}</td>
-                      <td className="font-semibold text-slate-900">
+                      <td className="font-semibold text-slate-900 text-xs">
                         {row.customerSource}
                       </td>
-                      <td className="max-w-xs truncate text-slate-700">
+                      <td className="max-w-xs truncate text-slate-700 text-xs">
                         {row.category}
                       </td>
-                      <td className="text-slate-600 font-medium">
+                      <td className="text-slate-600 font-medium text-xs">
                         {row.method}
                       </td>
                       <td
-                        className={`font-bold whitespace-nowrap ${
+                        className={`font-bold whitespace-nowrap text-xs text-right ${
                           isPositive ? 'text-emerald-700' : 'text-rose-700'
                         }`}
                       >
                         {isPositive ? '+' : '-'}₱
                         {Math.abs(amount).toLocaleString()}
                       </td>
-                      <td>{getStatusBadge(row.status)}</td>
-                      <td>
+                      <td className="text-center">
+                        {getStatusBadge(row.status)}
+                      </td>
+                      <td className="text-center">
                         <button
                           type="button"
                           className="p-1 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100"
@@ -369,43 +366,26 @@ export function FinancialLedgerTab({
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                })}
+              </tbody>
+            </ModuleTable>
+          )}
 
-        {/* Pagination Footer */}
-        <div className="cashier-pagination">
-          <span>
-            Showing {records.length === 0 ? 0 : (page - 1) * pageSize + 1}–
-            {Math.min(page * pageSize, totalRecords)} of {totalRecords}{' '}
-            transactions
-          </span>
-          <div className="cashier-page-controls">
-            <button
-              type="button"
-              className="cashier-page-btn"
-              onClick={() => loadLedger(Math.max(1, page - 1))}
-              disabled={page <= 1 || isLoading}
-              aria-label="Previous page"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="px-2 font-medium text-slate-700">
-              {page} / {totalPages}
-            </span>
-            <button
-              type="button"
-              className="cashier-page-btn"
-              onClick={() => loadLedger(Math.min(totalPages, page + 1))}
-              disabled={page >= totalPages || isLoading}
-              aria-label="Next page"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
+          {totalRecords > 0 && (
+            <ModulePagination
+              startRecord={totalRecords === 0 ? 0 : (page - 1) * pageSize + 1}
+              endRecord={Math.min(page * pageSize, totalRecords)}
+              totalItems={totalRecords}
+              entityLabel="transactions"
+              pageSize={pageSize}
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={(p) => loadLedger(p)}
+              showPageSizeSelector={false}
+              testId="cashier-ledger-pagination"
+            />
+          )}
+        </ModuleDataGridFrame>
       </div>
     </div>
   );

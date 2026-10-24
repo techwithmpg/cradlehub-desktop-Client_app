@@ -11,14 +11,21 @@ import {
   Archive,
   BookOpen,
   Printer,
-  ChevronLeft,
-  ChevronRight,
+  CheckCircle2,
 } from 'lucide-react';
 import type {
   CashierOverviewData,
   PayableOrdersResponseData,
   PayableOrderOption,
 } from '../../../types/cashier';
+import {
+  ModuleSummaryCard,
+  ModuleKpiGrid,
+  ModuleKpiCell,
+  ModuleDataGridFrame,
+  ModuleTable,
+  ModulePagination,
+} from '../../workspace';
 
 interface CashierTodayTabProps {
   overview: CashierOverviewData | null;
@@ -100,82 +107,53 @@ export function CashierTodayTab({
   return (
     <div className="space-y-5">
       {/* 5 Summary KPI Cards */}
-      <div className="cashier-kpi-grid">
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box gold">
-            <Coins size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Total Collected Today</span>
-            <span className="cashier-kpi-value">
-              ₱{(kpis.totalCollected ?? 0).toLocaleString()}
-            </span>
-            <span className="cashier-kpi-subtext">
-              {kpis.totalTransactions ?? 0} payments
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box amber">
-            <Clock size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Pending Payments</span>
-            <span className="cashier-kpi-value">
-              ₱{(kpis.pendingAmount ?? 0).toLocaleString()}
-            </span>
-            <span className="cashier-kpi-subtext">
-              {kpis.pendingBookingsCount ?? 0} bookings
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box emerald">
-            <Banknote size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Cash Payments</span>
-            <span className="cashier-kpi-value">
-              ₱{(kpis.cashAmount ?? 0).toLocaleString()}
-            </span>
-            <span className="cashier-kpi-subtext">
-              {kpis.cashCount ?? 0} payments
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box blue">
-            <CreditCard size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Digital / Card Payments</span>
-            <span className="cashier-kpi-value">
-              ₱{(kpis.digitalAmount ?? 0).toLocaleString()}
-            </span>
-            <span className="cashier-kpi-subtext">
-              {kpis.digitalCount ?? 0} payments
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box rose">
-            <FileText size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Expenses Today</span>
-            <span className="cashier-kpi-value">
-              ₱{(kpis.expenseAmount ?? 0).toLocaleString()}
-            </span>
-            <span className="cashier-kpi-subtext">
-              {kpis.expenseCount ?? 0} expenses
-            </span>
-          </div>
-        </div>
-      </div>
+      <ModuleSummaryCard
+        ariaLabel="Today's Cashier Summary"
+        className="cashier-kpi-summary"
+      >
+        <ModuleKpiGrid className="cashier-kpi-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+          <ModuleKpiCell
+            label="Total Collected Today"
+            count={`₱${(kpis.totalCollected ?? 0).toLocaleString()}`}
+            subtext={`${kpis.totalTransactions ?? 0} payments`}
+            icon={<Coins size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-gold"
+            testId="cashier-kpi-collected"
+          />
+          <ModuleKpiCell
+            label="Pending Payments"
+            count={`₱${(kpis.pendingAmount ?? 0).toLocaleString()}`}
+            subtext={`${kpis.pendingBookingsCount ?? 0} bookings`}
+            icon={<Clock size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-amber"
+            testId="cashier-kpi-pending"
+          />
+          <ModuleKpiCell
+            label="Cash Payments"
+            count={`₱${(kpis.cashAmount ?? 0).toLocaleString()}`}
+            subtext={`${kpis.cashCount ?? 0} payments`}
+            icon={<Banknote size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-emerald"
+            testId="cashier-kpi-cash"
+          />
+          <ModuleKpiCell
+            label="Digital / Card"
+            count={`₱${(kpis.digitalAmount ?? 0).toLocaleString()}`}
+            subtext={`${kpis.digitalCount ?? 0} payments`}
+            icon={<CreditCard size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-blue"
+            testId="cashier-kpi-digital"
+          />
+          <ModuleKpiCell
+            label="Expenses Today"
+            count={`₱${(kpis.expenseAmount ?? 0).toLocaleString()}`}
+            subtext={`${kpis.expenseCount ?? 0} expenses`}
+            icon={<FileText size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-rose"
+            testId="cashier-kpi-expenses"
+          />
+        </ModuleKpiGrid>
+      </ModuleSummaryCard>
 
       {/* Main 2-Column Workstation Layout */}
       <div className="cashier-today-layout">
@@ -217,32 +195,36 @@ export function CashierTodayTab({
             </div>
           </div>
 
-          <div className="cashier-table-wrapper">
-            <table className="cashier-table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Customer</th>
-                  <th>Booking #</th>
-                  <th>Service(s)</th>
-                  <th>Amount Due</th>
-                  <th>Service Status</th>
-                  <th>Payment State</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedQueue.length === 0 ? (
+          {filteredQueue.length === 0 ? (
+            <div className="bookings-table-empty-state py-8">
+              <div className="bookings-empty-icon-circle">
+                <CheckCircle2 size={24} className="text-emerald-600" />
+              </div>
+              <h4 className="bookings-empty-heading">Queue Clear</h4>
+              <p className="bookings-empty-text">
+                {searchQuery.trim()
+                  ? 'No bookings matching your search query.'
+                  : 'No bookings with outstanding payment in queue.'}
+              </p>
+            </div>
+          ) : (
+            <ModuleDataGridFrame naturalHeight>
+              <ModuleTable>
+                <thead>
                   <tr>
-                    <td
-                      colSpan={8}
-                      className="text-center py-10 text-slate-400"
-                    >
-                      No bookings with outstanding payment in queue.
-                    </td>
+                    <th style={{ width: '65px' }}>Time</th>
+                    <th>Customer & Service</th>
+                    <th style={{ width: '95px' }}>Booking #</th>
+                    <th style={{ width: '95px' }}>Amount Due</th>
+                    <th style={{ width: '95px' }}>Status</th>
+                    <th style={{ width: '85px' }}>Payment</th>
+                    <th style={{ width: '110px', textAlign: 'right' }}>
+                      Action
+                    </th>
                   </tr>
-                ) : (
-                  paginatedQueue.map((order) => {
+                </thead>
+                <tbody>
+                  {paginatedQueue.map((order) => {
                     const initials = order.customerName
                       .split(' ')
                       .map((n) => n[0])
@@ -260,43 +242,43 @@ export function CashierTodayTab({
                       switch (norm) {
                         case 'completed':
                           return (
-                            <span className="badge-service-completed">
+                            <span className="booking-badge badge-completed">
                               Completed
                             </span>
                           );
                         case 'in_service':
                           return (
-                            <span className="badge-in-progress">
+                            <span className="booking-badge badge-in-service">
                               In Service
                             </span>
                           );
                         case 'waiting':
                           return (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-amber-100 text-amber-800">
+                            <span className="booking-badge badge-pending">
                               Waiting
                             </span>
                           );
                         case 'scheduled':
                           return (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-blue-100 text-blue-800">
+                            <span className="booking-badge badge-confirmed">
                               Scheduled
                             </span>
                           );
                         case 'confirmed':
                           return (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-emerald-100 text-emerald-800">
+                            <span className="booking-badge badge-checked-in">
                               Confirmed
                             </span>
                           );
                         case 'cancelled':
                           return (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-slate-200 text-slate-700">
+                            <span className="booking-badge badge-cancelled">
                               Cancelled
                             </span>
                           );
                         default:
                           return (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold bg-slate-100 text-slate-700 capitalize">
+                            <span className="booking-badge badge-pending capitalize">
                               {norm.replace(/_/g, ' ')}
                             </span>
                           );
@@ -304,46 +286,52 @@ export function CashierTodayTab({
                     };
 
                     return (
-                      <tr key={order.id}>
-                        <td className="whitespace-nowrap font-medium text-slate-600">
+                      <tr key={order.id} className="booking-row">
+                        <td className="whitespace-nowrap font-medium text-slate-600 text-xs">
                           {order.serviceTime ?? 'Today'}
                         </td>
                         <td>
-                          <div className="cashier-customer-cell">
-                            <div className="cashier-customer-avatar">
+                          <div className="customer-cell">
+                            <div className="customer-avatar-pill">
                               {initials}
                             </div>
-                            <span className="font-semibold text-slate-900">
-                              {order.customerName}
-                            </span>
+                            <div className="customer-info min-w-0">
+                              <span className="customer-name block truncate">
+                                {order.customerName}
+                              </span>
+                              <span className="customer-subtext block truncate text-slate-500 max-w-[160px]">
+                                {order.serviceDescription}
+                              </span>
+                            </div>
                           </div>
                         </td>
-                        <td className="font-mono text-xs text-slate-500 font-semibold">
+                        <td className="font-mono text-xs text-slate-600 font-semibold whitespace-nowrap">
                           {order.orderNumber}
                         </td>
-                        <td className="max-w-xs truncate text-slate-700">
-                          {order.serviceDescription}
-                        </td>
-                        <td className="font-bold text-slate-900">
+                        <td className="font-bold text-slate-900 whitespace-nowrap text-xs">
                           ₱{order.remainingBalance.toLocaleString()}
                         </td>
                         <td>{renderLifecycleBadge(order.bookingStatus)}</td>
                         <td>
                           <span
-                            className={
+                            className={`booking-badge ${
                               isPartial ? 'badge-partial' : 'badge-unpaid'
-                            }
+                            }`}
                           >
                             {isPartial
                               ? `Partial (₱${order.amountPaid.toLocaleString()})`
                               : 'Unpaid'}
                           </span>
                         </td>
-                        <td>
-                          <div className="flex flex-col items-start gap-1">
+                        <td className="text-right">
+                          <div className="flex flex-col items-end gap-1">
                             <button
                               type="button"
-                              className={`btn-table-action ${!isEligible ? 'opacity-50 cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200 border-slate-300' : ''}`}
+                              className={`btn-table-action ${
+                                !isEligible
+                                  ? 'opacity-50 cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200 border-slate-300'
+                                  : ''
+                              }`}
                               onClick={() =>
                                 isEligible && onSelectOrderToPay(order)
                               }
@@ -358,7 +346,7 @@ export function CashierTodayTab({
                               Record Payment
                             </button>
                             {!isEligible && (
-                              <span className="text-[10px] text-amber-700 font-normal leading-tight max-w-[130px]">
+                              <span className="text-[10px] text-amber-700 font-normal leading-tight max-w-[130px] text-right">
                                 {order.ineligibilityReason ??
                                   'Not eligible for payment'}
                               </span>
@@ -367,47 +355,29 @@ export function CashierTodayTab({
                         </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                  })}
+                </tbody>
+              </ModuleTable>
+            </ModuleDataGridFrame>
+          )}
 
-          <div className="cashier-pagination">
-            <span>
-              Showing{' '}
-              {filteredQueue.length === 0
-                ? 0
-                : (queuePage - 1) * queuePageSize + 1}
-              –{Math.min(queuePage * queuePageSize, filteredQueue.length)} of{' '}
-              {filteredQueue.length} pending payments
-            </span>
-            <div className="cashier-page-controls">
-              <button
-                type="button"
-                className="cashier-page-btn"
-                onClick={() => setQueuePage((p) => Math.max(1, p - 1))}
-                disabled={queuePage === 1}
-                aria-label="Previous page"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <span className="px-2 font-medium text-slate-700">
-                {queuePage} / {totalQueuePages}
-              </span>
-              <button
-                type="button"
-                className="cashier-page-btn"
-                onClick={() =>
-                  setQueuePage((p) => Math.min(totalQueuePages, p + 1))
-                }
-                disabled={queuePage >= totalQueuePages}
-                aria-label="Next page"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
+          {filteredQueue.length > 0 && (
+            <ModulePagination
+              startRecord={(queuePage - 1) * queuePageSize + 1}
+              endRecord={Math.min(
+                queuePage * queuePageSize,
+                filteredQueue.length,
+              )}
+              totalItems={filteredQueue.length}
+              entityLabel="pending payments"
+              pageSize={queuePageSize}
+              currentPage={queuePage}
+              totalPages={totalQueuePages}
+              onPageChange={setQueuePage}
+              showPageSizeSelector={false}
+              testId="cashier-queue-pagination"
+            />
+          )}
         </div>
 
         {/* Right Column: Quick Actions + Paid & Closed Today */}
@@ -472,10 +442,10 @@ export function CashierTodayTab({
             <div className="cashier-card-header">
               <div>
                 <h4 className="cashier-card-title text-sm">
-                  Paid & Closed Today ({paidAndClosed.length})
+                  Paid &amp; Closed Today ({paidAndClosed.length})
                 </h4>
                 <p className="cashier-card-subtitle text-xs">
-                  Completed services with full payment. No action needed.
+                  Completed services with full payment today.
                 </p>
               </div>
               <button
@@ -487,87 +457,82 @@ export function CashierTodayTab({
               </button>
             </div>
 
-            <div className="cashier-table-wrapper">
-              <table className="cashier-table text-xs">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Customer</th>
-                    <th>Booking #</th>
-                    <th>Service</th>
-                    <th>Amount</th>
-                    <th>Payment Method</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedClosed.length === 0 ? (
+            <ModuleDataGridFrame naturalHeight>
+              {paidAndClosed.length === 0 ? (
+                <div className="bookings-table-empty-state py-8">
+                  <CheckCircle2 size={32} className="text-slate-300" />
+                  <p className="font-medium text-slate-600 mt-2 text-sm">
+                    No paid bookings closed yet today
+                  </p>
+                  <p className="text-2xs text-slate-400 mt-0.5">
+                    Orders settled in full will appear here.
+                  </p>
+                </div>
+              ) : (
+                <ModuleTable>
+                  <thead>
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="text-center py-6 text-slate-400"
-                      >
-                        No paid bookings closed yet today.
-                      </td>
+                      <th style={{ width: '70px' }}>Time</th>
+                      <th>Customer</th>
+                      <th style={{ width: '90px' }}>Booking #</th>
+                      <th style={{ width: '85px', textAlign: 'right' }}>
+                        Amount
+                      </th>
+                      <th style={{ width: '75px', textAlign: 'center' }}>
+                        Payment
+                      </th>
                     </tr>
-                  ) : (
-                    paginatedClosed.map((order) => (
-                      <tr key={order.id}>
-                        <td className="text-slate-500 whitespace-nowrap">
+                  </thead>
+                  <tbody>
+                    {paginatedClosed.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="hover:bg-slate-50/80 transition-colors"
+                      >
+                        <td className="text-slate-500 whitespace-nowrap text-xs">
                           {order.serviceTime ?? '09:00 AM'}
                         </td>
-                        <td className="font-semibold text-slate-900">
-                          {order.customerName}
+                        <td>
+                          <div className="font-semibold text-slate-900 text-xs">
+                            {order.customerName}
+                          </div>
+                          <div className="text-2xs text-slate-500 truncate max-w-[140px]">
+                            {order.serviceDescription}
+                          </div>
                         </td>
                         <td className="font-mono text-slate-500 text-2xs">
                           {order.orderNumber}
                         </td>
-                        <td className="text-slate-700 truncate max-w-[120px]">
-                          {order.serviceDescription}
-                        </td>
-                        <td className="font-bold text-slate-900">
+                        <td className="font-bold text-slate-900 text-xs text-right">
                           ₱{order.totalAmount.toLocaleString()}
                         </td>
-                        <td>
+                        <td className="text-center">
                           <span className="badge-paid">Paid</span>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </ModuleTable>
+              )}
 
-            <div className="cashier-pagination py-2 px-3 text-xs">
-              <span>
-                {paidAndClosed.length === 0
-                  ? 0
-                  : (closedPage - 1) * closedPageSize + 1}
-                –{Math.min(closedPage * closedPageSize, paidAndClosed.length)}{' '}
-                of {paidAndClosed.length}
-              </span>
-              <div className="cashier-page-controls">
-                <button
-                  type="button"
-                  className="cashier-page-btn w-6 h-6 text-xs"
-                  onClick={() => setClosedPage((p) => Math.max(1, p - 1))}
-                  disabled={closedPage === 1}
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft size={12} />
-                </button>
-                <button
-                  type="button"
-                  className="cashier-page-btn w-6 h-6 text-xs"
-                  onClick={() =>
-                    setClosedPage((p) => Math.min(totalClosedPages, p + 1))
-                  }
-                  disabled={closedPage >= totalClosedPages}
-                  aria-label="Next page"
-                >
-                  <ChevronRight size={12} />
-                </button>
-              </div>
-            </div>
+              {paidAndClosed.length > closedPageSize && (
+                <ModulePagination
+                  startRecord={(closedPage - 1) * closedPageSize + 1}
+                  endRecord={Math.min(
+                    closedPage * closedPageSize,
+                    paidAndClosed.length,
+                  )}
+                  totalItems={paidAndClosed.length}
+                  entityLabel="paid bookings"
+                  pageSize={closedPageSize}
+                  currentPage={closedPage}
+                  totalPages={totalClosedPages}
+                  onPageChange={setClosedPage}
+                  showPageSizeSelector={false}
+                  testId="cashier-closed-pagination"
+                />
+              )}
+            </ModuleDataGridFrame>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ export interface ModuleDataGridFrameProps {
   children: React.ReactNode;
   className?: string;
   testId?: string;
+  naturalHeight?: boolean;
 }
 
 /**
@@ -15,10 +16,11 @@ export const ModuleDataGridFrame: React.FC<ModuleDataGridFrameProps> = ({
   children,
   className = '',
   testId,
+  naturalHeight = false,
 }) => {
   return (
     <div
-      className={`bookings-datagrid-wrapper ${className}`.trim()}
+      className={`bookings-datagrid-wrapper ${naturalHeight ? 'natural-height' : ''} ${className}`.trim()}
       data-testid={testId}
     >
       {children}

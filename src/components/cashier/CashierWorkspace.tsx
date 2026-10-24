@@ -1,17 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Banknote,
-  CalendarCheck,
-  BookOpen,
-  Archive,
-  ClipboardCheck,
-  History,
-  Building2,
-  Calendar,
-  AlertCircle,
-  RefreshCw,
-  Loader2,
-} from 'lucide-react';
+import { Banknote, Calendar, User, Loader2 } from 'lucide-react';
 import type { AuthContext } from '../../types/auth';
 import type {
   CashierTab,
@@ -31,6 +19,13 @@ import {
   fetchDayClose,
   fetchCashierHistory,
 } from '../../lib/cashier-service';
+import {
+  ModuleWorkspace,
+  ModuleHeader,
+  ModuleTabs,
+  ModuleErrorBanner,
+  type ModuleTabItem,
+} from '../workspace';
 import { useWorkspaceModuleLifecycle } from '../workspace/useWorkspaceLifecycle';
 import { CashierTodayTab } from './tabs/CashierTodayTab';
 import { FinancialLedgerTab } from './tabs/FinancialLedgerTab';
@@ -46,6 +41,14 @@ import {
   CashAdjustmentModal,
 } from './modals/CashSessionModals';
 import './cashier.css';
+
+const CASHIER_TABS: Array<ModuleTabItem<CashierTab>> = [
+  { id: 'today', label: 'Today' },
+  { id: 'ledger', label: 'Ledger' },
+  { id: 'drawers', label: 'Cash Drawer' },
+  { id: 'day-close', label: 'Day Close' },
+  { id: 'history', label: 'History' },
+];
 
 interface CashierWorkspaceProps {
   authContext: AuthContext;
@@ -192,13 +195,6 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
     ]);
   };
 
-  const userInitials = authContext.fullName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
   const businessDate =
     overview?.businessDate ?? new Date().toISOString().split('T')[0];
   const activeSession =
@@ -210,131 +206,54 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
   const staffOptions = drawersData?.staffOptions ?? [];
 
   return (
-    <div className="cashier-container" data-testid="cashier-workspace">
-      {/* Header */}
-      <header className="cashier-header">
-        <div className="cashier-title-bar">
-          <div className="cashier-title-group">
-            <div className="cashier-brand-icon">
-              <Banknote size={22} aria-hidden="true" />
-            </div>
-            <div>
-              <h1 className="cashier-title">Cashier</h1>
-              <p className="cashier-subtitle">
-                {authContext.branchName} • Payments, expenses and cash
-                management
-              </p>
-            </div>
-          </div>
-
-          <div className="cashier-header-badges">
-            <button
-              type="button"
-              className="btn-secondary-compact flex items-center gap-1.5 text-xs"
-              onClick={handleRefresh}
-              disabled={isRefreshing || isLoading}
-              title="Refresh authoritative Cashier data"
+    <ModuleWorkspace
+      ariaLabel="Cashier workspace"
+      testId="cashier-workspace"
+      className="cashier-container"
+    >
+      <ModuleHeader
+        title="Cashier"
+        subtitle={`Payments, expenses and cash management for ${authContext.branchName}.`}
+        brandIcon={<Banknote size={20} />}
+        metaBadges={
+          <>
+            <div
+              className="bookings-header-meta-badge"
+              title="Authoritative Business Date"
             >
-              <RefreshCw
-                size={13}
-                className={isRefreshing ? 'animate-spin' : ''}
-              />
-              <span>Refresh</span>
-            </button>
-
-            <div className="cashier-pill-badge">
-              <Building2 size={14} className="text-emerald-800" />
-              <span>{authContext.branchName}</span>
-            </div>
-
-            <div className="cashier-pill-badge">
-              <Calendar size={14} className="text-emerald-800" />
+              <Calendar size={13} className="text-emerald-800" />
               <span>{businessDate}</span>
             </div>
-
-            <div className="cashier-pill-badge">
-              <div className="cashier-user-avatar">{userInitials}</div>
-              <div className="flex flex-col text-left">
-                <span className="font-semibold text-xs leading-none">
-                  {authContext.fullName}
-                </span>
-                <span className="text-2xs text-slate-500 capitalize leading-none mt-0.5">
-                  Front Desk
-                </span>
-              </div>
+            <div
+              className="bookings-header-meta-badge"
+              title="Cashier Operator"
+            >
+              <User size={13} className="text-emerald-800" />
+              <span>{authContext.fullName}</span>
             </div>
-          </div>
-        </div>
+          </>
+        }
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        refreshTitle="Refresh authoritative Cashier data"
+        refreshAriaLabel="Refresh authoritative Cashier data"
+        testId="cashier-header"
+      />
 
-        {/* Tab Navigation Strip */}
-        <nav
-          className="cashier-tabs-strip"
-          role="tablist"
-          aria-label="Cashier workspace tabs"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'today'}
-            className={`cashier-tab-btn ${activeTab === 'today' ? 'active' : ''}`}
-            onClick={() => handleTabChange('today')}
-          >
-            <CalendarCheck size={16} />
-            <span>Today</span>
-          </button>
+      <ModuleTabs<CashierTab>
+        tabs={CASHIER_TABS}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        ariaLabel="Cashier workspace tabs"
+        tabTestIdPrefix="cashier-tab"
+      />
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'ledger'}
-            className={`cashier-tab-btn ${activeTab === 'ledger' ? 'active' : ''}`}
-            onClick={() => handleTabChange('ledger')}
-          >
-            <BookOpen size={16} />
-            <span>Ledger</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'drawers'}
-            className={`cashier-tab-btn ${activeTab === 'drawers' ? 'active' : ''}`}
-            onClick={() => handleTabChange('drawers')}
-          >
-            <Archive size={16} />
-            <span>Cash Drawer</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'day-close'}
-            className={`cashier-tab-btn ${activeTab === 'day-close' ? 'active' : ''}`}
-            onClick={() => handleTabChange('day-close')}
-          >
-            <ClipboardCheck size={16} />
-            <span>Day Close</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'history'}
-            className={`cashier-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => handleTabChange('history')}
-          >
-            <History size={16} />
-            <span>History</span>
-          </button>
-        </nav>
-      </header>
-
-      {/* Error Banner */}
       {errorMessage && (
-        <div className="cashier-notice-banner warning" role="alert">
-          <AlertCircle size={16} className="text-amber-700 shrink-0" />
-          <span>{errorMessage}</span>
-        </div>
+        <ModuleErrorBanner
+          message={errorMessage}
+          onRetry={handleRefresh}
+          testId="cashier-error-banner"
+        />
       )}
 
       {/* Main Tab Content */}
@@ -459,6 +378,6 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
           onSuccess={handleTransactionSuccess}
         />
       )}
-    </div>
+    </ModuleWorkspace>
   );
 }

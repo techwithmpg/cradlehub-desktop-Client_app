@@ -7,6 +7,13 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { HistoryTabSummary } from '../../../types/cashier';
+import {
+  ModuleSummaryCard,
+  ModuleKpiGrid,
+  ModuleKpiCell,
+  ModuleDataGridFrame,
+  ModuleTable,
+} from '../../workspace';
 
 interface CashierHistoryTabProps {
   historyData: HistoryTabSummary | null;
@@ -92,87 +99,79 @@ export function CashierHistoryTab({
       )}
 
       {/* Monthly History KPIs */}
-      <div className="cashier-kpi-grid">
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box gold">
-            <Calendar size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Closed Days (This Month)</span>
-            <span className="cashier-kpi-value">
-              {isSupported ? (data?.closedDaysThisMonth ?? 0) : 'Unavailable'}
-            </span>
-            <span className="cashier-kpi-subtext text-slate-500">
-              {loadError
+      <ModuleSummaryCard
+        ariaLabel="Monthly History Summary"
+        className="cashier-kpi-summary"
+      >
+        <ModuleKpiGrid className="cashier-kpi-grid grid-cols-2 lg:grid-cols-4">
+          <ModuleKpiCell
+            label="Closed Days (This Month)"
+            count={
+              isSupported ? (data?.closedDaysThisMonth ?? 0) : 'Unavailable'
+            }
+            subtext={
+              loadError
                 ? 'Failed to load'
                 : isSupported
                   ? 'Reconciled sessions'
-                  : 'Contract not supported'}
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box emerald">
-            <Coins size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Total Monthly Inflows</span>
-            <span className="cashier-kpi-value">
-              {isSupported
+                  : 'Contract not supported'
+            }
+            icon={<Calendar size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-gold"
+            testId="cashier-kpi-history-days"
+          />
+          <ModuleKpiCell
+            label="Total Monthly Inflows"
+            count={
+              isSupported
                 ? `₱${(data?.totalInflowThisMonth ?? 0).toLocaleString()}`
-                : 'Unavailable'}
-            </span>
-            <span className="cashier-kpi-subtext text-emerald-700 font-medium">
-              {loadError
+                : 'Unavailable'
+            }
+            subtext={
+              loadError
                 ? 'Failed to load'
                 : isSupported
                   ? 'Verified deposits'
-                  : 'Contract not supported'}
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box rose">
-            <CreditCard size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Total Monthly Outflows</span>
-            <span className="cashier-kpi-value">
-              {isSupported
+                  : 'Contract not supported'
+            }
+            icon={<Coins size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-emerald"
+            testId="cashier-kpi-history-inflow"
+          />
+          <ModuleKpiCell
+            label="Total Monthly Outflows"
+            count={
+              isSupported
                 ? `₱${(data?.totalOutflowThisMonth ?? 0).toLocaleString()}`
-                : 'Unavailable'}
-            </span>
-            <span className="cashier-kpi-subtext text-rose-700 font-medium">
-              {loadError
+                : 'Unavailable'
+            }
+            subtext={
+              loadError
                 ? 'Failed to load'
                 : isSupported
                   ? 'Verified disbursements'
-                  : 'Contract not supported'}
-            </span>
-          </div>
-        </div>
-
-        <div className="cashier-kpi-card">
-          <div className="cashier-kpi-icon-box blue">
-            <AlertCircle size={20} />
-          </div>
-          <div className="cashier-kpi-content">
-            <span className="cashier-kpi-label">Review Exceptions</span>
-            <span className="cashier-kpi-value">
-              {isSupported ? (data?.reviewExceptions ?? 0) : 'Unavailable'}
-            </span>
-            <span className="cashier-kpi-subtext text-slate-500">
-              {loadError
+                  : 'Contract not supported'
+            }
+            icon={<CreditCard size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-rose"
+            testId="cashier-kpi-history-outflow"
+          />
+          <ModuleKpiCell
+            label="Review Exceptions"
+            count={isSupported ? (data?.reviewExceptions ?? 0) : 'Unavailable'}
+            subtext={
+              loadError
                 ? 'Failed to load'
                 : isSupported
                   ? 'Unresolved variances'
-                  : 'Contract not supported'}
-            </span>
-          </div>
-        </div>
-      </div>
+                  : 'Contract not supported'
+            }
+            icon={<AlertCircle size={15} aria-hidden="true" />}
+            accentClass="kpi-accent-blue"
+            testId="cashier-kpi-history-exceptions"
+          />
+        </ModuleKpiGrid>
+      </ModuleSummaryCard>
 
       {/* Historical Sessions Table Card */}
       <div className="cashier-card">
@@ -192,59 +191,69 @@ export function CashierHistoryTab({
           </div>
         </div>
 
-        <div className="cashier-table-wrapper">
-          <table className="cashier-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Branch</th>
-                <th>Inflow</th>
-                <th>Outflow</th>
-                <th>Net</th>
-                <th>Status</th>
-                <th>Reviewed By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadError ? (
+        <ModuleDataGridFrame naturalHeight>
+          {loadError ? (
+            <div className="bookings-table-empty-state py-10 bg-rose-50/30">
+              <div className="flex flex-col items-center justify-center gap-2 text-rose-700">
+                <AlertCircle size={20} className="text-rose-600" />
+                <span className="font-semibold text-sm">
+                  Failed to load historical reconciliation records
+                </span>
+                <span className="text-xs text-rose-600 max-w-md">
+                  {loadError}
+                </span>
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="mt-2 btn-secondary-compact text-xs"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : !data?.records || data.records.length === 0 ? (
+            <div className="bookings-table-empty-state py-10">
+              <History size={32} className="text-slate-300" />
+              <p className="font-medium text-slate-600 mt-2 text-sm">
+                No historical reconciliation records available for this branch
+              </p>
+              <p className="text-2xs text-slate-400 mt-0.5">
+                Past session logs will be archived here.
+              </p>
+            </div>
+          ) : (
+            <ModuleTable>
+              <thead>
                 <tr>
-                  <td colSpan={7} className="text-center py-10 bg-rose-50/30">
-                    <div className="flex flex-col items-center justify-center gap-2 text-rose-700">
-                      <AlertCircle size={20} className="text-rose-600" />
-                      <span className="font-semibold text-sm">
-                        Failed to load historical reconciliation records
-                      </span>
-                      <span className="text-xs text-rose-600 max-w-md">
-                        {loadError}
-                      </span>
-                      {onRetry && (
-                        <button
-                          type="button"
-                          onClick={onRetry}
-                          className="mt-2 btn-secondary-compact text-xs"
-                        >
-                          Retry
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                  <th style={{ width: '120px' }}>Date</th>
+                  <th>Branch</th>
+                  <th style={{ width: '110px', textAlign: 'right' }}>Inflow</th>
+                  <th style={{ width: '110px', textAlign: 'right' }}>
+                    Outflow
+                  </th>
+                  <th style={{ width: '110px', textAlign: 'right' }}>Net</th>
+                  <th style={{ width: '110px', textAlign: 'center' }}>
+                    Status
+                  </th>
+                  <th style={{ width: '130px' }}>Reviewed By</th>
                 </tr>
-              ) : !data?.records || data.records.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-10 text-slate-400">
-                    No historical reconciliation records available for this
-                    branch.
-                  </td>
-                </tr>
-              ) : (
-                data.records.map((rec) => (
-                  <tr key={rec.id}>
-                    <td className="font-medium text-slate-800">{rec.date}</td>
-                    <td className="text-slate-600">{rec.branchName}</td>
-                    <td className="font-bold text-emerald-800">
+              </thead>
+              <tbody>
+                {data.records.map((rec) => (
+                  <tr
+                    key={rec.id}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="font-medium text-slate-800 text-xs">
+                      {rec.date}
+                    </td>
+                    <td className="text-slate-600 text-xs">{rec.branchName}</td>
+                    <td className="font-bold text-emerald-800 text-xs text-right">
                       {formatAmount(rec.inflow)}
                     </td>
-                    <td className="font-bold text-rose-800">
+                    <td className="font-bold text-rose-800 text-xs text-right">
                       {rec.outflow !== null &&
                       rec.outflow !== undefined &&
                       rec.outflow > 0
@@ -253,19 +262,23 @@ export function CashierHistoryTab({
                           ? '₱0.00'
                           : '—'}
                     </td>
-                    <td className="font-bold text-slate-900">
+                    <td className="font-bold text-slate-900 text-xs text-right">
                       {formatAmount(rec.net)}
                     </td>
-                    <td>{getStatusBadge(rec.status)}</td>
+                    <td className="text-center">
+                      <div className="flex justify-center">
+                        {getStatusBadge(rec.status)}
+                      </div>
+                    </td>
                     <td className="text-slate-500 text-xs">
                       {rec.reviewedBy ?? 'Not recorded'}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </ModuleTable>
+          )}
+        </ModuleDataGridFrame>
       </div>
     </div>
   );

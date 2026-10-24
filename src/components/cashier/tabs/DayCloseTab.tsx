@@ -8,6 +8,7 @@ import {
   Lock,
 } from 'lucide-react';
 import type { DayCloseSummaryData } from '../../../types/cashier';
+import { ModuleDataGridFrame, ModuleTable } from '../../workspace';
 
 interface DayCloseTabProps {
   dayCloseData: DayCloseSummaryData | null;
@@ -138,51 +139,68 @@ export function DayCloseTab({
         {/* Payment Methods Breakdown */}
         <div className="p-5">
           <h4 className="text-sm font-bold text-slate-900 mb-3">
-            Tender Mix & Reconciliation
+            Tender Mix &amp; Reconciliation
           </h4>
-          <div className="cashier-table-wrapper">
-            <table className="cashier-table">
-              <thead>
-                <tr>
-                  <th>Payment Method</th>
-                  <th>Recorded Amount</th>
-                  <th>Transactions</th>
-                  <th>Share</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.paymentBreakdown.length === 0 ? (
+          <ModuleDataGridFrame naturalHeight>
+            {data.paymentBreakdown.length === 0 ? (
+              <div className="bookings-table-empty-state py-8">
+                <CheckCircle2 size={32} className="text-slate-300" />
+                <p className="font-medium text-slate-600 mt-2 text-sm">
+                  No payments posted for this business day
+                </p>
+                <p className="text-2xs text-slate-400 mt-0.5">
+                  Tenders processed will appear here for reconciliation.
+                </p>
+              </div>
+            ) : (
+              <ModuleTable>
+                <thead>
                   <tr>
-                    <td colSpan={5} className="text-center py-6 text-slate-400">
-                      No payments posted for this business day.
-                    </td>
+                    <th>Payment Method</th>
+                    <th style={{ width: '130px', textAlign: 'right' }}>
+                      Recorded Amount
+                    </th>
+                    <th style={{ width: '110px', textAlign: 'center' }}>
+                      Transactions
+                    </th>
+                    <th style={{ width: '90px', textAlign: 'center' }}>
+                      Share
+                    </th>
+                    <th style={{ width: '100px', textAlign: 'center' }}>
+                      Status
+                    </th>
                   </tr>
-                ) : (
-                  data.paymentBreakdown.map((item) => (
-                    <tr key={item.method}>
-                      <td className="font-semibold text-slate-900 capitalize">
+                </thead>
+                <tbody>
+                  {data.paymentBreakdown.map((item) => (
+                    <tr
+                      key={item.method}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
+                      <td className="font-semibold text-slate-900 capitalize text-xs">
                         {item.label}
                       </td>
-                      <td className="font-bold text-slate-900">
+                      <td className="font-bold text-slate-900 text-xs text-right">
                         ₱{item.amount.toLocaleString()}
                       </td>
-                      <td className="text-slate-600 font-medium">
+                      <td className="text-slate-600 font-medium text-xs text-center">
                         {item.transactionCount}
                       </td>
-                      <td className="text-slate-500">{item.percentage}%</td>
-                      <td>
-                        <span className="badge-paid flex items-center gap-1 w-max">
+                      <td className="text-slate-500 text-xs text-center">
+                        {item.percentage}%
+                      </td>
+                      <td className="text-center">
+                        <span className="badge-paid flex items-center justify-center gap-1 mx-auto w-max">
                           <CheckCircle2 size={12} />
                           <span>Audited</span>
                         </span>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </ModuleTable>
+            )}
+          </ModuleDataGridFrame>
         </div>
       </div>
     </div>

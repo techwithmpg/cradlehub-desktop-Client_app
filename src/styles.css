@@ -1201,6 +1201,29 @@ body {
   margin-bottom: 2px;
 }
 
+.bookings-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bookings-header-brand-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e6f4ea;
+  color: #047857;
+  flex-shrink: 0;
+}
+
+.bookings-header-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
 .bookings-header-title {
   font-size: 20px;
   font-weight: 700;
@@ -1213,6 +1236,19 @@ body {
   font-size: 13px;
   color: var(--color-gray-500);
   margin: 2px 0 0 0;
+}
+
+.bookings-header-meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-line, #e2e6e0);
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-ink-secondary, #334155);
 }
 
 .bookings-header-right {
@@ -1599,6 +1635,14 @@ body {
   background: #fef2f2;
   color: #dc2626;
 }
+.kpi-accent-purple .bookings-kpi-icon-wrapper {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+.kpi-accent-rose .bookings-kpi-icon-wrapper {
+  background: #fff1f2;
+  color: #e11d48;
+}
 
 /* --- Main Grid: Cards B & C --- */
 .bookings-main-grid {
@@ -1783,6 +1827,10 @@ body {
   width: 100%;
   overflow-x: auto;
   min-height: 360px;
+}
+
+.bookings-datagrid-wrapper.natural-height {
+  min-height: auto;
 }
 
 .bookings-table {
@@ -2017,6 +2065,31 @@ body {
   background: #fefce8;
   color: #854d0e;
   border: 1px solid #fef08a;
+}
+.badge-in-service {
+  background: #e6f4ea;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.badge-paid {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.badge-partial {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+.badge-unpaid {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.badge-voided {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
 }
 
 .booking-source-badge {
