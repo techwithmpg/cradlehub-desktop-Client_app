@@ -58,8 +58,20 @@ const mockOverview: CashierOverviewData = {
     expenseCount: 2,
   },
   paymentMix: [
-    { method: 'cash', label: 'Cash', amount: 15400, transactionCount: 10, percentage: 60.6 },
-    { method: 'gcash', label: 'GCash', amount: 10000, transactionCount: 5, percentage: 39.4 },
+    {
+      method: 'cash',
+      label: 'Cash',
+      amount: 15400,
+      transactionCount: 10,
+      percentage: 60.6,
+    },
+    {
+      method: 'gcash',
+      label: 'GCash',
+      amount: 10000,
+      transactionCount: 5,
+      percentage: 39.4,
+    },
   ],
   recentPayments: [],
   activeDrawerSession: {
@@ -224,23 +236,41 @@ async function renderCashierWorkspace() {
 describe('CashierWorkspace Component', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(cashierService.fetchCashierOverview).mockResolvedValue(mockOverview);
-    vi.mocked(cashierService.fetchPayableOrders).mockResolvedValue(mockPayableOrders);
+    vi.mocked(cashierService.fetchCashierOverview).mockResolvedValue(
+      mockOverview,
+    );
+    vi.mocked(cashierService.fetchPayableOrders).mockResolvedValue(
+      mockPayableOrders,
+    );
     vi.mocked(cashierService.fetchCashierLedger).mockResolvedValue(mockLedger);
-    vi.mocked(cashierService.fetchCashierDrawers).mockResolvedValue(mockDrawers);
+    vi.mocked(cashierService.fetchCashierDrawers).mockResolvedValue(
+      mockDrawers,
+    );
     vi.mocked(cashierService.fetchDayClose).mockResolvedValue(mockDayClose);
-    vi.mocked(cashierService.fetchCashierHistory).mockResolvedValue(mockHistory);
-    vi.mocked(cashierService.postRecordPayment).mockResolvedValue({ success: true });
-    vi.mocked(cashierService.postRecordExpense).mockResolvedValue({ success: true });
-    vi.mocked(cashierService.postDrawerSessionAction).mockResolvedValue({ success: true });
+    vi.mocked(cashierService.fetchCashierHistory).mockResolvedValue(
+      mockHistory,
+    );
+    vi.mocked(cashierService.postRecordPayment).mockResolvedValue({
+      success: true,
+    });
+    vi.mocked(cashierService.postRecordExpense).mockResolvedValue({
+      success: true,
+    });
+    vi.mocked(cashierService.postDrawerSessionAction).mockResolvedValue({
+      success: true,
+    });
   });
 
   it('renders header, title, badges, and tab strip', async () => {
     await renderCashierWorkspace();
 
     expect(screen.getByTestId('cashier-workspace')).toBeDefined();
-    expect(screen.getByRole('heading', { level: 1, name: 'Cashier' })).toBeDefined();
-    expect(screen.getAllByText(/Makati Central Branch/i).length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Cashier' }),
+    ).toBeDefined();
+    expect(
+      screen.getAllByText(/Makati Central Branch/i).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('2026-10-23')).toBeDefined();
     expect(screen.getByText('Maria Santos')).toBeDefined();
 
@@ -285,7 +315,9 @@ describe('CashierWorkspace Component', () => {
     await user.selectOptions(methodSelect, 'gcash');
 
     // Submit payment inside the modal
-    const confirmBtn = within(modal).getByRole('button', { name: /^record payment$/i });
+    const confirmBtn = within(modal).getByRole('button', {
+      name: /^record payment$/i,
+    });
     await user.click(confirmBtn);
 
     await waitFor(() => {
@@ -321,7 +353,9 @@ describe('CashierWorkspace Component', () => {
     await user.type(descInput, 'Massage oils restock');
 
     // Submit expense inside the modal
-    const submitBtn = within(modal).getByRole('button', { name: /^record expense$/i });
+    const submitBtn = within(modal).getByRole('button', {
+      name: /^record expense$/i,
+    });
     await user.click(submitBtn);
 
     await waitFor(() => {
@@ -360,7 +394,9 @@ describe('CashierWorkspace Component', () => {
         screen.getByText(/Physical Cash vs. Digital Inflows Isolation/i),
       ).toBeDefined();
       expect(screen.getByRole('button', { name: /handover/i })).toBeDefined();
-      expect(screen.getByRole('button', { name: /close session/i })).toBeDefined();
+      expect(
+        screen.getByRole('button', { name: /close session/i }),
+      ).toBeDefined();
     });
   });
 
@@ -379,7 +415,9 @@ describe('CashierWorkspace Component', () => {
     const closeDayBtn = screen.getByRole('button', { name: /close day/i });
     expect(closeDayBtn.getAttribute('disabled')).not.toBeNull();
     expect(
-      screen.getByText(/Full Business Day Finalization Unsupported by Server Contract/i),
+      screen.getByText(
+        /Full Business Day Finalization Unsupported by Server Contract/i,
+      ),
     ).toBeDefined();
   });
 
@@ -395,5 +433,84 @@ describe('CashierWorkspace Component', () => {
       expect(screen.getByText('₱310,500')).toBeDefined();
       expect(screen.getByText('2026-10-22')).toBeDefined();
     });
+  });
+
+  it('preserves idempotency key across retry when payment submission fails', async () => {
+    const user = userEvent.setup();
+    const mockPostPayment = vi.mocked(cashierService.postRecordPayment);
+    // First attempt rejects with network/server error
+    mockPostPayment.mockRejectedValueOnce(
+      new Error('Network connection timeout'),
+    );
+    // Second attempt succeeds
+    mockPostPayment.mockResolvedValueOnce({ success: true });
+
+    await renderCashierWorkspace();
+
+    const payBtn = screen.getByRole('button', { name: /record payment/i });
+    await user.click(payBtn);
+
+    const modal = await screen.findByRole('dialog');
+    const confirmBtn = within(modal).getByRole('button', {
+      name: /^record payment$/i,
+    });
+
+    // First click: fails
+    await user.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(
+        within(modal).getByText('Network connection timeout'),
+      ).toBeDefined();
+    });
+
+    expect(mockPostPayment).toHaveBeenCalledTimes(1);
+    const firstCallPayload = mockPostPayment.mock.calls[0]![0];
+    const initialKey = firstCallPayload.idempotencyKey;
+    expect(initialKey).toBeDefined();
+
+    // Second click (retry): must submit the EXACT SAME idempotency key
+    await user.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(mockPostPayment).toHaveBeenCalledTimes(2);
+    });
+
+    const secondCallPayload = mockPostPayment.mock.calls[1]![0];
+    expect(secondCallPayload.idempotencyKey).toBe(initialKey);
+  });
+
+  it('validates partial payments and prevents payment amounts exceeding remaining balance', async () => {
+    const user = userEvent.setup();
+    await renderCashierWorkspace();
+
+    const payBtn = screen.getByRole('button', { name: /record payment/i });
+    await user.click(payBtn);
+
+    const modal = await screen.findByRole('dialog');
+    const amountInput = within(modal).getByLabelText(/amount received/i);
+
+    // Overpayment attempt: enter 2500 when balance is 1800
+    await user.clear(amountInput);
+    await user.type(amountInput, '2500');
+
+    const confirmBtn = within(modal).getByRole('button', {
+      name: /^record payment$/i,
+    });
+    await user.click(confirmBtn);
+
+    expect(
+      within(modal).getByText(/cannot exceed the remaining balance of ₱1,800/i),
+    ).toBeDefined();
+
+    // Partial payment: enter 1000
+    await user.clear(amountInput);
+    await user.type(amountInput, '1000');
+
+    expect(
+      within(modal).getByText(
+        /Partial payment: ₱800 will remain in the pending payment queue/i,
+      ),
+    ).toBeDefined();
   });
 });

@@ -326,7 +326,8 @@ export function FinancialLedgerTab({
               ) : (
                 records.map((row) => {
                   const isPositive =
-                    row.inflow !== null && (row.outflow === null || row.outflow === 0);
+                    row.inflow !== null &&
+                    (row.outflow === null || row.outflow === 0);
                   const amount = row.inflow ?? row.outflow ?? 0;
 
                   return (
@@ -344,13 +345,16 @@ export function FinancialLedgerTab({
                       <td className="max-w-xs truncate text-slate-700">
                         {row.category}
                       </td>
-                      <td className="text-slate-600 font-medium">{row.method}</td>
+                      <td className="text-slate-600 font-medium">
+                        {row.method}
+                      </td>
                       <td
                         className={`font-bold whitespace-nowrap ${
                           isPositive ? 'text-emerald-700' : 'text-rose-700'
                         }`}
                       >
-                        {isPositive ? '+' : '-'}₱{Math.abs(amount).toLocaleString()}
+                        {isPositive ? '+' : '-'}₱
+                        {Math.abs(amount).toLocaleString()}
                       </td>
                       <td>{getStatusBadge(row.status)}</td>
                       <td>

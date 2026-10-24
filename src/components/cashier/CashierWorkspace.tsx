@@ -60,10 +60,12 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
     useState<CashierLedgerResponseData | null>(null);
   const [drawersData, setDrawersData] =
     useState<CashierDrawersResponseData | null>(null);
-  const [dayCloseData, setDayCloseData] =
-    useState<DayCloseSummaryData | null>(null);
-  const [historyData, setHistoryData] =
-    useState<HistoryTabSummary | null>(null);
+  const [dayCloseData, setDayCloseData] = useState<DayCloseSummaryData | null>(
+    null,
+  );
+  const [historyData, setHistoryData] = useState<HistoryTabSummary | null>(
+    null,
+  );
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -97,7 +99,9 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
       setErrorMessage(null);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : 'Failed to load Cashier workspace.';
+        err instanceof Error
+          ? err.message
+          : 'Failed to load Cashier workspace.';
       setErrorMessage(msg);
     }
   }, []);
@@ -177,7 +181,8 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
     .slice(0, 2)
     .toUpperCase();
 
-  const businessDate = overview?.businessDate ?? new Date().toISOString().split('T')[0];
+  const businessDate =
+    overview?.businessDate ?? new Date().toISOString().split('T')[0];
   const activeSession =
     drawersData?.activeSessions?.[0] ?? overview?.activeDrawerSession ?? null;
   const availableDrawers =
@@ -198,7 +203,8 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
             <div>
               <h1 className="cashier-title">Cashier</h1>
               <p className="cashier-subtitle">
-                {authContext.branchName} • Payments, expenses and cash management
+                {authContext.branchName} • Payments, expenses and cash
+                management
               </p>
             </div>
           </div>
@@ -425,7 +431,9 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
           isOpen={true}
           session={activeSession}
           entryType={adjustmentState.type}
-          onClose={() => setAdjustmentState({ isOpen: false, type: 'cash_addition' })}
+          onClose={() =>
+            setAdjustmentState({ isOpen: false, type: 'cash_addition' })
+          }
           onSuccess={handleTransactionSuccess}
         />
       )}

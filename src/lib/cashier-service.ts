@@ -32,7 +32,9 @@ function isCashierOverviewData(value: unknown): value is CashierOverviewData {
   );
 }
 
-function isPayableOrdersData(value: unknown): value is PayableOrdersResponseData {
+function isPayableOrdersData(
+  value: unknown,
+): value is PayableOrdersResponseData {
   if (!isRecord(value)) return false;
   return (
     Array.isArray(value.pendingQueue) &&
@@ -42,7 +44,9 @@ function isPayableOrdersData(value: unknown): value is PayableOrdersResponseData
   );
 }
 
-function isCashierLedgerData(value: unknown): value is CashierLedgerResponseData {
+function isCashierLedgerData(
+  value: unknown,
+): value is CashierLedgerResponseData {
   if (!isRecord(value)) return false;
   return (
     isRecord(value.kpis) &&
@@ -88,7 +92,9 @@ async function getAccessToken(client?: SupabaseClient): Promise<string> {
   const supabase = client ?? getSupabaseClient();
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session?.access_token) {
-    throw new Error('Your session has expired. Sign in again to access Cashier.');
+    throw new Error(
+      'Your session has expired. Sign in again to access Cashier.',
+    );
   }
   return data.session.access_token;
 }
@@ -181,14 +187,10 @@ export async function fetchPayableOrders(
   customFetch?: typeof fetch,
 ): Promise<PayableOrdersResponseData> {
   return measureReadOperation('cashier.fetchPayableOrders', () =>
-    requestJson(
-      '/api/desktop/v1/cashier/payable-orders',
-      isPayableOrdersData,
-      {
-        client,
-        customFetch,
-      },
-    ),
+    requestJson('/api/desktop/v1/cashier/payable-orders', isPayableOrdersData, {
+      client,
+      customFetch,
+    }),
   );
 }
 
@@ -263,16 +265,12 @@ export async function postRecordPayment(
   client?: SupabaseClient,
   customFetch?: typeof fetch,
 ): Promise<Record<string, unknown>> {
-  return requestJson(
-    '/api/desktop/v1/cashier/payments',
-    isGenericSuccess,
-    {
-      method: 'POST',
-      body: payload,
-      client,
-      customFetch,
-    },
-  );
+  return requestJson('/api/desktop/v1/cashier/payments', isGenericSuccess, {
+    method: 'POST',
+    body: payload,
+    client,
+    customFetch,
+  });
 }
 
 export async function postRecordExpense(
@@ -280,16 +278,12 @@ export async function postRecordExpense(
   client?: SupabaseClient,
   customFetch?: typeof fetch,
 ): Promise<Record<string, unknown>> {
-  return requestJson(
-    '/api/desktop/v1/cashier/expenses',
-    isGenericSuccess,
-    {
-      method: 'POST',
-      body: payload,
-      client,
-      customFetch,
-    },
-  );
+  return requestJson('/api/desktop/v1/cashier/expenses', isGenericSuccess, {
+    method: 'POST',
+    body: payload,
+    client,
+    customFetch,
+  });
 }
 
 export async function postDrawerSessionAction(
@@ -297,14 +291,10 @@ export async function postDrawerSessionAction(
   client?: SupabaseClient,
   customFetch?: typeof fetch,
 ): Promise<Record<string, unknown>> {
-  return requestJson(
-    '/api/desktop/v1/cashier/drawers',
-    isGenericSuccess,
-    {
-      method: 'POST',
-      body: payload,
-      client,
-      customFetch,
-    },
-  );
+  return requestJson('/api/desktop/v1/cashier/drawers', isGenericSuccess, {
+    method: 'POST',
+    body: payload,
+    client,
+    customFetch,
+  });
 }

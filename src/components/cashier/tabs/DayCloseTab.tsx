@@ -50,10 +50,10 @@ export function DayCloseTab({
             <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-amber-950 font-semibold">
               isFinalizationSupported: false
             </code>
-            . You can close individual cash drawer sessions and reconcile physical
-            float on the Cash Drawer tab. However, complete day financial
-            finalization is not operational on the server. The Close Day button
-            remains disabled to prevent false accounting claims.
+            . You can close individual cash drawer sessions and reconcile
+            physical float on the Cash Drawer tab. However, complete day
+            financial finalization is not operational on the server. The Close
+            Day button remains disabled to prevent false accounting claims.
           </div>
         </div>
       </div>

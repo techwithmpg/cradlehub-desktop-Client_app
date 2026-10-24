@@ -93,13 +93,27 @@ describe('Cashier Service (Desktop API Client)', () => {
           activeDrawerCash: 8000,
         },
         paymentMix: [
-          { method: 'cash', label: 'Cash', count: 12, amount: 15400, percentage: 60.6 },
-          { method: 'gcash', label: 'GCash', count: 5, amount: 10000, percentage: 39.4 },
+          {
+            method: 'cash',
+            label: 'Cash',
+            count: 12,
+            amount: 15400,
+            percentage: 60.6,
+          },
+          {
+            method: 'gcash',
+            label: 'GCash',
+            count: 5,
+            amount: 10000,
+            percentage: 39.4,
+          },
         ],
         activeDrawerSession: null,
       };
 
-      const mockFetch = vi.fn().mockResolvedValue(mockJsonResponse(validOverview));
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(mockJsonResponse(validOverview));
 
       const result = await fetchCashierOverview(
         mockClient,
@@ -122,7 +136,9 @@ describe('Cashier Service (Desktop API Client)', () => {
 
     it('rejects if server returns malformed data structure', async () => {
       const mockClient = createMockSupabaseClient();
-      const mockFetch = vi.fn().mockResolvedValue(mockJsonResponse({ invalidField: true }));
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(mockJsonResponse({ invalidField: true }));
 
       await expect(
         fetchCashierOverview(mockClient, mockFetch as unknown as typeof fetch),
@@ -165,11 +181,18 @@ describe('Cashier Service (Desktop API Client)', () => {
           },
         ],
         paymentMethods: [
-          { method: 'cash', label: 'Cash', accountId: 'acc-1', isDigital: false },
+          {
+            method: 'cash',
+            label: 'Cash',
+            accountId: 'acc-1',
+            isDigital: false,
+          },
         ],
       };
 
-      const mockFetch = vi.fn().mockResolvedValue(mockJsonResponse(validPayable));
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(mockJsonResponse(validPayable));
 
       const result = await fetchPayableOrders(
         mockClient,
@@ -203,7 +226,9 @@ describe('Cashier Service (Desktop API Client)', () => {
       );
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/desktop/v1/cashier/ledger?search=Juan&category=payment&page=2&pageSize=15'),
+        expect.stringContaining(
+          '/api/desktop/v1/cashier/ledger?search=Juan&category=payment&page=2&pageSize=15',
+        ),
         expect.anything(),
       );
     });
@@ -287,9 +312,11 @@ describe('Cashier Service (Desktop API Client)', () => {
   describe('Mutations: Payments, Expenses, and Drawers', () => {
     it('posts record payment with expected body', async () => {
       const mockClient = createMockSupabaseClient();
-      const mockFetch = vi.fn().mockResolvedValue(
-        mockJsonResponse({ paymentId: 'pay-1', success: true }),
-      );
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(
+          mockJsonResponse({ paymentId: 'pay-1', success: true }),
+        );
 
       const payload = {
         orderId: 'order-1',
@@ -323,9 +350,11 @@ describe('Cashier Service (Desktop API Client)', () => {
 
     it('posts record expense with expected body', async () => {
       const mockClient = createMockSupabaseClient();
-      const mockFetch = vi.fn().mockResolvedValue(
-        mockJsonResponse({ expenseId: 'exp-1', success: true }),
-      );
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(
+          mockJsonResponse({ expenseId: 'exp-1', success: true }),
+        );
 
       const payload = {
         categoryId: 'cat-1',
@@ -356,9 +385,11 @@ describe('Cashier Service (Desktop API Client)', () => {
 
     it('posts drawer session action (open, handover, close, adjustment)', async () => {
       const mockClient = createMockSupabaseClient();
-      const mockFetch = vi.fn().mockResolvedValue(
-        mockJsonResponse({ sessionId: 'sess-1', success: true }),
-      );
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(
+          mockJsonResponse({ sessionId: 'sess-1', success: true }),
+        );
 
       const payload = {
         action: 'open' as const,

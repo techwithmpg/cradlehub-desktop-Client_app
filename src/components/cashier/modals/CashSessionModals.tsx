@@ -40,6 +40,9 @@ export function OpenSessionModal({
   const [openingNote, setOpeningNote] = useState<string>('Morning cash float');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    crypto.randomUUID(),
+  );
 
   if (!isOpen) return null;
 
@@ -65,15 +68,19 @@ export function OpenSessionModal({
         cashDrawerAccountId: effectiveDrawerId,
         openingFloat: floatVal,
         openingNote: openingNote.trim() || null,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
       });
 
       await onSuccess();
+      setIdempotencyKey(crypto.randomUUID());
       onClose();
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : 'Failed to open cash drawer session.';
+        err instanceof Error
+          ? err.message
+          : 'Failed to open cash drawer session.';
       setErrorMessage(msg);
+      // NOTE: idempotencyKey is preserved on submission failure so retry will resubmit with same key
     } finally {
       setIsSubmitting(false);
     }
@@ -213,8 +220,9 @@ export function HandoverSessionModal({
   onClose,
   onSuccess,
 }: HandoverSessionModalProps) {
-  const [customIncomingCustodianId, setCustomIncomingCustodianId] =
-    useState<string | null>(null);
+  const [customIncomingCustodianId, setCustomIncomingCustodianId] = useState<
+    string | null
+  >(null);
   const effectiveIncomingCustodianId =
     customIncomingCustodianId &&
     staffOptions.some((s) => s.id === customIncomingCustodianId)
@@ -226,6 +234,9 @@ export function HandoverSessionModal({
   const [notes, setNotes] = useState<string>('Shift handover');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    crypto.randomUUID(),
+  );
 
   if (!isOpen || !session) return null;
 
@@ -254,15 +265,17 @@ export function HandoverSessionModal({
         incomingCustodianId: effectiveIncomingCustodianId,
         countedCash: counted,
         notes: notes.trim() || null,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
       });
 
       await onSuccess();
+      setIdempotencyKey(crypto.randomUUID());
       onClose();
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'Failed to handover cash session.';
       setErrorMessage(msg);
+      // NOTE: idempotencyKey is preserved on submission failure so retry will resubmit with same key
     } finally {
       setIsSubmitting(false);
     }
@@ -307,7 +320,9 @@ export function HandoverSessionModal({
               <div className="cashier-order-row">
                 <span className="text-slate-500">Current Custodian</span>
                 <span className="font-semibold text-slate-900">
-                  {session.currentCustodianName || session.openedByName || 'Staff'}
+                  {session.currentCustodianName ||
+                    session.openedByName ||
+                    'Staff'}
                 </span>
               </div>
               <div className="cashier-order-row">
@@ -333,7 +348,10 @@ export function HandoverSessionModal({
             </div>
 
             <div className="cashier-form-group">
-              <label htmlFor="incoming-custodian-select" className="cashier-label">
+              <label
+                htmlFor="incoming-custodian-select"
+                className="cashier-label"
+              >
                 Incoming Custodian <span className="req">*</span>
               </label>
               <select
@@ -437,6 +455,9 @@ export function CloseSessionModal({
   );
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    crypto.randomUUID(),
+  );
 
   if (!isOpen || !session) return null;
 
@@ -459,15 +480,17 @@ export function CloseSessionModal({
         sessionId: session.id,
         countedCash: counted,
         closingNote: closingNote.trim() || null,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
       });
 
       await onSuccess();
+      setIdempotencyKey(crypto.randomUUID());
       onClose();
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'Failed to close cash session.';
       setErrorMessage(msg);
+      // NOTE: idempotencyKey is preserved on submission failure so retry will resubmit with same key
     } finally {
       setIsSubmitting(false);
     }
@@ -628,6 +651,9 @@ export function CashAdjustmentModal({
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    crypto.randomUUID(),
+  );
 
   if (!isOpen || !session) return null;
 
@@ -657,15 +683,17 @@ export function CashAdjustmentModal({
         amount: adjAmount,
         adjustmentReason: reason.trim(),
         notes: notes.trim() || null,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
       });
 
       await onSuccess();
+      setIdempotencyKey(crypto.randomUUID());
       onClose();
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'Failed to record cash movement.';
       setErrorMessage(msg);
+      // NOTE: idempotencyKey is preserved on submission failure so retry will resubmit with same key
     } finally {
       setIsSubmitting(false);
     }

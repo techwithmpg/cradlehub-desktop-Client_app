@@ -93,7 +93,9 @@ export function CashierHistoryTab({ historyData }: CashierHistoryTabProps) {
               <History size={20} />
             </div>
             <div>
-              <h3 className="cashier-card-title">Session & Day Close History</h3>
+              <h3 className="cashier-card-title">
+                Session & Day Close History
+              </h3>
               <p className="cashier-card-subtitle">
                 Authoritative historical cash drawer and reconciliation logs.
               </p>

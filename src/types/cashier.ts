@@ -1,9 +1,5 @@
 export type CashierTab =
-  | 'today'
-  | 'ledger'
-  | 'drawers'
-  | 'day-close'
-  | 'history';
+  'today' | 'ledger' | 'drawers' | 'day-close' | 'history';
 
 export interface CashierOverviewKpis {
   totalCollected: number;

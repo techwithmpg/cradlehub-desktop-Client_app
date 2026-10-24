@@ -234,7 +234,10 @@ export function CashierTodayTab({
               <tbody>
                 {paginatedQueue.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-10 text-slate-400">
+                    <td
+                      colSpan={8}
+                      className="text-center py-10 text-slate-400"
+                    >
                       No bookings with outstanding payment in queue.
                     </td>
                   </tr>
@@ -317,8 +320,11 @@ export function CashierTodayTab({
 
           <div className="cashier-pagination">
             <span>
-              Showing {filteredQueue.length === 0 ? 0 : (queuePage - 1) * queuePageSize + 1}–
-              {Math.min(queuePage * queuePageSize, filteredQueue.length)} of{' '}
+              Showing{' '}
+              {filteredQueue.length === 0
+                ? 0
+                : (queuePage - 1) * queuePageSize + 1}
+              –{Math.min(queuePage * queuePageSize, filteredQueue.length)} of{' '}
               {filteredQueue.length} pending payments
             </span>
             <div className="cashier-page-controls">
@@ -472,9 +478,11 @@ export function CashierTodayTab({
 
             <div className="cashier-pagination py-2 px-3 text-xs">
               <span>
-                {paidAndClosed.length === 0 ? 0 : (closedPage - 1) * closedPageSize + 1}–
-                {Math.min(closedPage * closedPageSize, paidAndClosed.length)} of{' '}
-                {paidAndClosed.length}
+                {paidAndClosed.length === 0
+                  ? 0
+                  : (closedPage - 1) * closedPageSize + 1}
+                –{Math.min(closedPage * closedPageSize, paidAndClosed.length)}{' '}
+                of {paidAndClosed.length}
               </span>
               <div className="cashier-page-controls">
                 <button

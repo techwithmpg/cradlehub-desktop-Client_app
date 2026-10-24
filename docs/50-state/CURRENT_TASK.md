@@ -13,7 +13,6 @@ Stage 18 — CRM Cashier Workspace: **COMPLETE ON STAGE BRANCH / STOPPED FOR IND
   - Neither branch is merged into `main` or claimed as accepted.
 - **Current Phase**: Pass G Complete — Evidence documented, all test suites passing, stopped for independent review. Not merged to `main`.
 
-
 ## Historical Stage 05 task and closeout record
 
 Stage 05 — Canonical Module Body / Workspace Extraction: **ACCEPTED / MERGED / CLOSED** on `main`.

@@ -43,7 +43,9 @@ export function CashDrawerTab({
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                isOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                isOpen
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-slate-100 text-slate-500'
               }`}
             >
               {isOpen ? <Unlock size={22} /> : <Lock size={22} />}
@@ -137,7 +139,11 @@ export function CashDrawerTab({
                   'Front Desk Staff'}
               </div>
               <span className="text-xs text-slate-500 mt-0.5 block flex items-center gap-1">
-                <Clock size={11} /> {new Date(activeSession.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <Clock size={11} />{' '}
+                {new Date(activeSession.openedAt).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </span>
             </div>
 
@@ -175,9 +181,9 @@ export function CashDrawerTab({
               Physical Cash vs. Digital Inflows Isolation:
             </span>{' '}
             Only cash payments and cash drawer adjustments alter physical drawer
-            currency. GCash, Maya, card terminals, and bank transfers are credited
-            directly to their respective institutional accounts and never inflate
-            physical cash counts.
+            currency. GCash, Maya, card terminals, and bank transfers are
+            credited directly to their respective institutional accounts and
+            never inflate physical cash counts.
           </div>
         </div>
       </div>

@@ -43,6 +43,9 @@ export function RecordExpenseModal({
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    crypto.randomUUID(),
+  );
 
   // Filter accounts compatible with selected payment method
   const compatibleAccounts = useMemo(() => {
@@ -98,7 +101,6 @@ export function RecordExpenseModal({
 
     setIsSubmitting(true);
     try {
-      const idempotencyKey = crypto.randomUUID();
       await postRecordExpense({
         categoryId: activeCategoryId,
         financialAccountId: effectiveAccountId,
@@ -111,11 +113,13 @@ export function RecordExpenseModal({
       });
 
       await onSuccess();
+      setIdempotencyKey(crypto.randomUUID());
       onClose();
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'Failed to record expense.';
       setErrorMessage(msg);
+      // NOTE: idempotencyKey is preserved on submission failure so retry will resubmit with same key
     } finally {
       setIsSubmitting(false);
     }
@@ -223,7 +227,10 @@ export function RecordExpenseModal({
             {/* Payment Method & Account Row */}
             <div className="cashier-form-row">
               <div className="cashier-form-group">
-                <label htmlFor="expense-method-select" className="cashier-label">
+                <label
+                  htmlFor="expense-method-select"
+                  className="cashier-label"
+                >
                   Payment Method <span className="req">*</span>
                 </label>
                 <select
@@ -242,7 +249,10 @@ export function RecordExpenseModal({
               </div>
 
               <div className="cashier-form-group">
-                <label htmlFor="expense-account-select" className="cashier-label">
+                <label
+                  htmlFor="expense-account-select"
+                  className="cashier-label"
+                >
                   Account <span className="req">*</span>
                 </label>
                 <select

@@ -9,7 +9,10 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
-import type { PayableOrderOption, MaskedAccountOption } from '../../../types/cashier';
+import type {
+  PayableOrderOption,
+  MaskedAccountOption,
+} from '../../../types/cashier';
 import { postRecordPayment } from '../../../lib/cashier-service';
 
 interface RecordPaymentModalProps {
@@ -36,6 +39,19 @@ export function RecordPaymentModal({
   const [printReceipt, setPrintReceipt] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    crypto.randomUUID(),
+  );
+
+  const [prevOrderId, setPrevOrderId] = useState<string | null>(
+    order?.id ?? null,
+  );
+  if (order && order.id !== prevOrderId) {
+    setPrevOrderId(order.id);
+    setIdempotencyKey(crypto.randomUUID());
+    setErrorMessage(null);
+    setAmountReceived(String(order.remainingBalance));
+  }
 
   // Filter accounts compatible with selected payment method
   const compatibleAccounts = useMemo(() => {
@@ -83,6 +99,13 @@ export function RecordPaymentModal({
       return;
     }
 
+    if (amount > order.remainingBalance) {
+      setErrorMessage(
+        `Amount received (₱${amount.toLocaleString()}) cannot exceed the remaining balance of ₱${order.remainingBalance.toLocaleString()}.`,
+      );
+      return;
+    }
+
     if (!effectiveAccountId) {
       setErrorMessage(
         'Please select an eligible financial account for this payment method.',
@@ -92,7 +115,6 @@ export function RecordPaymentModal({
 
     setIsSubmitting(true);
     try {
-      const idempotencyKey = crypto.randomUUID();
       await postRecordPayment({
         orderId: order.id,
         idempotencyKey,
@@ -107,11 +129,13 @@ export function RecordPaymentModal({
       });
 
       await onSuccess();
+      setIdempotencyKey(crypto.randomUUID());
       onClose();
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'Failed to record payment.';
       setErrorMessage(msg);
+      // NOTE: idempotencyKey is preserved on submission failure so retry will resubmit with same key
     } finally {
       setIsSubmitting(false);
     }
@@ -245,7 +269,10 @@ export function RecordPaymentModal({
             {/* Payment Method & Account Row */}
             <div className="cashier-form-row">
               <div className="cashier-form-group">
-                <label htmlFor="payment-method-select" className="cashier-label">
+                <label
+                  htmlFor="payment-method-select"
+                  className="cashier-label"
+                >
                   Payment Method <span className="req">*</span>
                 </label>
                 <select
@@ -333,6 +360,16 @@ export function RecordPaymentModal({
                   </button>
                 </div>
               </div>
+              {parseFloat(amountReceived) > 0 &&
+                parseFloat(amountReceived) < order.remainingBalance && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+                    Partial payment: ₱
+                    {(
+                      order.remainingBalance - parseFloat(amountReceived)
+                    ).toLocaleString()}{' '}
+                    will remain in the pending payment queue.
+                  </div>
+                )}
             </div>
 
             {/* Notes */}
