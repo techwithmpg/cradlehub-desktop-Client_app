@@ -127,18 +127,19 @@ Branch `stage/17-desktop-location-endpoints` at SHA `272339a5d49e39b86160c541bb6
 
 - `src/types/bookings.ts`: Added `LocationPrediction`, `ResolvedLocation`, `DistanceQuote`, `HomeServiceLocationStatus` types; added location and quote fields to `CreateBookingInput`.
 - `src/lib/bookings-service.ts`: Updated `createBranchBooking` payload mapping (`type: 'walkin'` for in-spa advance bookings, `type: 'home_service'` for home service, canonical `crmBookingMode`); added `generateLocationSessionToken`, `fetchLocationAutocomplete`, `resolveLocationPlace`, and `fetchDistanceQuote`.
-- `src/components/bookings/NewBookingModal.tsx`: Unified Phone / Future into single card; removed nested sub-buttons; integrated debounced Google Places autocomplete, place resolution, distance quoting, immediate invalidation, and conditional Save enablement.
+- `src/components/bookings/NewBookingModal.tsx`: Unified Phone / Future into single card; removed nested sub-buttons; integrated debounced Google Places autocomplete, place resolution, distance quoting, immediate invalidation on any address edit, version-guarded async response handling to prevent stale overwrites, and conditional Save enablement.
 - `src/styles.css`: Added styles for suggestions dropdown, verified location metrics card, distance quote line, and keyboard focus states.
 - `tests/bookings-service.test.ts`: Added unit tests for session token generation, autocomplete, place resolution, distance quote, and payload construction.
 - `tests/booking-preview.test.tsx`: Updated mode tab tests for unified Phone / Future mode; added legacy initial mode normalization test; updated Home Service tests.
-- `tests/booking-modal-layout-corrections.test.tsx`: Added tests verifying exactly 3 visible mode tabs, no nested buttons, unified Phone / Future selection, legacy mode normalization, Home Service autocomplete, suggestion selection, distance quote, and invalidation on edit.
+- `tests/booking-modal-layout-corrections.test.tsx`: Added tests verifying exactly 3 visible mode tabs, no nested buttons, unified Phone / Future selection, legacy mode normalization, Home Service autocomplete, suggestion selection, distance quote, invalidation on edit, and rejection of stale in-flight responses.
 - `tests/bookings-components.test.tsx`: Updated mode tab assertion from separate Phone/Future to unified Phone / Future.
 
 ### Hosted Repository (`E:\cradlehub`)
 
-- `src/app/api/desktop/v1/locations/autocomplete/route.ts` & test (4 tests)
-- `src/app/api/desktop/v1/locations/resolve/route.ts` & test (3 tests)
-- `src/app/api/desktop/v1/locations/distance-quote/route.ts` & test (3 tests)
+- `src/app/api/desktop/v1/locations/autocomplete/route.ts` & test (7 tests, including branch auth, query sanitization, and 429 rate limit)
+- `src/app/api/desktop/v1/locations/resolve/route.ts` & test (4 tests, including branch auth, coordinate range validation, and 504 timeout)
+- `src/app/api/desktop/v1/locations/distance-quote/route.ts` & test (3 tests, including staff branch isolation and quote calculations)
+- `src/lib/locations/location-security.ts`: Rate limiting (60 req/min), query sanitization, branch authorization, and Google API timeout control.
 
 ---
 
@@ -151,15 +152,15 @@ Branch `stage/17-desktop-location-endpoints` at SHA `272339a5d49e39b86160c541bb6
 | `npm run typecheck`    | PASSED | `tsc --noEmit` exited 0 with zero errors                     |
 | `npm run lint`         | PASSED | `eslint . --max-warnings 0` exited 0 with zero warnings      |
 | `npm run format:check` | PASSED | Prettier checked all files; 100% formatted                   |
-| `npm test`             | PASSED | **762 passed across 34 test files (100% passing)**           |
-| `npm run build`        | PASSED | `tsc --noEmit && vite build` built production client in 6.1s |
+| `npm test`             | PASSED | **763 passed across 34 test files (100% passing)**           |
+| `npm run build`        | PASSED | `tsc --noEmit && vite build` built production client cleanly |
 | `git diff --check`     | PASSED | 0 whitespace or conflict marker issues                       |
 
 ### Hosted Checks (`E:\cradlehub`)
 
 | Command / Check                 | Result | Details                                                 |
 | ------------------------------- | ------ | ------------------------------------------------------- |
-| `pnpm test .../locations`       | PASSED | 10 passed across 3 test files (100% passing)            |
+| `pnpm test .../locations`       | PASSED | **14 passed across 3 test files (100% passing)**        |
 | `pnpm tsc --noEmit`             | PASSED | Zero TypeScript errors in hosted location routes        |
 | `pnpm eslint .../locations/...` | PASSED | Zero ESLint warnings / errors in hosted location routes |
 

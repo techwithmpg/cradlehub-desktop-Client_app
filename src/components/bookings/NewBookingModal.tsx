@@ -203,13 +203,14 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     locationQueryVersionRef.current += 1;
     const currentVersion = locationQueryVersionRef.current;
 
-    // Immediately invalidate previously verified location and quote
+    // Immediately and unconditionally invalidate verified location and distance quote on any address change
     setResolvedLocation(null);
     setDistanceQuote(null);
     setActiveSuggestionIndex(-1);
 
     if (locationDebounceRef.current) {
       window.clearTimeout(locationDebounceRef.current);
+      locationDebounceRef.current = null;
     }
 
     if (!val.trim()) {
@@ -282,8 +283,11 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
 
   const handleSelectLocation = async (prediction: LocationPrediction) => {
     locationQueryVersionRef.current += 1;
+    const selectVersion = locationQueryVersionRef.current;
+
     if (locationDebounceRef.current) {
       window.clearTimeout(locationDebounceRef.current);
+      locationDebounceRef.current = null;
     }
     setLocationPredictions([]);
     setActiveSuggestionIndex(-1);
@@ -300,6 +304,9 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
         prediction.placeId,
         tokenUsed,
       );
+
+      if (selectVersion !== locationQueryVersionRef.current) return;
+
       if (!resolveRes.ok || !resolveRes.location) {
         setLocationStatus(
           resolveRes.code === 'API_CONFIG_REQUIRED'
@@ -321,6 +328,8 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
         lng: resolveRes.location.lng,
       });
 
+      if (selectVersion !== locationQueryVersionRef.current) return;
+
       if (!quoteRes.ok || !quoteRes.quote) {
         setLocationStatus(
           quoteRes.code === 'API_CONFIG_REQUIRED'
@@ -337,6 +346,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
       setDistanceQuote(quoteRes.quote);
       setLocationStatus('quote_available');
     } catch {
+      if (selectVersion !== locationQueryVersionRef.current) return;
       setLocationStatus('failed');
       setLocationError(
         'Network error while verifying location. Please try again.',
@@ -348,6 +358,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     locationQueryVersionRef.current += 1;
     if (locationDebounceRef.current) {
       window.clearTimeout(locationDebounceRef.current);
+      locationDebounceRef.current = null;
     }
     setHomeServiceAddress('');
     setResolvedLocation(null);
@@ -649,6 +660,20 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     (guest) => guest.name.trim().length >= 2 && guest.serviceIds.length > 0,
   );
 
+  const isHomeServiceLocationVerified = useMemo(() => {
+    return (
+      resolvedLocation !== null &&
+      Boolean(resolvedLocation.placeId?.trim()) &&
+      typeof resolvedLocation.lat === 'number' &&
+      Number.isFinite(resolvedLocation.lat) &&
+      typeof resolvedLocation.lng === 'number' &&
+      Number.isFinite(resolvedLocation.lng) &&
+      distanceQuote !== null &&
+      locationStatus === 'quote_available' &&
+      homeServiceAddress.trim() === resolvedLocation.formattedAddress.trim()
+    );
+  }, [resolvedLocation, distanceQuote, locationStatus, homeServiceAddress]);
+
   const filteredServicesForGuest1 = useMemo(() => {
     return visibleServices.filter((service) => {
       const matchCat =
@@ -718,14 +743,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
     if (e) e.preventDefault();
 
     const isHomeServiceValid =
-      mode !== 'home_service' ||
-      (resolvedLocation !== null &&
-        Boolean(resolvedLocation.placeId?.trim()) &&
-        typeof resolvedLocation.lat === 'number' &&
-        Number.isFinite(resolvedLocation.lat) &&
-        typeof resolvedLocation.lng === 'number' &&
-        Number.isFinite(resolvedLocation.lng) &&
-        distanceQuote !== null);
+      mode !== 'home_service' || isHomeServiceLocationVerified;
 
     if (
       submittingRef.current ||
@@ -2280,23 +2298,22 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
             </div>
 
             {/* Pinned Action Buttons: Always visible without scrolling */}
-            {mode === 'home_service' &&
-              (!resolvedLocation || !distanceQuote) && (
-                <div
-                  className="home-service-save-blocked-notice"
-                  data-testid="hs-save-blocked-notice"
-                  role="status"
-                >
-                  <AlertCircle size={14} aria-hidden="true" />
-                  <span>
-                    Home Service save is unavailable: Authoritative server
-                    location verification, place ID, coordinates, and
-                    transportation fee quotation are required by the hosted
-                    booking schema but not yet connected to the Desktop Client
-                    API.
-                  </span>
-                </div>
-              )}
+            {mode === 'home_service' && !isHomeServiceLocationVerified && (
+              <div
+                className="home-service-save-blocked-notice"
+                data-testid="hs-save-blocked-notice"
+                role="status"
+              >
+                <AlertCircle size={14} aria-hidden="true" />
+                <span>
+                  Home Service save is unavailable: Authoritative server
+                  location verification, place ID, coordinates, and
+                  transportation fee quotation are required by the hosted
+                  booking schema but not yet connected to the Desktop Client
+                  API.
+                </span>
+              </div>
+            )}
 
             <div className="summary-footer-actions">
               <button
@@ -2312,8 +2329,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                 className="new-booking-submit-btn"
                 aria-label="Create Booking"
                 title={
-                  mode === 'home_service' &&
-                  (!resolvedLocation || !distanceQuote)
+                  mode === 'home_service' && !isHomeServiceLocationVerified
                     ? 'Home Service save is unavailable: Authoritative server location verification, place ID, coordinates, and transportation fee quotation are required by the hosted booking schema but not yet connected to the Desktop Client API.'
                     : undefined
                 }
@@ -2326,14 +2342,7 @@ const BookingPreview: React.FC<NewBookingModalProps> = ({
                   fullName.trim().length < 2 ||
                   phone.trim().length < 7 ||
                   (showFinancialFields && paymentReceived && !paymentMethod) ||
-                  (mode === 'home_service' &&
-                    (!resolvedLocation ||
-                      !resolvedLocation.placeId?.trim() ||
-                      typeof resolvedLocation.lat !== 'number' ||
-                      !Number.isFinite(resolvedLocation.lat) ||
-                      typeof resolvedLocation.lng !== 'number' ||
-                      !Number.isFinite(resolvedLocation.lng) ||
-                      !distanceQuote))
+                  (mode === 'home_service' && !isHomeServiceLocationVerified)
                 }
                 onClick={handleSubmit}
               >

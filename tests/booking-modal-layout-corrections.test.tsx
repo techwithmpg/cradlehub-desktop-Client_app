@@ -12,6 +12,7 @@ import * as service from '../src/lib/bookings-service';
 import type {
   BookingCustomer,
   DistanceQuote,
+  ResolvedLocation,
   QuickBookingOptionResource,
   QuickBookingOptionService,
   QuickBookingOptionStaff,
@@ -766,6 +767,84 @@ describe('Booking Modal Layout & Workflow Corrections (Approved Reference Parity
     // Typing in address input immediately invalidates verified location and quote
     fireEvent.change(addressInput, { target: { value: 'Salcedo modified' } });
     expect(screen.queryByText('Verified precise location.')).toBeNull();
+    expect(saveBtn.disabled).toBe(true);
+    expect(screen.getByTestId('hs-save-blocked-notice')).toBeDefined();
+  });
+
+  it('ignores stale asynchronous location resolution when user typed or modified address in flight', async () => {
+    type ResolveResult =
+      | { ok: true; location: ResolvedLocation }
+      | { ok: false; error: string; code?: string };
+    let resolvePromiseCallback: ((val: ResolveResult) => void) | null = null;
+    const delayedResolvePromise = new Promise<ResolveResult>((resolve) => {
+      resolvePromiseCallback = resolve;
+    });
+
+    vi.spyOn(service, 'fetchLocationAutocomplete').mockResolvedValue({
+      ok: true,
+      predictions: [
+        {
+          placeId: 'ChIJ_stale_1',
+          description: 'Old Slow Location, Taguig',
+          mainText: 'Old Slow Location',
+          secondaryText: 'Taguig',
+        },
+      ],
+    });
+    vi.spyOn(service, 'resolveLocationPlace').mockImplementation(
+      () => delayedResolvePromise,
+    );
+
+    const { container } = mountModal();
+    await screen.findByText('Swedish Massage');
+
+    fireEvent.click(screen.getByRole('tab', { name: /Home Service/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Facial Treatment/i }));
+
+    const nameInput = screen.getByTestId(
+      'customer-search-input',
+    ) as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Home Client' } });
+    const phoneInput = container.querySelector(
+      '#customer-phone',
+    ) as HTMLInputElement;
+    fireEvent.change(phoneInput, { target: { value: '09170001122' } });
+
+    const addressInput = screen.getByTestId(
+      'hs-address-input',
+    ) as HTMLInputElement;
+    fireEvent.change(addressInput, { target: { value: 'Old Slow' } });
+
+    const suggestionBtn = await screen.findByTestId(
+      'hs-suggestion-ChIJ_stale_1',
+    );
+    // Click suggestion - begins async resolve in flight
+    fireEvent.click(suggestionBtn);
+
+    // User changes address while resolve is still in flight
+    fireEvent.change(addressInput, { target: { value: 'New Quick Address' } });
+
+    // Now slow resolve resolves
+    resolvePromiseCallback!({
+      ok: true,
+      location: {
+        placeId: 'ChIJ_stale_1',
+        formattedAddress: 'Old Slow Location, Taguig',
+        lat: 14.53,
+        lng: 121.05,
+      },
+    });
+
+    // Wait a tick for promise resolution
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Stale resolved location must NOT be displayed or applied
+    expect(screen.queryByText('Verified precise location.')).toBeNull();
+    expect(addressInput.value).toBe('New Quick Address');
+
+    const saveBtn = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
     expect(saveBtn.disabled).toBe(true);
     expect(screen.getByTestId('hs-save-blocked-notice')).toBeDefined();
   });
