@@ -61,13 +61,16 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
-function mount() {
+function mount(
+  overrides?: Partial<React.ComponentProps<typeof NewBookingModal>>,
+) {
   const props = {
     isOpen: true,
     onClose: vi.fn(),
     onBookingCreated: vi.fn(),
     branchId: 'branch-1',
     branchName: 'Branch One',
+    ...overrides,
   };
   const view = render(<NewBookingModal {...props} />);
   return {
@@ -79,12 +82,16 @@ function mount() {
     },
   };
 }
-const input = (id: string) => document.getElementById(id) as HTMLInputElement;
+const input = (id: string) =>
+  (document.getElementById(id) ??
+    (id === 'customer-search-input'
+      ? document.getElementById('customer-fullname')
+      : null)) as HTMLInputElement;
 const change = (id: string, value: string) =>
   fireEvent.change(input(id), { target: { value } });
 const close = () => fireEvent.click(screen.getByLabelText('Close modal'));
 const mode = (label: string) =>
-  fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${label}`) }));
+  fireEvent.click(screen.getByRole('tab', { name: new RegExp(label, 'i') }));
 const ready = () => screen.findByRole('button', { name: /Spa only/ });
 beforeEach(() => {
   vi.spyOn(service, 'fetchBranchBookingOptions').mockResolvedValue(options);
@@ -97,7 +104,7 @@ afterEach(() => {
 });
 
 describe('booking preview selection and availability', () => {
-  it.each(['Walk-in', 'Phone', 'Future'])(
+  it.each(['Walk-in', 'Phone / Future'])(
     '%s offers only in-spa services',
     async (label) => {
       mount();
@@ -107,15 +114,31 @@ describe('booking preview selection and availability', () => {
       expect(screen.getByRole('button', { name: /Both modes/ })).toBeDefined();
     },
   );
-  it('disables Home Service mode tab with accessible state and explanatory title', async () => {
+  it('makes Home Service mode tab selectable, renders editable address and blocks save when unverified', async () => {
     mount();
     await ready();
     const homeTab = screen.getByRole('tab', { name: /^Home Service/ });
-    expect(homeTab.getAttribute('aria-disabled')).toBe('true');
-    expect(homeTab.hasAttribute('disabled')).toBe(true);
-    expect(homeTab.getAttribute('title')).toContain(
-      'Home Service booking will be enabled after precise address/location support is connected.',
-    );
+    expect(homeTab.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(homeTab);
+    expect(homeTab.getAttribute('aria-selected')).toBe('true');
+
+    // Home Service Address field is visible and editable
+    const addressInput = screen.getByTestId(
+      'hs-address-input',
+    ) as HTMLInputElement;
+    expect(addressInput.disabled).toBe(false);
+    fireEvent.change(addressInput, { target: { value: 'Unit 12A, Makati' } });
+    expect(addressInput.value).toBe('Unit 12A, Makati');
+
+    // Spa room is replaced with Home Service no-room indicator
+    expect(screen.getByTestId('hs-no-room')).toBeDefined();
+
+    // Save button is disabled for unverified Home Service
+    const saveButton = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(true);
+    expect(screen.getByTestId('hs-save-blocked-notice')).toBeDefined();
   });
   it('requires explicit capability for every selected service and clears an invalid provider', async () => {
     mount();
@@ -134,8 +157,7 @@ describe('booking preview selection and availability', () => {
   });
   it.each([
     { label: 'Walk-in', modeVal: 'walkin' },
-    { label: 'Phone', modeVal: 'phone' },
-    { label: 'Future', modeVal: 'standard_future' },
+    { label: 'Phone / Future', modeVal: 'phone' },
   ])(
     'submits creation in $label mode when valid',
     async ({ label, modeVal }) => {
@@ -172,6 +194,41 @@ describe('booking preview selection and availability', () => {
       });
     },
   );
+
+  it('normalizes legacy standard_future initialMode to Phone / Future state and submits mode phone', async () => {
+    const create = vi
+      .spyOn(service, 'createBranchBooking')
+      .mockResolvedValue({ ok: true, bookingId: 'b-new-legacy' });
+    mount({ initialMode: 'standard_future' });
+    await ready();
+    const phoneFutureTab = screen.getByRole('tab', {
+      name: /Phone \/ Future/i,
+    });
+    expect(phoneFutureTab.getAttribute('aria-selected')).toBe('true');
+    expect(
+      screen.getByRole('heading', { name: /New Booking – Phone \/ Future/ }),
+    ).toBeDefined();
+    expect(screen.getByText('Phone / Future booking')).toBeDefined();
+
+    change('customer-fullname', 'Legacy Client');
+    change('customer-phone', '09111111111');
+    const button = screen.getByRole('button', {
+      name: 'Create Booking',
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          branchId: 'branch-1',
+          fullName: 'Legacy Client',
+          phone: '09111111111',
+          mode: 'phone',
+        }),
+      );
+    });
+  });
 
   it('handles payment confirmation and requires explicit payment method selection', async () => {
     const create = vi
@@ -245,6 +302,153 @@ describe('booking preview selection and availability', () => {
       expect(view.props.onBookingCreated).not.toHaveBeenCalled();
       expect(view.props.onClose).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('multi-guest booking draft', () => {
+  it('keeps guest services separate, supports copy and clear, and caps the group at four', async () => {
+    const view = mount();
+    await ready();
+    change('customer-fullname', 'Main Customer');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Guest' }));
+    let cards = view.container.querySelectorAll('.booking-guest-card');
+    const second = cards[1] as HTMLElement;
+    fireEvent.change(within(second).getByPlaceholderText('Enter guest name'), {
+      target: { value: 'Second Guest' },
+    });
+    expect(screen.getByText('Guests & Services (2)')).toBeDefined();
+    fireEvent.click(within(second).getByRole('button', { name: /Both modes/ }));
+    expect(
+      within(second)
+        .getByRole('button', { name: /Both modes/ })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(
+      within(cards[0] as HTMLElement)
+        .getByRole('button', { name: /Both modes/ })
+        .getAttribute('aria-pressed'),
+    ).toBe('false');
+    fireEvent.click(
+      within(second).getByRole('button', { name: /Copy from Guest 1/ }),
+    );
+    expect(
+      within(second)
+        .getByRole('button', { name: /Spa only/ })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Copy to Guest' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Guest' }));
+    cards = view.container.querySelectorAll('.booking-guest-card');
+    expect(cards).toHaveLength(4);
+    expect(
+      (screen.getByRole('button', { name: 'Add Guest' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear All' }));
+    expect(
+      Array.from(
+        view.container.querySelectorAll(
+          '.service-option-card[aria-pressed="true"]',
+        ),
+      ),
+    ).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Guest 4' }));
+    expect(view.container.querySelectorAll('.booking-guest-card')).toHaveLength(
+      3,
+    );
+  });
+
+  it('sends one canonical group request with organizer identity and reuses the key after an uncertain response', async () => {
+    const create = vi
+      .spyOn(service, 'createBranchBooking')
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 'NETWORK_ERROR',
+        error: 'Booking creation requires a connection.',
+      })
+      .mockResolvedValueOnce({ ok: true, bookingId: 'group-line-1' });
+    const view = mount();
+    await ready();
+    change('customer-fullname', 'Main Customer');
+    change('customer-phone', '09171234567');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Guest' }));
+    const second = view.container.querySelectorAll(
+      '.booking-guest-card',
+    )[1] as HTMLElement;
+    fireEvent.change(within(second).getByPlaceholderText('Enter guest name'), {
+      target: { value: 'Second Guest' },
+    });
+    fireEvent.click(within(second).getByRole('button', { name: /Both modes/ }));
+    const save = screen.getByRole('button', { name: 'Create Booking' });
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(screen.getByTestId('booking-submit-error').textContent).toContain(
+        'may have reached the server',
+      ),
+    );
+    expect(create).toHaveBeenCalledTimes(1);
+    const first = create.mock.calls[0][0];
+    expect(first.bookingFor).toBe('me_and_others');
+    expect(first.serviceIds).toEqual(['spa', 'both']);
+    expect(first.attendees).toEqual([
+      expect.objectContaining({
+        name: 'Main Customer',
+        isOrganizer: true,
+        serviceIds: ['spa'],
+      }),
+      expect.objectContaining({
+        name: 'Second Guest',
+        isOrganizer: false,
+        serviceIds: ['both'],
+      }),
+    ]);
+    expect(first.attendees?.[0].id).not.toBe(first.attendees?.[1].id);
+    expect(first.idempotencyKey).toMatch(/[0-9a-f-]{36}/);
+    expect(first.staffId).toBeUndefined();
+    expect(first.resourceId).toBeUndefined();
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(view.props.onBookingCreated).toHaveBeenCalledWith({
+        bookingId: 'group-line-1',
+        warning: undefined,
+      }),
+    );
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[1][0].idempotencyKey).toBe(first.idempotencyKey);
+    expect(view.props.onClose).toHaveBeenCalledOnce();
+  });
+
+  it('blocks an incomplete guest without submitting', async () => {
+    const create = vi.spyOn(service, 'createBranchBooking');
+    mount();
+    await ready();
+    change('customer-fullname', 'Main Customer');
+    change('customer-phone', '09171234567');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Guest' }));
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Create Booking',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('routes Escape through unsaved confirmation and restores the opener focus', async () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const view = mount();
+    await ready();
+    change('customer-fullname', 'Main Customer');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByText('Discard unfinished booking?')).toBeDefined();
+    expect(view.props.onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    view.rerender(<NewBookingModal {...view.props} isOpen={false} />);
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
   });
 });
 

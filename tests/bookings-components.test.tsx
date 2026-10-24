@@ -475,7 +475,7 @@ describe('Stage 02 Bookings UI Components', () => {
 
       expect(screen.getByTestId('new-booking-modal')).toBeDefined();
       expect(
-        screen.getByRole('heading', { name: 'New Booking' }),
+        screen.getByRole('heading', { name: 'New Booking – Walk-in' }),
       ).toBeDefined();
       expect(screen.getByText('Walk-in')).toBeDefined();
       expect(screen.getByText('Home Service')).toBeDefined();
@@ -526,11 +526,10 @@ describe('Stage 02 Bookings UI Components', () => {
 
       // Verify modal header & mode tabs
       expect(
-        screen.getByText('Create a new booking for this branch.'),
+        screen.getByText('Cradle Wellness Living • Makati Branch'),
       ).toBeDefined();
       expect(screen.getByText('Walk-in')).toBeDefined();
-      expect(screen.getByText('Phone')).toBeDefined();
-      expect(screen.getByText('Future')).toBeDefined();
+      expect(screen.getByText('Phone / Future')).toBeDefined();
       expect(screen.getByText('Home Service')).toBeDefined();
 
       // Enter customer info to make form dirty

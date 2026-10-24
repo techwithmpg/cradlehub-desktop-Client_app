@@ -2,10 +2,11 @@
 
 ## Current development state (2026-10-23)
 
-- Desktop `main` contains the published UI modernization at `5c7173ecc479d2b9e655d7ea83340948e404437e`. Independent review returned **CHANGES REQUIRED**; owner visual acceptance is pending.
-- The correction branch `fix/ui-modernization-review` was published to GitHub at the previously reviewed checkpoint `703586f89b2d37f5fb83c90bb152c9952a5eecf0`. The latest independent review returned **CHANGES REQUIRED**. Final focused corrections are active on the same branch; it remains unmerged into `main` and unaccepted.
+- Desktop `main` and `origin/main` were verified at `1faa7493de961de3b314b8c1b28409ecdabf91ba` before Stage 17. The owner confirmed visual acceptance of the redesigned booking modal layout and requested functional mode activation and unification (Phone / Future unified advance mode, Home Service with real Google Places address autocomplete, precise location verification, and authoritative distance quote) on `stage/17-intake-booking-modal`.
+- Stage 17 functional corrections are complete on desktop branch `stage/17-intake-booking-modal` (previous HEAD `c4f0e721a40390eacdb29104a5a13a291ec75f2c`). Exactly three visible modes are rendered (`Walk-in`, `Phone / Future`, `Home Service`). In-spa advance bookings send hosted-valid `type: 'walkin'` and canonical `crmBookingMode: 'phone'`. Home Service connects to real hosted Google Places endpoints (`/api/desktop/v1/locations/autocomplete`, `/api/desktop/v1/locations/resolve`, `/api/desktop/v1/locations/distance-quote`), displays verified details and distance/travel fees, and enables Save safely only when all location and quote requirements are satisfied. All 762 desktop tests pass across 34 test files.
+- Hosted location API endpoints are implemented, tested (10/10 tests passing), and pushed on branch `stage/17-desktop-location-endpoints` at SHA `272339a5d49e39b86160c541bb63d5c09841f81a` in `https://github.com/techwithmpg/Cradlehub`.
 - Stage 16 discovery on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d` was independently reviewed and owner confirmed. That branch was not merged into desktop `main`.
-- No next implementation stage has been authorized. The hosted CRM remains authoritative for business data and actions.
+- No stage after Stage 17 is authorized. The hosted CRM remains authoritative for business data and actions.
 
 ## Historical accepted-stage record
 

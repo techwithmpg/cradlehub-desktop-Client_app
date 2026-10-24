@@ -12,6 +12,10 @@ import {
   createBranchBooking,
   cancelBranchBooking,
   rescheduleBranchBooking,
+  generateLocationSessionToken,
+  fetchLocationAutocomplete,
+  resolveLocationPlace,
+  fetchDistanceQuote,
 } from '../src/lib/bookings-service';
 import type { Booking } from '../src/types/bookings';
 
@@ -820,6 +824,172 @@ describe('Bookings Service', () => {
       }
     });
 
+    it('serializes a group as one authenticated booking request with stable attendee identities', async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ ok: true, bookingId: 'first-group-line' }),
+      } as unknown as Response);
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+      const attendees = [
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          name: 'Main Customer',
+          isOrganizer: true,
+          serviceIds: ['service-a'],
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000002',
+          name: 'Second Guest',
+          isOrganizer: false,
+          serviceIds: ['service-b'],
+        },
+      ];
+      const result = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Main Customer',
+          phone: '09171234567',
+          serviceIds: ['service-a', 'service-b'],
+          bookingFor: 'me_and_others',
+          attendees,
+          idempotencyKey: '00000000-0000-4000-8000-000000000003',
+          date: '2026-10-23',
+          startTime: '11:00',
+          mode: 'walkin',
+          paymentReceived: false,
+        },
+        client,
+        customFetch,
+      );
+      expect(result).toEqual({
+        ok: true,
+        bookingId: 'first-group-line',
+        warning: undefined,
+      });
+      expect(customFetch).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(customFetch.mock.calls[0][1]?.body as string);
+      expect(payload).toMatchObject({
+        bookingFor: 'me_and_others',
+        attendees,
+        serviceIds: ['service-a', 'service-b'],
+        idempotencyKey: '00000000-0000-4000-8000-000000000003',
+        paymentReceived: false,
+        type: 'walkin',
+        deliveryType: 'in_spa',
+      });
+      expect(payload.staffId).toBeUndefined();
+      expect(payload.resourceId).toBeUndefined();
+    });
+
+    it('submits a Phone booking with type: phone and crmBookingMode: phone', async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ ok: true, bookingId: 'phone-booking-1' }),
+      } as unknown as Response);
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+
+      const result = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Phone Customer',
+          phone: '09171234567',
+          serviceIds: ['service-1'],
+          date: '2026-10-25',
+          startTime: '14:30',
+          mode: 'phone',
+        },
+        client,
+        customFetch,
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.bookingId).toBe('phone-booking-1');
+      const payload = JSON.parse(customFetch.mock.calls[0][1]?.body as string);
+      expect(payload).toMatchObject({
+        type: 'walkin',
+        crmBookingMode: 'phone',
+        deliveryType: 'in_spa',
+        date: '2026-10-25',
+        startTime: '14:30',
+      });
+    });
+
+    it('submits a Future booking with type: walkin and crmBookingMode: standard_future', async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ ok: true, bookingId: 'future-booking-1' }),
+      } as unknown as Response);
+      const client = {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'test-token' } },
+          }),
+        },
+      } as unknown as SupabaseClient;
+
+      const result = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Future Customer',
+          phone: '09171234567',
+          serviceIds: ['service-1'],
+          date: '2026-11-01',
+          startTime: '10:00',
+          mode: 'standard_future',
+        },
+        client,
+        customFetch,
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.bookingId).toBe('future-booking-1');
+      const payload = JSON.parse(customFetch.mock.calls[0][1]?.body as string);
+      expect(payload).toMatchObject({
+        type: 'walkin',
+        crmBookingMode: 'standard_future',
+        deliveryType: 'in_spa',
+        date: '2026-11-01',
+        startTime: '10:00',
+      });
+    });
+
+    it('fails closed when attempting to create a Home Service booking without authoritative location support', async () => {
+      const customFetch = vi.fn();
+      const result = await createBranchBooking(
+        {
+          branchId: 'branch-1',
+          fullName: 'Home Customer',
+          phone: '09171234567',
+          serviceIds: ['service-1'],
+          date: '2026-10-25',
+          startTime: '14:30',
+          mode: 'home_service',
+          homeServiceAddress: '123 Fake Street',
+        },
+        undefined,
+        customFetch,
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.code).toBe('HOME_SERVICE_LOCATION_REQUIRED');
+      expect(customFetch).not.toHaveBeenCalled();
+    });
+
     it('fails closed with SERVER_ERROR when success response lacks a valid bookingId', async () => {
       const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
       try {
@@ -1581,5 +1751,298 @@ describe('Stage 12B reschedule contract', () => {
     expect((await rescheduleBranchBooking(input, client, fetcher)).ok).toBe(
       false,
     );
+  });
+});
+
+describe('Location & Transportation Service', () => {
+  const validBaseUrl = 'https://www.cradlewellnessliving.com';
+  const mockClient = {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { access_token: 'desktop-token-xyz' } },
+      }),
+    },
+  } as unknown as SupabaseClient;
+
+  it('generateLocationSessionToken generates a non-empty string', () => {
+    const token = generateLocationSessionToken();
+    expect(typeof token).toBe('string');
+    expect(token.length).toBeGreaterThan(8);
+  });
+
+  describe('fetchLocationAutocomplete', () => {
+    it('fails closed when hosted API URL is invalid or unconfigured', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = 'http://insecure-url.com';
+        const res = await fetchLocationAutocomplete(
+          'Ayala Ave',
+          'b-1',
+          'tok-1',
+        );
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('API_CONFIG_REQUIRED');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('fails closed when auth session is missing', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validBaseUrl;
+        const emptyClient = {
+          auth: {
+            getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+          },
+        } as unknown as SupabaseClient;
+
+        const res = await fetchLocationAutocomplete(
+          'Ayala Ave',
+          'b-1',
+          'tok-1',
+          emptyClient,
+        );
+        expect(res.ok).toBe(false);
+        expect(res.code).toBe('AUTH_SESSION_REQUIRED');
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+
+    it('calls /api/desktop/v1/locations/autocomplete with Bearer auth and returns predictions', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validBaseUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            predictions: [
+              {
+                placeId: 'place-ayala-1',
+                description: 'Ayala Avenue, Makati, Metro Manila, Philippines',
+                mainText: 'Ayala Avenue',
+                secondaryText: 'Makati, Metro Manila, Philippines',
+              },
+            ],
+          }),
+        } as unknown as Response);
+
+        const res = await fetchLocationAutocomplete(
+          'Ayala Ave',
+          'branch-1',
+          'session-123',
+          mockClient,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(true);
+        expect(res.predictions).toHaveLength(1);
+        expect(res.predictions?.[0].placeId).toBe('place-ayala-1');
+
+        expect(customFetch).toHaveBeenCalledWith(
+          'https://www.cradlewellnessliving.com/api/desktop/v1/locations/autocomplete',
+          expect.objectContaining({
+            method: 'POST',
+            headers: expect.objectContaining({
+              Authorization: 'Bearer desktop-token-xyz',
+              'Content-Type': 'application/json',
+            }),
+            body: JSON.stringify({
+              query: 'Ayala Ave',
+              branchId: 'branch-1',
+              sessionToken: 'session-123',
+            }),
+          }),
+        );
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+  });
+
+  describe('resolveLocationPlace', () => {
+    it('calls /api/desktop/v1/locations/resolve and returns place details', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validBaseUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            location: {
+              placeId: 'place-ayala-1',
+              formattedAddress: 'Ayala Ave, Makati, Metro Manila, Philippines',
+              lat: 14.5547,
+              lng: 121.0244,
+              addressComponents: [
+                {
+                  long_name: 'Makati',
+                  short_name: 'Makati',
+                  types: ['locality'],
+                },
+              ],
+              mapUrl: 'https://maps.google.com/?cid=123',
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await resolveLocationPlace(
+          'place-ayala-1',
+          'session-123',
+          mockClient,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(true);
+        expect(res.location?.placeId).toBe('place-ayala-1');
+        expect(res.location?.lat).toBe(14.5547);
+        expect(res.location?.lng).toBe(121.0244);
+
+        expect(customFetch).toHaveBeenCalledWith(
+          'https://www.cradlewellnessliving.com/api/desktop/v1/locations/resolve',
+          expect.objectContaining({
+            method: 'POST',
+            headers: expect.objectContaining({
+              Authorization: 'Bearer desktop-token-xyz',
+            }),
+            body: JSON.stringify({
+              placeId: 'place-ayala-1',
+              sessionToken: 'session-123',
+            }),
+          }),
+        );
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+  });
+
+  describe('fetchDistanceQuote', () => {
+    it('calls /api/desktop/v1/locations/distance-quote and returns calculated quote', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validBaseUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            quote: {
+              branchId: 'branch-1',
+              branchName: 'Makati Branch',
+              distanceKm: 5.2,
+              drivingDistanceKm: 5.2,
+              distanceSource: 'google_routes',
+              baseFee: 100,
+              includedKm: 3,
+              perKmFee: 25,
+              billableDistanceKm: 2.2,
+              rawFee: 155,
+              travelFee: 155,
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await fetchDistanceQuote(
+          'branch-1',
+          { lat: 14.5547, lng: 121.0244 },
+          mockClient,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(true);
+        expect(res.quote?.drivingDistanceKm).toBe(5.2);
+        expect(res.quote?.travelFee).toBe(155);
+
+        expect(customFetch).toHaveBeenCalledWith(
+          'https://www.cradlewellnessliving.com/api/desktop/v1/locations/distance-quote',
+          expect.objectContaining({
+            method: 'POST',
+            headers: expect.objectContaining({
+              Authorization: 'Bearer desktop-token-xyz',
+            }),
+            body: JSON.stringify({
+              branchId: 'branch-1',
+              destination: { lat: 14.5547, lng: 121.0244 },
+            }),
+          }),
+        );
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
+  });
+
+  describe('createBranchBooking with Home Service payload', () => {
+    it('submits a verified Home Service booking with type: home_service, deliveryType: home_service, crmBookingMode: home_service and no spa room', async () => {
+      const originalEnv = import.meta.env.VITE_CRADLEHUB_API_URL;
+      try {
+        import.meta.env.VITE_CRADLEHUB_API_URL = validBaseUrl;
+        const customFetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 201,
+          json: async () => ({ ok: true, bookingId: 'hs-booking-123' }),
+        } as unknown as Response);
+
+        const res = await createBranchBooking(
+          {
+            branchId: 'branch-1',
+            fullName: 'Home Customer',
+            phone: '09171234567',
+            serviceIds: ['service-hs-1'],
+            date: '2026-10-25',
+            startTime: '14:00',
+            mode: 'home_service',
+            staffId: 'staff-ignored',
+            resourceId: 'room-ignored',
+            homeServiceAddress: 'Ayala Ave, Makati',
+            homeServicePlaceId: 'place-ayala-1',
+            homeServiceFormattedAddress:
+              'Ayala Ave, Makati, Metro Manila, Philippines',
+            homeServiceLat: 14.5547,
+            homeServiceLng: 121.0244,
+            homeServiceAddressComponents: [
+              {
+                long_name: 'Makati',
+                short_name: 'Makati',
+                types: ['locality'],
+              },
+            ],
+            homeServiceMapUrl: 'https://maps.google.com/?cid=123',
+            homeServiceDistanceKm: 5.2,
+            homeServiceTravelFee: 155,
+          },
+          mockClient,
+          customFetch,
+        );
+
+        expect(res.ok).toBe(true);
+        expect(res.bookingId).toBe('hs-booking-123');
+
+        const payload = JSON.parse(
+          customFetch.mock.calls[0][1]?.body as string,
+        );
+        expect(payload).toMatchObject({
+          branchId: 'branch-1',
+          type: 'home_service',
+          deliveryType: 'home_service',
+          crmBookingMode: 'home_service',
+          homeServicePlaceId: 'place-ayala-1',
+          homeServiceFormattedAddress:
+            'Ayala Ave, Makati, Metro Manila, Philippines',
+          homeServiceLat: 14.5547,
+          homeServiceLng: 121.0244,
+        });
+        // Staff and room must NOT be sent for home service
+        expect(payload.staffId).toBeUndefined();
+        expect(payload.resourceId).toBeUndefined();
+      } finally {
+        import.meta.env.VITE_CRADLEHUB_API_URL = originalEnv;
+      }
+    });
   });
 });

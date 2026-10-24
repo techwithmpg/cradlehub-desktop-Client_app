@@ -17,9 +17,12 @@ import type {
   BookingStatus,
   CreateBookingInput,
   CreateBookingResult,
+  DistanceQuote,
+  LocationPrediction,
   QuickBookingOptionResource,
   QuickBookingOptionService,
   QuickBookingOptionStaff,
+  ResolvedLocation,
 } from '../types/bookings';
 
 const BOOKING_SELECT = `
@@ -576,6 +579,24 @@ async function fetchBranchBookingOptionsUnmeasured(
         name: service.name,
         durationMinutes,
         price,
+        category:
+          typeof (service as unknown as Record<string, unknown>).category ===
+          'string'
+            ? ((service as unknown as Record<string, unknown>)
+                .category as string)
+            : null,
+        description:
+          typeof (service as unknown as Record<string, unknown>).description ===
+          'string'
+            ? ((service as unknown as Record<string, unknown>)
+                .description as string)
+            : null,
+        imageUrl:
+          typeof (service as unknown as Record<string, unknown>).image_url ===
+          'string'
+            ? ((service as unknown as Record<string, unknown>)
+                .image_url as string)
+            : null,
         availableInSpa,
         availableHomeService,
         isActive: true,
@@ -793,12 +814,21 @@ export async function createBranchBooking(
   }
 
   if (input.mode === 'home_service') {
-    return {
-      ok: false,
-      code: 'HOME_SERVICE_LOCATION_REQUIRED',
-      error:
-        'Home Service booking will be enabled after precise address/location support is connected.',
-    };
+    if (
+      !input.homeServicePlaceId?.trim() ||
+      !input.homeServiceFormattedAddress?.trim() ||
+      typeof input.homeServiceLat !== 'number' ||
+      !Number.isFinite(input.homeServiceLat) ||
+      typeof input.homeServiceLng !== 'number' ||
+      !Number.isFinite(input.homeServiceLng)
+    ) {
+      return {
+        ok: false,
+        code: 'HOME_SERVICE_LOCATION_REQUIRED',
+        error:
+          'Home Service requires verified precise address/location support. Please select a valid address from the search results so distance can be calculated.',
+      };
+    }
   }
 
   const supabase = client ?? getSupabaseClient();
@@ -819,23 +849,47 @@ export async function createBranchBooking(
     ? input.paymentMethod?.trim() || undefined
     : undefined;
 
+  const crmBookingMode =
+    input.mode === 'standard_future'
+      ? 'standard_future'
+      : input.mode === 'phone'
+        ? 'phone'
+        : input.mode === 'home_service'
+          ? 'home_service'
+          : 'walkin';
+
   const payload = {
     branchId: input.branchId,
     serviceIds: input.serviceIds,
+    idempotencyKey: input.idempotencyKey,
+    bookingFor: input.bookingFor,
+    attendees: input.attendees,
     date: input.date,
     startTime: input.startTime,
-    deliveryType: 'in_spa',
-    type: 'walkin',
-    crmBookingMode: input.mode,
+    deliveryType: input.mode === 'home_service' ? 'home_service' : 'in_spa',
+    type: input.mode === 'home_service' ? 'home_service' : 'walkin',
+    crmBookingMode,
     fullName: input.fullName.trim(),
     phone: input.phone.trim(),
     email: input.email?.trim() || undefined,
-    staffId: input.staffId || undefined,
-    resourceId: input.resourceId || undefined,
+    staffId:
+      input.mode === 'home_service' ? undefined : input.staffId || undefined,
+    resourceId:
+      input.mode === 'home_service' ? undefined : input.resourceId || undefined,
     customerId: input.customerId || undefined,
     notes: input.notes?.trim() || undefined,
     paymentReceived,
     paymentMethod,
+    homeServiceAddress: input.homeServiceAddress?.trim() || undefined,
+    homeServicePlaceId: input.homeServicePlaceId?.trim() || undefined,
+    homeServiceFormattedAddress:
+      input.homeServiceFormattedAddress?.trim() || undefined,
+    homeServiceLat: input.homeServiceLat,
+    homeServiceLng: input.homeServiceLng,
+    homeServiceAddressComponents: input.homeServiceAddressComponents,
+    homeServiceMapUrl: input.homeServiceMapUrl,
+    homeServiceBarangay: input.homeServiceBarangay?.trim() || undefined,
+    homeServiceCity: input.homeServiceCity?.trim() || undefined,
   };
 
   const endpoint = `${baseUrl}/api/desktop/v1/bookings`;
@@ -910,6 +964,282 @@ export async function createBranchBooking(
     code,
     error: errorMessage,
   };
+}
+
+export function generateLocationSessionToken(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'token-' + Math.random().toString(36).substring(2, 15);
+}
+
+export interface FetchAutocompleteResult {
+  ok: boolean;
+  predictions?: LocationPrediction[];
+  code?: string;
+  error?: string;
+}
+
+export async function fetchLocationAutocomplete(
+  query: string,
+  branchId?: string,
+  sessionToken?: string,
+  client?: SupabaseClient,
+  customFetch?: typeof fetch,
+): Promise<FetchAutocompleteResult> {
+  const baseUrl = getHostedApiBaseUrl();
+  if (!baseUrl) {
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error:
+        'Location service is not configured for this desktop installation.',
+    };
+  }
+
+  const supabase = client ?? getSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      ok: false,
+      code: 'AUTH_SESSION_REQUIRED',
+      error: 'Your session has expired. Sign in again to search locations.',
+    };
+  }
+
+  const endpoint = `${baseUrl}/api/desktop/v1/locations/autocomplete`;
+  const fetchFn = customFetch ?? tauriFetch;
+
+  try {
+    const response = await fetchFn(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        query: query.trim(),
+        branchId: branchId || undefined,
+        sessionToken: sessionToken || undefined,
+      }),
+    });
+
+    let data: {
+      ok?: boolean;
+      predictions?: LocationPrediction[];
+      code?: string;
+      message?: string;
+    };
+    try {
+      data = await response.json();
+    } catch {
+      return {
+        ok: false,
+        code: 'SERVER_ERROR',
+        error: `Server responded with status ${response.status}, but the response could not be parsed.`,
+      };
+    }
+
+    if (!response.ok || !data?.ok) {
+      return {
+        ok: false,
+        code: data?.code || `HTTP_${response.status}`,
+        error: data?.message || 'Failed to search locations.',
+      };
+    }
+
+    return {
+      ok: true,
+      predictions: data.predictions || [],
+    };
+  } catch {
+    return {
+      ok: false,
+      code: 'NETWORK_ERROR',
+      error: 'Could not connect to location service. Check your connection.',
+    };
+  }
+}
+
+export interface ResolveLocationResult {
+  ok: boolean;
+  location?: ResolvedLocation;
+  code?: string;
+  error?: string;
+}
+
+export async function resolveLocationPlace(
+  placeId: string,
+  sessionToken?: string,
+  client?: SupabaseClient,
+  customFetch?: typeof fetch,
+): Promise<ResolveLocationResult> {
+  const baseUrl = getHostedApiBaseUrl();
+  if (!baseUrl) {
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error:
+        'Location service is not configured for this desktop installation.',
+    };
+  }
+
+  const supabase = client ?? getSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      ok: false,
+      code: 'AUTH_SESSION_REQUIRED',
+      error: 'Your session has expired. Sign in again to resolve location.',
+    };
+  }
+
+  const endpoint = `${baseUrl}/api/desktop/v1/locations/resolve`;
+  const fetchFn = customFetch ?? tauriFetch;
+
+  try {
+    const response = await fetchFn(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        placeId: placeId.trim(),
+        sessionToken: sessionToken || undefined,
+      }),
+    });
+
+    let data: {
+      ok?: boolean;
+      location?: ResolvedLocation;
+      code?: string;
+      message?: string;
+    };
+    try {
+      data = await response.json();
+    } catch {
+      return {
+        ok: false,
+        code: 'SERVER_ERROR',
+        error: `Server responded with status ${response.status}, but the response could not be parsed.`,
+      };
+    }
+
+    if (!response.ok || !data?.ok || !data.location) {
+      return {
+        ok: false,
+        code: data?.code || `HTTP_${response.status}`,
+        error: data?.message || 'Failed to resolve location details.',
+      };
+    }
+
+    return {
+      ok: true,
+      location: data.location,
+    };
+  } catch {
+    return {
+      ok: false,
+      code: 'NETWORK_ERROR',
+      error: 'Could not connect to location service. Check your connection.',
+    };
+  }
+}
+
+export interface FetchDistanceQuoteResult {
+  ok: boolean;
+  quote?: DistanceQuote;
+  code?: string;
+  error?: string;
+}
+
+export async function fetchDistanceQuote(
+  branchId: string,
+  destination: { lat: number; lng: number },
+  client?: SupabaseClient,
+  customFetch?: typeof fetch,
+): Promise<FetchDistanceQuoteResult> {
+  const baseUrl = getHostedApiBaseUrl();
+  if (!baseUrl) {
+    return {
+      ok: false,
+      code: 'API_CONFIG_REQUIRED',
+      error:
+        'Distance service is not configured for this desktop installation.',
+    };
+  }
+
+  const supabase = client ?? getSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      ok: false,
+      code: 'AUTH_SESSION_REQUIRED',
+      error: 'Your session has expired. Sign in again to calculate distance.',
+    };
+  }
+
+  const endpoint = `${baseUrl}/api/desktop/v1/locations/distance-quote`;
+  const fetchFn = customFetch ?? tauriFetch;
+
+  try {
+    const response = await fetchFn(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        branchId,
+        destination,
+      }),
+    });
+
+    let data: {
+      ok?: boolean;
+      quote?: DistanceQuote;
+      code?: string;
+      message?: string;
+    };
+    try {
+      data = await response.json();
+    } catch {
+      return {
+        ok: false,
+        code: 'SERVER_ERROR',
+        error: `Server responded with status ${response.status}, but the response could not be parsed.`,
+      };
+    }
+
+    if (!response.ok || !data?.ok || !data.quote) {
+      return {
+        ok: false,
+        code: data?.code || `HTTP_${response.status}`,
+        error: data?.message || 'Failed to calculate transportation quote.',
+      };
+    }
+
+    return {
+      ok: true,
+      quote: data.quote,
+    };
+  } catch {
+    return {
+      ok: false,
+      code: 'NETWORK_ERROR',
+      error: 'Could not connect to distance service. Check your connection.',
+    };
+  }
 }
 
 export const BOOKING_CANCELLATION_REASONS = [

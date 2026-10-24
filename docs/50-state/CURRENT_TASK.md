@@ -1,13 +1,14 @@
 # Current Task
 
-UI Modernization Independent Review Corrections: **ACTIVE / UNACCEPTED** on `fix/ui-modernization-review`.
+Stage 17 — Intake booking modal functional corrections, unified Phone / Future mode & Home Service Google Places integration: **ACTIVE / UNREVIEWED** on `stage/17-intake-booking-modal`.
 
-- **BASE_SHA**: `5c7173ecc479d2b9e655d7ea83340948e404437e`, the published modernization commit on desktop `main`.
-- **Previously reviewed correction HEAD**: `703586f89b2d37f5fb83c90bb152c9952a5eecf0`, published on `fix/ui-modernization-review` and independently reviewed.
-- **Latest review result**: **CHANGES REQUIRED**. Owner visual acceptance remains pending.
-- **Authorized scope**: Reconcile selected Today/Intake booking state only after an accepted authoritative refresh, add focused regression tests, and correct publication-status documentation and evidence.
+- **BASE_SHA**: `1faa7493de961de3b314b8c1b28409ecdabf91ba`, verified on desktop `main` and `origin/main` before implementation.
+- **PRE_CORRECTION_HEAD_SHA**: `c4f0e721a40390eacdb29104a5a13a291ec75f2c` on `stage/17-intake-booking-modal`.
+- **Previous correction gate**: The owner confirmed visual acceptance of the modal layout and approved the visual design; requested functional mode unification (exactly three visible modes: Walk-in, Phone / Future, Home Service) and connecting real Google Places for Home Service.
+- **Hosted reference**: `2b3bab3c9e71274c25d747daf37d7928ee670e2c` on hosted `main`; location routes implemented on hosted branch `stage/17-desktop-location-endpoints` at SHA `272339a5d49e39b86160c541bb63d5c09841f81a`.
+- **Authorized scope**: Unify Phone and Future into a single card without nested buttons; map in-spa advance bookings to hosted-valid `type: 'walkin'` with canonical `crmBookingMode: 'phone'`; connect real hosted Google Places endpoints for address autocomplete, place resolution, and driving distance / travel fee quotation; enable Home Service Save safely only when all location and quote requirements are satisfied; preserve Walk-in flow and customer search.
 - **Stage 16 discovery**: Independently reviewed and owner confirmed on `stage/16-current-hosted-convergence-contract` at `79fca3dd27e6a56ef51aadd091490b1a0ae45d4d`; not merged into desktop `main`.
-- **Delivery**: Commit and push the same correction branch, then stop for independent re-review. No merge into `main`, owner visual acceptance, or next stage is authorized by completion of this task.
+- **Delivery**: Commit and push to `stage/17-intake-booking-modal`, then stop for independent review. Do not merge into `main` or start another stage.
 
 ## Historical Stage 05 task and closeout record
 
