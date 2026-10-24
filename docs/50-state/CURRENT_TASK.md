@@ -1,5 +1,7 @@
 # Current Task
+
 ## Integration Candidate Consolidation (Stages 17 & 18): **CONSOLIDATED / STOPPED FOR INDEPENDENT REVIEW**
+
 - **DESKTOP_BASE_SHA**: `1faa7493de961de3b314b8c1b28409ecdabf91ba` on desktop `main`.
 - **HOSTED_BASE_SHA**: `2b3bab3c9e71274c25d747daf37d7928ee670e2c` on hosted `main`.
 - **Desktop Candidate Branch**: `stage/integration-candidate-17-18`.
