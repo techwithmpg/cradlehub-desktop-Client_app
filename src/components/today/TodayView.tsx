@@ -8,16 +8,26 @@ import React, {
 import {
   AlertCircle,
   AlertTriangle,
+  Building2,
+  Calendar,
   CalendarDays,
   CalendarPlus,
   CheckCircle2,
+  ChevronDown,
+  Clock,
   CreditCard,
-  Hourglass,
+  DoorClosed,
+  Eye,
+  GanttChart,
+  List,
+  MoreHorizontal,
+  Play,
   Plus,
   RefreshCw,
   Search,
   Truck,
   UserRound,
+  Users,
 } from 'lucide-react';
 import type { AuthContext, NavModuleId } from '../../types/auth';
 import type {
@@ -44,11 +54,11 @@ import {
 import { NewBookingModal } from '../bookings/NewBookingModal';
 import { calculateAdaptivePageSize } from './adaptive-page-size';
 import { TodayActivityCard } from './TodayActivityCard';
+import { TodayArrivalsQueueCard } from './TodayArrivalsQueueCard';
 import { TodayQuickActionsCard } from './TodayQuickActionsCard';
-import { TodayMoneyCard } from './TodayMoneyCard';
 import { TodayBookingInspectorCard } from './TodayBookingInspectorCard';
+import { TodayMoneyCard } from './TodayMoneyCard';
 import { Input } from '../ui/input';
-import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
 import { Button } from '../ui/button';
 
 export interface TodayViewProps {
@@ -59,9 +69,13 @@ export interface TodayViewProps {
 type StageScopeFilter =
   'all' | 'waiting' | 'in_service' | 'ready_to_pay' | 'completed';
 
+type ViewMode = 'timeline' | 'list' | 'rooms';
+
 function formatClock(value: string | null | undefined): string {
   if (!value) return '—';
-  const [hours, minutes] = value.split(':').map(Number);
+  const [hoursStr, minutesStr] = value.split(':');
+  const hours = Number(hoursStr);
+  const minutes = Number(minutesStr);
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
     return value;
   }
@@ -70,17 +84,48 @@ function formatClock(value: string | null | undefined): string {
   return `${hour}:${String(minutes).padStart(2, '0')} ${suffix}`;
 }
 
-function formatDateLabel(dateString?: string): string {
-  if (!dateString) return 'Today';
+function formatDateHeader(dateString?: string): string {
+  if (!dateString) return 'Thu, Oct 23, 2026';
   const date = new Date(`${dateString}T00:00:00`);
   return Number.isNaN(date.getTime())
     ? dateString
     : date.toLocaleDateString('en-US', {
-        weekday: 'long',
+        weekday: 'short',
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       });
+}
+
+function getInitials(name: string | null | undefined): string {
+  if (!name) return '??';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+const THERAPIST_COLORS = [
+  'bg-purple-100 text-purple-700',
+  'bg-blue-100 text-blue-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-amber-100 text-amber-700',
+  'bg-pink-100 text-pink-700',
+  'bg-indigo-100 text-indigo-700',
+  'bg-teal-100 text-teal-700',
+  'bg-cyan-100 text-cyan-700',
+];
+
+function getTherapistColor(name: string | null | undefined): string {
+  if (!name) return 'bg-slate-100 text-slate-700';
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash << 5) - hash + name.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % THERAPIST_COLORS.length;
+  return THERAPIST_COLORS[index];
 }
 
 function getApplicableAction(booking: DesktopTodayQueueItem): {
@@ -143,21 +188,40 @@ function getApplicableAction(booking: DesktopTodayQueueItem): {
   return null;
 }
 
+function getTimelineBarColor(item: DesktopTodayQueueItem): string {
+  if (item.bookingProgressStatus === 'checked_in') return 'bg-emerald-500';
+  if (item.status === 'arrived') return 'bg-blue-500';
+  if (item.stage === 'in_service' || item.status === 'in_progress')
+    return 'bg-purple-500';
+  if (item.stage === 'waiting') return 'bg-amber-500';
+  if (item.stage === 'ready_to_pay') return 'bg-orange-500';
+  if (item.stage === 'completed' || item.status === 'completed')
+    return 'bg-emerald-600';
+  if (item.status === 'confirmed') return 'bg-emerald-500';
+  return 'bg-slate-300';
+}
+
 function renderStageBadge(item: DesktopTodayQueueItem) {
-  if (item.stage === 'waiting') {
-    return <span className="today-badge badge-waiting">Waiting</span>;
+  if (item.bookingProgressStatus === 'checked_in') {
+    return <span className="today-badge badge-in-service">Checked In</span>;
+  }
+  if (item.status === 'arrived') {
+    return <span className="today-badge badge-confirmed">Arrived</span>;
   }
   if (item.stage === 'in_service' || item.status === 'in_progress') {
     return <span className="today-badge badge-in-service">In Service</span>;
   }
+  if (item.stage === 'waiting') {
+    return <span className="today-badge badge-waiting">Waiting</span>;
+  }
   if (item.stage === 'ready_to_pay') {
-    return <span className="today-badge badge-payment">Payment Pending</span>;
+    return <span className="today-badge badge-payment">Ready to Pay</span>;
   }
   if (item.stage === 'completed' || item.status === 'completed') {
     return <span className="today-badge badge-completed">Completed</span>;
   }
   if (item.status === 'confirmed') {
-    return <span className="today-badge badge-confirmed">Confirmed</span>;
+    return <span className="today-badge badge-default">Scheduled</span>;
   }
   if (item.status === 'cancelled') {
     return <span className="today-badge badge-cancelled">Cancelled</span>;
@@ -166,49 +230,6 @@ function renderStageBadge(item: DesktopTodayQueueItem) {
     return <span className="today-badge badge-noshow">No Show</span>;
   }
   return <span className="today-badge badge-default">{item.status}</span>;
-}
-
-function filterTodayQueue(
-  queue: DesktopTodayQueueItem[],
-  stageFilter: StageScopeFilter,
-  search: string,
-): DesktopTodayQueueItem[] {
-  return queue.filter((item) => {
-    if (stageFilter !== 'all') {
-      if (stageFilter === 'waiting' && item.stage !== 'waiting') return false;
-      if (stageFilter === 'in_service' && item.stage !== 'in_service')
-        return false;
-      if (stageFilter === 'ready_to_pay' && item.stage !== 'ready_to_pay')
-        return false;
-      if (stageFilter === 'completed' && item.stage !== 'completed')
-        return false;
-    }
-
-    if (search.trim()) {
-      const query = search.toLowerCase().trim();
-      const matchesCustomer = item.customerName?.toLowerCase().includes(query);
-      const matchesPhone = item.customerPhone?.toLowerCase().includes(query);
-      const matchesService = item.serviceName?.toLowerCase().includes(query);
-      const matchesStaff = item.staffName?.toLowerCase().includes(query);
-      const matchesResource = item.resourceName?.toLowerCase().includes(query);
-      const matchesAddress = item.homeServiceAddress
-        ?.toLowerCase()
-        .includes(query);
-
-      if (
-        !matchesCustomer &&
-        !matchesPhone &&
-        !matchesService &&
-        !matchesStaff &&
-        !matchesResource &&
-        !matchesAddress
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  });
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -232,8 +253,15 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const [data, setData] = useState<DesktopTodayData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filters & State
   const [search, setSearch] = useState<string>('');
   const [stageFilter, setStageFilter] = useState<StageScopeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>('all');
+  const [therapistFilter, setTherapistFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('timeline');
+
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
     null,
   );
@@ -319,6 +347,120 @@ export const TodayView: React.FC<TodayViewProps> = ({
     [authContext.userId, authContext.canonicalRole, authContext.branchId],
   );
 
+  const filterQueue = useCallback(
+    (
+      queue: DesktopTodayQueueItem[],
+      stage: StageScopeFilter,
+      searchQuery: string,
+      status: string,
+      serviceType: string,
+      therapist: string,
+    ): DesktopTodayQueueItem[] => {
+      return queue.filter((item) => {
+        // Stage filter
+        if (stage !== 'all') {
+          if (stage === 'waiting') {
+            const isWaitingOrArrived =
+              item.stage === 'waiting' ||
+              item.status === 'confirmed' ||
+              item.bookingProgressStatus === 'checked_in' ||
+              item.status === 'arrived';
+            if (!isWaitingOrArrived) return false;
+          } else if (stage === 'in_service') {
+            if (item.stage !== 'in_service' && item.status !== 'in_progress')
+              return false;
+          } else if (stage === 'ready_to_pay') {
+            if (item.stage !== 'ready_to_pay') return false;
+          } else if (stage === 'completed') {
+            if (item.stage !== 'completed' && item.status !== 'completed')
+              return false;
+          }
+        }
+
+        // Status dropdown filter
+        if (status !== 'all') {
+          if (status === 'scheduled' && item.status !== 'confirmed')
+            return false;
+          if (status === 'arrived' && item.status !== 'arrived') return false;
+          if (
+            status === 'checked_in' &&
+            item.bookingProgressStatus !== 'checked_in'
+          )
+            return false;
+          if (
+            status === 'in_service' &&
+            item.stage !== 'in_service' &&
+            item.status !== 'in_progress'
+          )
+            return false;
+          if (status === 'ready_to_pay' && item.stage !== 'ready_to_pay')
+            return false;
+          if (status === 'completed' && item.status !== 'completed')
+            return false;
+          if (status === 'cancelled' && item.status !== 'cancelled')
+            return false;
+          if (status === 'no_show' && item.status !== 'no_show') return false;
+        }
+
+        // Service Type filter
+        if (serviceType !== 'all') {
+          if (
+            !item.serviceName?.toLowerCase().includes(serviceType.toLowerCase())
+          ) {
+            return false;
+          }
+        }
+
+        // Therapist filter
+        if (therapist !== 'all') {
+          if (
+            item.staffName?.toLowerCase() !== therapist.toLowerCase() &&
+            item.staffId !== therapist
+          ) {
+            return false;
+          }
+        }
+
+        // Search filter
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase().trim();
+          const matchesCustomer = item.customerName
+            ?.toLowerCase()
+            .includes(query);
+          const matchesPhone = item.customerPhone
+            ?.toLowerCase()
+            .includes(query);
+          const matchesService = item.serviceName
+            ?.toLowerCase()
+            .includes(query);
+          const matchesStaff = item.staffName?.toLowerCase().includes(query);
+          const matchesResource = item.resourceName
+            ?.toLowerCase()
+            .includes(query);
+          const matchesAddress = item.homeServiceAddress
+            ?.toLowerCase()
+            .includes(query);
+          const matchesId = item.id.toLowerCase().includes(query);
+
+          if (
+            !matchesCustomer &&
+            !matchesPhone &&
+            !matchesService &&
+            !matchesStaff &&
+            !matchesResource &&
+            !matchesAddress &&
+            !matchesId
+          ) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+    },
+    [],
+  );
+
   const reconcileToday = useCallback(async (): Promise<boolean> => {
     const token = beginRefresh();
     setError(null);
@@ -326,16 +468,18 @@ export const TodayView: React.FC<TodayViewProps> = ({
     try {
       const result = await loadTodaySnapshot(token.generation);
 
-      // Ignore obsolete responses or snapshots invalidated while in flight.
       if (!completeRefresh(token)) {
         return false;
       }
 
       const visibleState = visibleQueueStateRef.current;
-      const filtered = filterTodayQueue(
+      const filtered = filterQueue(
         result.queue,
         visibleState.stageFilter,
         visibleState.search,
+        statusFilter,
+        serviceTypeFilter,
+        therapistFilter,
       );
       const page = Math.min(
         Math.max(1, visibleState.currentPage),
@@ -359,7 +503,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
           ? err.message
           : 'Unable to load authoritative Today workspace.';
 
-      // Preserve existing validated Today data on reconciliation failure.
       if (failRefresh(token, message)) {
         setError(message);
       }
@@ -368,10 +511,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [beginRefresh, completeRefresh, failRefresh, loadTodaySnapshot]);
+  }, [
+    beginRefresh,
+    completeRefresh,
+    failRefresh,
+    filterQueue,
+    loadTodaySnapshot,
+    serviceTypeFilter,
+    statusFilter,
+    therapistFilter,
+  ]);
 
-  // Initial authoritative validation. StrictMode duplicate callers share the
-  // same in-flight hosted request through the workspace read coordinator.
   useEffect(() => {
     let cancelled = false;
 
@@ -386,7 +536,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
     };
   }, [reconcileToday]);
 
-  // Dirty hidden Today stays quiet. Reconcile when it becomes active again.
   useEffect(() => {
     if (!isActive) {
       lastAutomaticAttemptGenerationRef.current = null;
@@ -402,37 +551,15 @@ export const TodayView: React.FC<TodayViewProps> = ({
     }
 
     lastAutomaticAttemptGenerationRef.current = invalidationGeneration;
-
-    let cancelled = false;
-
-    queueMicrotask(() => {
-      if (!cancelled) {
-        void reconcileToday();
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    void reconcileToday();
   }, [
-    hasValidatedData,
-    invalidationGeneration,
     isActive,
+    hasValidatedData,
     isDirty,
     isRefreshing,
+    invalidationGeneration,
     reconcileToday,
   ]);
-  const handleStageFilterChange = (filter: StageScopeFilter) => {
-    setStageFilter(filter);
-    setCurrentPage(1);
-    setSelectedBookingId(null);
-  };
-
-  const handleSearchChange = (val: string) => {
-    setSearch(val);
-    setCurrentPage(1);
-    setSelectedBookingId(null);
-  };
 
   const handleRefresh = useCallback(() => {
     setMutationNotice(null);
@@ -443,151 +570,271 @@ export const TodayView: React.FC<TodayViewProps> = ({
     if (!data) {
       setIsLoading(true);
     }
-
     void reconcileToday();
   }, [data, reconcileToday]);
 
-  const handleOpenBookingModal = (mode?: QuickBookingMode) => {
+  const handleOpenBookingModal = useCallback((mode?: QuickBookingMode) => {
     setBookingModalInitialMode(mode);
     setIsBookingModalOpen(true);
-  };
+  }, []);
 
-  const handleBookingCreated = () => {
-    setIsBookingModalOpen(false);
-    setMutationNotice({
-      type: 'success',
-      message: 'Booking created successfully.',
-    });
-
+  const handleBookingCreated = useCallback(() => {
     invalidateModules(BOOKING_WRITE_INVALIDATIONS);
     void reconcileToday();
-  };
+  }, [invalidateModules, reconcileToday]);
 
-  const handleRunMutation = async (
-    booking: DesktopTodayQueueItem,
-    action: TodayMutationAction,
-  ) => {
-    if (mutatingBookingId) return;
-    setMutatingBookingId(booking.id);
-    setMutationNotice(null);
+  const handleMutateAction = useCallback(
+    async (action: TodayMutationAction, bookingId: string) => {
+      setMutatingBookingId(bookingId);
+      setMutationNotice(null);
 
-    try {
-      await mutateToday({
-        action,
-        bookingId: booking.id,
-      });
-
-      setMutationNotice({
-        type: 'success',
-        message:
-          action === 'confirm_booking'
-            ? 'Booking confirmed.'
-            : action === 'mark_arrived'
-              ? 'Arrival recorded.'
-              : action === 'start_service'
-                ? 'Service started.'
-                : 'Service completed.',
-      });
-
-      // Mark only affected retained workspaces dirty after authoritative success.
-      invalidateModules(TODAY_OPERATIONAL_WRITE_INVALIDATIONS);
-
-      // Today is active, so reconcile it immediately. Hidden affected modules
-      // retain their current data and reconcile when next activated.
-      await reconcileToday();
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : 'Mutation failed. Please try again.';
-      setMutationNotice({
-        type: 'error',
-        message: msg,
-      });
-    } finally {
-      setMutatingBookingId(null);
-    }
-  };
-
-  // Filtered queue based on lifecycle stage and search query
-  const filteredQueue = useMemo(
-    () => (data ? filterTodayQueue(data.queue, stageFilter, search) : []),
-    [data, stageFilter, search],
+      try {
+        await mutateToday({ action, bookingId });
+        invalidateModules(TODAY_OPERATIONAL_WRITE_INVALIDATIONS);
+        setMutationNotice({
+          type: 'success',
+          message:
+            action === 'confirm_booking'
+              ? 'Booking confirmed.'
+              : action === 'mark_arrived'
+                ? 'Arrival recorded.'
+                : action === 'start_service'
+                  ? 'Service started.'
+                  : 'Service completed.',
+        });
+        await reconcileToday();
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Unable to update booking status.';
+        setMutationNotice({
+          type: 'error',
+          message,
+        });
+      } finally {
+        setMutatingBookingId(null);
+      }
+    },
+    [invalidateModules, reconcileToday],
   );
+
+  const handleStageFilterChange = useCallback((newFilter: StageScopeFilter) => {
+    setStageFilter(newFilter);
+    setCurrentPage(1);
+    setSelectedBookingId(null);
+  }, []);
+
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(e.target.value);
+      setCurrentPage(1);
+      setSelectedBookingId(null);
+    },
+    [],
+  );
+
+  // Filtered Queue
+  const filteredQueue = useMemo(() => {
+    if (!data) return [];
+    return filterQueue(
+      data.queue,
+      stageFilter,
+      search,
+      statusFilter,
+      serviceTypeFilter,
+      therapistFilter,
+    );
+  }, [
+    data,
+    filterQueue,
+    search,
+    serviceTypeFilter,
+    stageFilter,
+    statusFilter,
+    therapistFilter,
+  ]);
+
+  // Unique service types & therapists for toolbar filters
+  const uniqueServices = useMemo(() => {
+    if (!data) return [];
+    const set = new Set<string>();
+    for (const item of data.queue) {
+      if (item.serviceName) set.add(item.serviceName);
+    }
+    return Array.from(set);
+  }, [data]);
+
+  const uniqueTherapists = useMemo(() => {
+    if (!data) return [];
+    const map = new Map<string, string>();
+    for (const item of data.queue) {
+      if (item.staffId && item.staffName) {
+        map.set(item.staffId, item.staffName);
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [data]);
+
+  // KPI Calculations
+  const kpiStats = useMemo(() => {
+    if (!data) {
+      return {
+        arrivalsCount: 0,
+        checkedInCount: 0,
+        waitingCount: 0,
+        inServiceCount: 0,
+        readyToPayCount: 0,
+        completedCount: 0,
+      };
+    }
+    let checkedIn = 0;
+    let waiting = 0;
+    let inService = 0;
+    let readyToPay = 0;
+    let completed = 0;
+
+    for (const item of data.queue) {
+      if (item.bookingProgressStatus === 'checked_in') {
+        checkedIn++;
+      } else if (item.stage === 'waiting' || item.status === 'confirmed') {
+        waiting++;
+      }
+      if (item.stage === 'in_service' || item.status === 'in_progress') {
+        inService++;
+      }
+      if (item.stage === 'ready_to_pay') {
+        readyToPay++;
+      }
+      if (item.stage === 'completed' || item.status === 'completed') {
+        completed++;
+      }
+    }
+
+    return {
+      arrivalsCount: data.summary?.waiting ?? checkedIn + waiting,
+      checkedInCount: checkedIn,
+      waitingCount: waiting,
+      inServiceCount: data.summary?.inService ?? inService,
+      readyToPayCount: data.summary?.readyToPay ?? readyToPay,
+      completedCount:
+        data.summary?.completedService ?? data.summary?.completed ?? completed,
+    };
+  }, [data]);
+
+  // Selected Booking
+  const selectedBooking = useMemo(() => {
+    if (!selectedBookingId || !data) return null;
+    return data.queue.find((b) => b.id === selectedBookingId) || null;
+  }, [data, selectedBookingId]);
 
   // Pagination calculation
   const totalItems = filteredQueue.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startRecord =
+    totalItems === 0 ? 0 : (validCurrentPage - 1) * pageSize + 1;
+  const endRecord = Math.min(validCurrentPage * pageSize, totalItems);
 
-  const startIndex = (validCurrentPage - 1) * pageSize;
-  const paginatedQueue = useMemo(
-    () => filteredQueue.slice(startIndex, startIndex + pageSize),
-    [filteredQueue, startIndex, pageSize],
-  );
-  const startRecord = totalItems === 0 ? 0 : startIndex + 1;
-  const endRecord = Math.min(startIndex + pageSize, totalItems);
-  const selectedBooking =
-    paginatedQueue.find((booking) => booking.id === selectedBookingId) ?? null;
+  const paginatedQueue = useMemo(() => {
+    const start = (validCurrentPage - 1) * pageSize;
+    return filteredQueue.slice(start, start + pageSize);
+  }, [filteredQueue, pageSize, validCurrentPage]);
 
   return (
     <ModuleWorkspace
-      className="today-workspace-root"
-      ariaLabel="Today Workspace"
+      className="today-workspace-container"
       testId="today-workspace"
     >
-      {/* Header Area */}
-      <header className="today-header-row" data-testid="today-header">
+      {/* 1. Header Area Matching Design Reference */}
+      <header className="today-page-header" data-testid="today-header">
         <div className="today-header-left">
-          <h1 className="today-title">Intake</h1>
-          <p className="today-subtitle">
-            <span className="today-business-date">
-              {formatDateLabel(data?.context.businessDate)}
-            </span>
-            <span className="today-separator">•</span>
-            <span className="today-branch-name">
-              {data?.context.branchName || authContext.branchName}
-            </span>
-          </p>
-          <p className="today-helper-text">
-            Arrivals, booking actions, and the next front-desk step.
-          </p>
+          <div className="today-brand-icon">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-[#064e3b]"
+            >
+              <path d="M12 2C6.5 2 2 6.5 2 12c0 3.5 1.8 6.6 4.5 8.4-.2-1.4 0-2.8.5-4.1C8 13.5 10 11 12 11c2.5 0 4.5 2 4.5 4.5 0 1.2-.5 2.3-1.2 3.1 2.3-1.6 3.7-4.2 3.7-7.1 0-5.5-4.5-9.5-7-9.5z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="today-page-title">Today</h1>
+            <p className="today-page-subtitle">
+              Intake, arrivals, and today's front-desk workflow
+            </p>
+          </div>
         </div>
 
         <div className="today-header-right">
-          {/* Static Front Desk View Indicator */}
-          <div
-            className="today-view-selector"
-            title="Front Desk View"
-            data-testid="today-view-selector"
-          >
-            <UserRound size={14} aria-hidden="true" />
-            <span>Front Desk View</span>
+          {/* Branch Pill */}
+          <div className="today-header-pill">
+            <Building2
+              size={15}
+              className="text-slate-500"
+              aria-hidden="true"
+            />
+            <span className="font-semibold text-slate-800">
+              {authContext.branchName}
+            </span>
+            <ChevronDown
+              size={14}
+              className="text-slate-400"
+              aria-hidden="true"
+            />
           </div>
 
-          {/* Manual Refresh Action */}
+          {/* Date Pill */}
+          <div className="today-header-pill">
+            <Calendar size={15} className="text-slate-500" aria-hidden="true" />
+            <span className="font-medium text-slate-700">
+              {formatDateHeader(data?.context?.businessDate)}
+            </span>
+          </div>
+
+          {/* User Profile Pill */}
+          <div
+            className="today-header-user-pill"
+            data-testid="today-view-selector"
+          >
+            <span className="today-live-dot" aria-hidden="true" />
+            <div className="today-user-text">
+              <strong className="today-user-name">
+                {authContext.fullName || 'Maria Santos'}
+              </strong>
+              <span className="today-user-role">Front Desk View</span>
+            </div>
+            <div className="today-user-avatar">
+              {getInitials(authContext.fullName || 'Maria Santos')}
+            </div>
+          </div>
+
+          {/* Refresh Button */}
           <Button
-            type="button"
             variant="outline"
             size="sm"
-            className="today-refresh-button"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            aria-label="Refresh Today snapshot"
-            title="Refresh Today snapshot"
+            className="today-refresh-btn"
             data-testid="today-refresh-button"
+            title="Refresh Today workspace"
           >
             <RefreshCw
               size={14}
               className={isRefreshing ? 'animate-spin' : ''}
               aria-hidden="true"
             />
-            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
           </Button>
         </div>
       </header>
 
-      {/* Notices */}
+      {/* Mutation Notices */}
       {mutationNotice?.type === 'success' && (
         <ModuleSuccessBanner
           message={mutationNotice.message}
@@ -620,16 +867,16 @@ export const TodayView: React.FC<TodayViewProps> = ({
           testId="today-loading-skeleton"
         />
       ) : data ? (
-        <div className="today-page-grid" data-testid="today-page-grid">
-          {/* Main Column */}
-          <div className="today-main-col" data-testid="today-main-col">
-            {/* Front-Desk Action Strip */}
+        <div className="today-intake-body">
+          {/* Top Row: 4 Action Cards + Customer Search */}
+          <div className="today-top-row">
+            {/* 4 Action Cards Strip */}
             <section
               className="today-action-strip"
-              aria-label="Front-desk quick actions"
+              aria-label="Front-desk booking actions"
               data-testid="today-action-strip"
             >
-              {/* Card 1: New Booking (Primary) */}
+              {/* Card 1: New Booking (Dark Forest Green) */}
               <button
                 type="button"
                 className="today-action-card today-action-card-primary"
@@ -637,7 +884,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 data-testid="action-card-new-booking"
               >
                 <div className="today-action-card-icon-box">
-                  <Plus size={18} aria-hidden="true" />
+                  <Plus size={20} aria-hidden="true" />
                 </div>
                 <div className="today-action-card-content">
                   <strong className="today-action-card-title">
@@ -656,7 +903,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onClick={() => handleOpenBookingModal('walkin')}
                 data-testid="action-card-walk-in"
               >
-                <div className="today-action-card-icon-box">
+                <div className="today-action-card-icon-box bg-emerald-50 text-emerald-700">
                   <UserRound size={18} aria-hidden="true" />
                 </div>
                 <div className="today-action-card-content">
@@ -671,10 +918,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
               <button
                 type="button"
                 className="today-action-card"
-                onClick={() => handleOpenBookingModal('standard_future')}
+                onClick={() => handleOpenBookingModal('phone')}
                 data-testid="action-card-book-later"
               >
-                <div className="today-action-card-icon-box">
+                <div className="today-action-card-icon-box bg-blue-50 text-blue-700">
                   <CalendarPlus size={18} aria-hidden="true" />
                 </div>
                 <div className="today-action-card-content">
@@ -694,7 +941,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onClick={() => handleOpenBookingModal('home_service')}
                 data-testid="kpi-home-service"
               >
-                <div className="today-action-card-icon-box">
+                <div className="today-action-card-icon-box bg-emerald-50 text-emerald-700">
                   <Truck size={18} aria-hidden="true" />
                 </div>
                 <div className="today-action-card-content">
@@ -704,178 +951,355 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   <span className="today-action-card-desc">
                     {data.summary.homeService > 0
                       ? `${data.summary.homeService} dispatch booking${data.summary.homeService === 1 ? '' : 's'}`
-                      : 'Review booking options'}
+                      : 'Outcall booking'}
                   </span>
                 </div>
               </button>
             </section>
 
-            {/* Operational Readiness / Unassigned Alerts Strip */}
-            {!data.readiness.available ? (
-              <div
-                className="today-alert-strip today-alert-degraded"
-                role="status"
-                data-testid="readiness-degraded"
-              >
-                <AlertTriangle size={15} aria-hidden="true" />
-                <span>
-                  Readiness evaluation service offline:{' '}
-                  {data.readiness.error || 'unavailable'}
-                </span>
+            {/* Top-Right Customer Search */}
+            <div className="today-customer-search-top">
+              <div className="today-search-wrapper">
+                <Search
+                  size={16}
+                  className="today-search-icon"
+                  aria-hidden="true"
+                />
+                <Input
+                  type="text"
+                  placeholder="Search customer (name, phone, ID)..."
+                  value={search}
+                  onChange={handleSearchChange}
+                  className="today-search-input"
+                  data-testid="today-search-input"
+                  aria-label="Search customer in queue"
+                />
               </div>
-            ) : data.readiness.status === 'ok' ? (
-              <span
-                className="sr-only"
-                data-testid="readiness-all-clear"
-                aria-hidden="true"
-              >
-                Readiness operational
+            </div>
+          </div>
+
+          {/* Operational Alerts Strip */}
+          {!data.readiness.available ? (
+            <div
+              className="today-alert-strip today-alert-degraded"
+              role="status"
+              data-testid="readiness-degraded"
+            >
+              <AlertTriangle size={15} aria-hidden="true" />
+              <span>
+                Readiness evaluation service offline:{' '}
+                {data.readiness.error || 'unavailable'}
               </span>
-            ) : (
-              <div
-                className="today-alert-strip today-alert-warning"
-                role="status"
-                data-testid="readiness-warning"
-              >
-                <AlertTriangle size={15} aria-hidden="true" />
-                <span>
-                  {data.readiness.issues.length} readiness issue
-                  {data.readiness.issues.length === 1 ? '' : 's'} require
-                  front-desk attention
+            </div>
+          ) : data.readiness.status === 'ok' ? (
+            <span
+              className="sr-only"
+              data-testid="readiness-all-clear"
+              aria-hidden="true"
+            >
+              Readiness operational
+            </span>
+          ) : (
+            <div
+              className="today-alert-strip today-alert-warning"
+              role="status"
+              data-testid="readiness-warning"
+            >
+              <AlertTriangle size={15} aria-hidden="true" />
+              <span>
+                {data.readiness.issues.length} readiness issue
+                {data.readiness.issues.length === 1 ? '' : 's'} require
+                front-desk attention
+              </span>
+            </div>
+          )}
+
+          {data.summary.unassigned > 0 && (
+            <div
+              className="today-alert-strip today-alert-info"
+              data-testid="kpi-unassigned"
+            >
+              <AlertCircle size={14} aria-hidden="true" />
+              <span>
+                <strong>{data.summary.unassigned}</strong> booking
+                {data.summary.unassigned === 1 ? '' : 's'} currently unassigned
+              </span>
+            </div>
+          )}
+
+          {/* Second Row: 4 Operational KPI Cards */}
+          <section
+            className="today-kpi-grid"
+            aria-label="Operational KPI summary"
+          >
+            {/* Card 1: Arrivals Today */}
+            <button
+              type="button"
+              className={`today-kpi-card ${stageFilter === 'waiting' ? 'active' : ''}`}
+              onClick={() => handleStageFilterChange('waiting')}
+              data-testid="kpi-waiting"
+            >
+              <div className="today-kpi-icon-box bg-blue-50 text-blue-600">
+                <Users size={20} aria-hidden="true" />
+              </div>
+              <div className="today-kpi-details">
+                <span className="today-kpi-label">Arrivals Today</span>
+                <span className="today-kpi-value">{data.summary.waiting}</span>
+                <span className="today-kpi-subtext">
+                  {kpiStats.checkedInCount} checked in · {kpiStats.waitingCount}{' '}
+                  waiting
                 </span>
               </div>
-            )}
+            </button>
 
-            {data.summary.unassigned > 0 && (
-              <div
-                className="today-alert-strip today-alert-info"
-                data-testid="kpi-unassigned"
-              >
-                <AlertCircle size={14} aria-hidden="true" />
-                <span>
-                  <strong>{data.summary.unassigned}</strong> booking
-                  {data.summary.unassigned === 1 ? '' : 's'} currently
-                  unassigned
+            {/* Card 2: In Service */}
+            <button
+              type="button"
+              className={`today-kpi-card ${stageFilter === 'in_service' ? 'active' : ''}`}
+              onClick={() => handleStageFilterChange('in_service')}
+              data-testid="kpi-in-service"
+            >
+              <div className="today-kpi-icon-box bg-amber-50 text-amber-600">
+                <Clock size={20} aria-hidden="true" />
+              </div>
+              <div className="today-kpi-details">
+                <span className="today-kpi-label">In Service</span>
+                <span className="today-kpi-value">
+                  {data.summary.inService}
+                </span>
+                <span className="today-kpi-subtext">
+                  Currently receiving service
                 </span>
               </div>
-            )}
+            </button>
 
-            {/* Active Service Workflow Card */}
+            {/* Card 3: Ready to Pay */}
+            <button
+              type="button"
+              className={`today-kpi-card ${stageFilter === 'ready_to_pay' ? 'active' : ''}`}
+              onClick={() => handleStageFilterChange('ready_to_pay')}
+              data-testid="kpi-ready-to-pay"
+            >
+              <div className="today-kpi-icon-box bg-emerald-50 text-emerald-600">
+                <CreditCard size={20} aria-hidden="true" />
+              </div>
+              <div className="today-kpi-details">
+                <span className="today-kpi-label">Ready to Pay</span>
+                <span className="today-kpi-value">
+                  {data.summary.readyToPay}
+                </span>
+                <span className="today-kpi-subtext">Services completed</span>
+              </div>
+            </button>
+
+            {/* Card 4: Completed */}
+            <button
+              type="button"
+              className={`today-kpi-card ${stageFilter === 'completed' ? 'active' : ''}`}
+              onClick={() => handleStageFilterChange('completed')}
+              data-testid="kpi-completed"
+            >
+              <div className="today-kpi-icon-box bg-green-50 text-green-600">
+                <CheckCircle2 size={20} aria-hidden="true" />
+              </div>
+              <div className="today-kpi-details">
+                <span className="today-kpi-label">Completed</span>
+                <span className="today-kpi-value">
+                  {data.summary.completedService ?? data.summary.completed}
+                </span>
+                <span className="today-kpi-subtext">
+                  Today's finished visits
+                </span>
+              </div>
+            </button>
+          </section>
+
+          {/* Third Area: Main Schedule on Left, Operational Rail on Right */}
+          <div className="today-main-layout" data-testid="today-page-grid">
+            {/* Left Column: Today's Schedule Card */}
             <section
-              className="today-workflow-card"
-              aria-label="Active Service Workflow"
+              className="today-schedule-card"
+              aria-label="Today's Schedule"
               data-testid="today-workflow-card"
             >
-              {/* Card Title & Subtitle */}
-              <div className="today-workflow-header">
-                <div>
-                  <h2 className="today-workflow-title">Arrivals & bookings</h2>
-                  <p className="today-workflow-subtitle">
-                    Find a booking, review its details, and take the permitted
-                    next action.
-                  </p>
-                </div>
-              </div>
-
-              {/* Workflow Controls Row: Tabs + Search */}
-              <div className="today-workflow-controls">
-                {/* Workflow Tabs with Counts */}
-                <ToggleGroup
-                  type="single"
-                  value={stageFilter}
-                  onValueChange={(value) => {
-                    if (value)
-                      handleStageFilterChange(value as StageScopeFilter);
-                  }}
-                  className="today-workflow-tabs"
-                  aria-label="Workflow lifecycle stages"
+              {/* Top Navigation Tabs */}
+              <div className="today-schedule-tabs-bar">
+                <button
+                  type="button"
+                  className={`today-sched-tab ${stageFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => handleStageFilterChange('all')}
+                  data-testid="tab-all-queue"
                 >
-                  <ToggleGroupItem
-                    type="button"
-                    value="waiting"
-                    className={`today-wf-tab ${stageFilter === 'waiting' ? 'active' : ''}`}
-                    data-testid="kpi-waiting"
-                  >
-                    <Hourglass size={14} aria-hidden="true" />
-                    <span>Waiting</span>
-                    <span className="today-wf-count">
-                      {data.summary.waiting}
-                    </span>
-                  </ToggleGroupItem>
+                  <CalendarDays size={16} aria-hidden="true" />
+                  <span>Today's Schedule</span>
+                </button>
 
-                  <ToggleGroupItem
-                    type="button"
-                    value="in_service"
-                    className={`today-wf-tab ${stageFilter === 'in_service' ? 'active' : ''}`}
-                    data-testid="kpi-in-service"
-                  >
-                    <CheckCircle2 size={14} aria-hidden="true" />
-                    <span>In Service</span>
-                    <span className="today-wf-count">
-                      {data.summary.inService}
-                    </span>
-                  </ToggleGroupItem>
+                <button
+                  type="button"
+                  className={`today-sched-tab ${stageFilter === 'waiting' ? 'active' : ''}`}
+                  onClick={() => handleStageFilterChange('waiting')}
+                  data-testid="tab-arrivals"
+                >
+                  <Users size={16} aria-hidden="true" />
+                  <span>Arrivals & Queue</span>
+                </button>
 
-                  <ToggleGroupItem
-                    type="button"
-                    value="ready_to_pay"
-                    className={`today-wf-tab ${stageFilter === 'ready_to_pay' ? 'active' : ''}`}
-                    data-testid="kpi-ready-to-pay"
-                  >
-                    <CreditCard size={14} aria-hidden="true" />
-                    <span>Ready to Pay</span>
-                    <span className="today-wf-count">
-                      {data.summary.readyToPay}
-                    </span>
-                  </ToggleGroupItem>
+                <button
+                  type="button"
+                  className={`today-sched-tab ${stageFilter === 'in_service' ? 'active' : ''}`}
+                  onClick={() => handleStageFilterChange('in_service')}
+                  data-testid="tab-in-service"
+                >
+                  <Clock size={16} aria-hidden="true" />
+                  <span>In Service</span>
+                </button>
 
-                  <ToggleGroupItem
-                    type="button"
-                    value="completed"
-                    className={`today-wf-tab ${stageFilter === 'completed' ? 'active' : ''}`}
-                    data-testid="kpi-completed"
-                  >
-                    <CheckCircle2 size={14} aria-hidden="true" />
-                    <span>Completed</span>
-                    <span className="today-wf-count">
-                      {data.summary.completedService}
-                    </span>
-                  </ToggleGroupItem>
+                <button
+                  type="button"
+                  className={`today-sched-tab ${stageFilter === 'ready_to_pay' ? 'active' : ''}`}
+                  onClick={() => handleStageFilterChange('ready_to_pay')}
+                  data-testid="tab-ready-to-pay"
+                >
+                  <CreditCard size={16} aria-hidden="true" />
+                  <span>Ready to Pay</span>
+                </button>
 
-                  {/* All Queue filter option */}
-                  <ToggleGroupItem
-                    type="button"
-                    value="all"
-                    className={`today-wf-tab ${stageFilter === 'all' ? 'active' : ''}`}
-                    data-testid="tab-all-queue"
-                  >
-                    <span>All</span>
-                    <span className="today-wf-count">{data.summary.total}</span>
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                <button
+                  type="button"
+                  className={`today-sched-tab ${stageFilter === 'completed' ? 'active' : ''}`}
+                  onClick={() => handleStageFilterChange('completed')}
+                  data-testid="tab-completed"
+                >
+                  <CheckCircle2 size={16} aria-hidden="true" />
+                  <span>Completed</span>
+                </button>
+              </div>
 
-                {/* Queue Search Input */}
-                <div className="today-search-wrapper">
-                  <Search
-                    size={14}
-                    className="today-search-icon"
-                    aria-hidden="true"
-                  />
-                  <Input
-                    type="search"
-                    className="today-search-input"
-                    placeholder="Search customer, booking ID, assignee..."
-                    value={search}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    aria-label="Search today's bookings"
-                    data-testid="today-search-input"
-                  />
+              {/* Filter Toolbar Matching Reference Screenshot */}
+              <div className="today-filter-toolbar">
+                <div className="today-filter-dropdowns">
+                  {/* Status Dropdown */}
+                  <div className="today-filter-pill-select">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="today-select-input"
+                      aria-label="Filter by Status"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="arrived">Arrived</option>
+                      <option value="checked_in">Checked In</option>
+                      <option value="in_service">In Service</option>
+                      <option value="ready_to_pay">Ready to Pay</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="no_show">No Show</option>
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      className="today-select-chevron"
+                      aria-hidden="true"
+                    />
+                  </div>
+
+                  {/* Service Types Dropdown */}
+                  <div className="today-filter-pill-select">
+                    <select
+                      value={serviceTypeFilter}
+                      onChange={(e) => {
+                        setServiceTypeFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="today-select-input"
+                      aria-label="Filter by Service Type"
+                    >
+                      <option value="all">All Service Types</option>
+                      {uniqueServices.map((svc) => (
+                        <option key={svc} value={svc}>
+                          {svc}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      className="today-select-chevron"
+                      aria-hidden="true"
+                    />
+                  </div>
+
+                  {/* Therapists Dropdown */}
+                  <div className="today-filter-pill-select">
+                    <select
+                      value={therapistFilter}
+                      onChange={(e) => {
+                        setTherapistFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="today-select-input"
+                      aria-label="Filter by Therapist"
+                    >
+                      <option value="all">All Therapists</option>
+                      {uniqueTherapists.map((th) => (
+                        <option key={th.id} value={th.name}>
+                          {th.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      className="today-select-chevron"
+                      aria-hidden="true"
+                    />
+                  </div>
+                </div>
+
+                {/* Right View Mode Toggles */}
+                <div className="today-view-mode-group">
+                  <button
+                    type="button"
+                    className={`today-view-mode-btn ${viewMode === 'timeline' ? 'active' : ''}`}
+                    onClick={() => setViewMode('timeline')}
+                    title="Timeline View"
+                  >
+                    <GanttChart size={14} aria-hidden="true" />
+                    <span>Timeline</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`today-view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
+                    onClick={() => setViewMode('list')}
+                    title="List View"
+                  >
+                    <List size={14} aria-hidden="true" />
+                    <span>List</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`today-view-mode-btn ${viewMode === 'rooms' ? 'active' : ''}`}
+                    onClick={() => setViewMode('rooms')}
+                    title="Room Occupancy (Contract view)"
+                  >
+                    <DoorClosed size={14} aria-hidden="true" />
+                    <span>Rooms</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="today-view-more-btn"
+                    title="More actions"
+                    onClick={handleRetry}
+                  >
+                    <MoreHorizontal size={14} aria-hidden="true" />
+                  </button>
                 </div>
               </div>
 
-              {/* Queue Table Region */}
+              {/* Booking Rows Timeline / Table */}
               <div
-                className="today-table-container"
+                className="today-schedule-content today-table-container"
                 ref={tableContainerCallbackRef}
                 data-testid="today-table-container"
               >
@@ -884,250 +1308,217 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     className="today-table-empty"
                     data-testid="today-queue-empty"
                   >
-                    <CalendarDays size={28} aria-hidden="true" />
-                    <h4>
-                      {data.queue.length === 0
-                        ? 'No bookings scheduled for today'
-                        : 'No matching bookings found'}
-                    </h4>
-                    <p>
-                      {data.queue.length === 0
-                        ? 'Today is clear. Confirmed bookings will appear here.'
-                        : 'Try adjusting your search terms or scope filter.'}
-                    </p>
+                    <CalendarDays
+                      size={32}
+                      className="text-slate-300 mb-2"
+                      aria-hidden="true"
+                    />
+                    <h4>No bookings scheduled for today</h4>
+                    <p>There are no bookings matching your selected filters.</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenBookingModal(undefined)}
+                      className="mt-3"
+                    >
+                      <Plus size={14} className="mr-1" aria-hidden="true" />
+                      Create New Booking
+                    </Button>
                   </div>
                 ) : (
-                  <table
-                    className="today-queue-table"
-                    aria-label="Today's booking queue"
-                    data-testid="today-queue-table"
-                  >
-                    <thead>
-                      <tr>
-                        <th scope="col" style={{ width: '110px' }}>
-                          Time
-                        </th>
-                        <th scope="col" style={{ width: '22%' }}>
-                          Customer
-                        </th>
-                        <th scope="col" style={{ width: '25%' }}>
-                          Service / Summary
-                        </th>
-                        <th scope="col" style={{ width: '130px' }}>
-                          Status
-                        </th>
-                        <th scope="col" style={{ width: '20%' }}>
-                          Assignee
-                        </th>
-                        <th scope="col" style={{ minWidth: '130px' }}>
-                          Next Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedQueue.map((booking) => {
-                        const action = getApplicableAction(booking);
-                        const isMutating = mutatingBookingId === booking.id;
+                  <div className="today-timeline-list">
+                    {paginatedQueue.map((booking) => {
+                      const isSelected = selectedBookingId === booking.id;
+                      const isMutating = mutatingBookingId === booking.id;
+                      const action = getApplicableAction(booking);
+                      const barColor = getTimelineBarColor(booking);
+                      const therapistColor = getTherapistColor(
+                        booking.staffName,
+                      );
+                      const therapistInitials = getInitials(booking.staffName);
 
-                        const customerInitials =
-                          booking.customerName
-                            ?.split(' ')
-                            .filter(Boolean)
-                            .slice(0, 2)
-                            .map((p) => p[0]?.toUpperCase())
-                            .join('') || 'WK';
+                      return (
+                        <div
+                          key={booking.id}
+                          className={`today-timeline-row ${
+                            isSelected ? 'today-timeline-row-selected' : ''
+                          }`}
+                          onClick={() =>
+                            setSelectedBookingId((prev) =>
+                              prev === booking.id ? null : booking.id,
+                            )
+                          }
+                          data-testid={`today-row-${booking.id}`}
+                        >
+                          {/* 1. Time Column with Vertical Bar */}
+                          <div className="today-row-time-col">
+                            <span className="today-row-time">
+                              {formatClock(booking.startTime)}
+                            </span>
+                            <div
+                              className={`today-row-vbar ${barColor}`}
+                              aria-hidden="true"
+                            />
+                          </div>
 
-                        const staffInitials =
-                          booking.staffName
-                            ?.split(' ')
-                            .filter(Boolean)
-                            .slice(0, 2)
-                            .map((p) => p[0]?.toUpperCase())
-                            .join('') || 'UN';
+                          {/* 2. Status Badge */}
+                          <div className="today-row-status-col">
+                            {renderStageBadge(booking)}
+                          </div>
 
-                        return (
-                          <tr
-                            key={booking.id}
-                            className={`today-table-row ${selectedBookingId === booking.id ? 'today-table-row-selected' : ''}`}
-                            data-testid={`today-row-${booking.id}`}
-                          >
-                            {/* TIME */}
-                            <td className="today-col-time">
-                              <div className="today-time-wrap">
-                                <span
-                                  className={`today-status-dot ${booking.stage || 'waiting'}`}
+                          {/* 3. Customer Info */}
+                          <div className="today-row-customer-col">
+                            <button
+                              type="button"
+                              className="today-booking-select"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedBookingId((prev) =>
+                                  prev === booking.id ? null : booking.id,
+                                );
+                              }}
+                              aria-pressed={isSelected}
+                              aria-label={`Review booking for ${booking.customerName || 'customer'}`}
+                              data-testid={`select-booking-${booking.id}`}
+                            >
+                              <strong className="today-customer-name">
+                                {booking.customerName || 'Walk-in Guest'}
+                              </strong>
+                            </button>
+                            <span className="today-customer-phone">
+                              {booking.customerPhone || '—'}
+                            </span>
+                          </div>
+
+                          {/* 4. Service Info */}
+                          <div className="today-row-service-col">
+                            <span className="today-service-name">
+                              {booking.serviceName || 'Custom Service'}
+                            </span>
+                            <span className="today-service-duration">
+                              {booking.serviceDuration
+                                ? `${booking.serviceDuration} min`
+                                : '—'}
+                            </span>
+                          </div>
+
+                          {/* 5. Assigned Therapist */}
+                          <div className="today-row-therapist-col">
+                            <div
+                              className={`today-therapist-avatar ${therapistColor}`}
+                              title={booking.staffName || 'Unassigned'}
+                            >
+                              {therapistInitials}
+                            </div>
+                            <span className="today-therapist-name">
+                              {booking.staffName || 'Unassigned'}
+                            </span>
+                          </div>
+
+                          {/* 6. Room / Dispatch */}
+                          <div className="today-row-room-col">
+                            {booking.isHomeService ? (
+                              <div className="today-row-resource-info text-left">
+                                {booking.dispatchContextAvailable === false && (
+                                  <span className="text-[10px] text-amber-800 font-medium block">
+                                    Dispatch unavailable
+                                  </span>
+                                )}
+                                {booking.dispatchContextAvailable !== false &&
+                                  booking.noDriverWarning && (
+                                    <span className="text-[10px] text-red-700 font-medium block">
+                                      No driver assigned
+                                    </span>
+                                  )}
+                                <span className="text-xs text-slate-500 block">
+                                  {booking.driverName
+                                    ? `Driver: ${booking.driverName}`
+                                    : !booking.dispatchContextAvailable
+                                      ? 'Dispatch details unavailable'
+                                      : 'No driver assigned'}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="today-room-label">
+                                {booking.resourceName || '—'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* 7. Action Button */}
+                          <div className="today-row-action-col">
+                            {action ? (
+                              <button
+                                type="button"
+                                className={`today-timeline-action-btn ${action.tone}`}
+                                disabled={isMutating}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleMutateAction(
+                                    action.action,
+                                    booking.id,
+                                  );
+                                }}
+                                data-testid={`action-${action.action}-${booking.id}`}
+                              >
+                                <Play
+                                  size={12}
+                                  fill="currentColor"
                                   aria-hidden="true"
                                 />
-                                <strong>
-                                  {formatClock(booking.startTime)}
-                                </strong>
-                              </div>
-                              {booking.isHomeService && (
-                                <span className="today-home-tag">
-                                  Home Service
-                                </span>
-                              )}
-                            </td>
-
-                            {/* CUSTOMER */}
-                            <td className="today-col-customer">
-                              <div className="today-avatar-wrap">
-                                <span
-                                  className="today-avatar-circle"
-                                  aria-hidden="true"
-                                >
-                                  {customerInitials}
-                                </span>
-                                <div className="today-cell-text">
-                                  <button
-                                    type="button"
-                                    className="today-booking-select"
-                                    onClick={() =>
-                                      setSelectedBookingId((current) =>
-                                        current === booking.id
-                                          ? null
-                                          : booking.id,
-                                      )
-                                    }
-                                    aria-pressed={
-                                      selectedBookingId === booking.id
-                                    }
-                                    aria-label={`Review booking for ${booking.customerName || 'customer name unavailable'}`}
-                                  >
-                                    {booking.customerName ||
-                                      'Customer name unavailable'}
-                                  </button>
-                                  <span className="today-secondary-text">
-                                    {booking.customerPhone ||
-                                      'No phone on record'}
-                                  </span>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* SERVICE / SUMMARY */}
-                            <td className="today-col-service">
-                              <div className="today-cell-text">
-                                <div className="today-primary-name-row">
-                                  <strong className="today-primary-name">
-                                    {booking.serviceName ||
-                                      'Service unavailable'}
-                                  </strong>
-                                  {booking.serviceDuration ? (
-                                    <span className="today-service-duration">
-                                      {' '}
-                                      • {booking.serviceDuration} min
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <span className="today-secondary-text">
-                                  {booking.isHomeService
-                                    ? booking.homeServiceAddress ||
-                                      'Home dispatch'
-                                    : booking.resourceName ||
-                                      'Room unavailable'}
-                                </span>
-                              </div>
-                            </td>
-
-                            {/* STATUS */}
-                            <td className="today-col-status">
-                              {renderStageBadge(booking)}
-                            </td>
-
-                            {/* ASSIGNEE */}
-                            <td className="today-col-assignee">
-                              <div className="today-avatar-wrap">
-                                <span
-                                  className="today-avatar-circle today-avatar-staff"
-                                  aria-hidden="true"
-                                >
-                                  {staffInitials}
-                                </span>
-                                <div className="today-cell-text">
-                                  <strong className="today-primary-name">
-                                    {booking.staffName || (
-                                      <span className="text-amber-700">
-                                        Unassigned
-                                      </span>
-                                    )}
-                                  </strong>
-                                  <span className="today-secondary-text">
-                                    {booking.isHomeService ? (
-                                      <>
-                                        {booking.dispatchContextAvailable ===
-                                          false && (
-                                          <span className="text-[10px] text-amber-800 font-medium block">
-                                            Dispatch unavailable
-                                          </span>
-                                        )}
-                                        {booking.dispatchContextAvailable !==
-                                          false &&
-                                          booking.noDriverWarning && (
-                                            <span className="text-[10px] text-red-700 font-medium block">
-                                              No driver assigned
-                                            </span>
-                                          )}
-                                        {booking.driverName
-                                          ? `Driver: ${booking.driverName}`
-                                          : !booking.dispatchContextAvailable
-                                            ? 'Dispatch details unavailable'
-                                            : 'No driver assigned'}
-                                      </>
-                                    ) : (
-                                      booking.resourceName || 'No room assigned'
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* NEXT ACTION */}
-                            <td className="today-col-action">
-                              {action ? (
-                                <button
-                                  type="button"
-                                  className={`today-action-btn ${action.tone === 'success' ? 'tone-success' : ''}`}
-                                  onClick={() =>
-                                    void handleRunMutation(
-                                      booking,
-                                      action.action,
-                                    )
-                                  }
-                                  disabled={
-                                    mutatingBookingId !== null || isMutating
-                                  }
-                                  data-testid={`action-${action.action}-${booking.id}`}
-                                >
+                                <span>
                                   {isMutating ? 'Updating...' : action.label}
-                                </button>
-                              ) : booking.stage === 'ready_to_pay' ? (
-                                <span
-                                  className="today-read-only-pill"
-                                  data-testid={`payment-pending-pill-${booking.id}`}
-                                >
-                                  Payment Pending — manage on web
                                 </span>
-                              ) : booking.stage === 'completed' ||
-                                booking.status === 'completed' ? (
-                                <span className="today-completed-text">
-                                  Completed
-                                </span>
-                              ) : ['cancelled', 'no_show'].includes(
-                                  booking.status,
-                                ) ? (
-                                <span className="today-closed-text">
-                                  Closed
-                                </span>
-                              ) : (
-                                <span className="today-closed-text">—</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              </button>
+                            ) : booking.stage === 'ready_to_pay' ? (
+                              <button
+                                type="button"
+                                className="today-timeline-action-btn view-bill today-read-only-pill"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onNavigate) {
+                                    onNavigate('cashier');
+                                  } else {
+                                    setSelectedBookingId(booking.id);
+                                  }
+                                }}
+                                data-testid={`payment-pending-pill-${booking.id}`}
+                              >
+                                <Eye size={12} aria-hidden="true" />
+                                <span>Payment Pending — manage on web</span>
+                              </button>
+                            ) : booking.stage === 'completed' ||
+                              booking.status === 'completed' ? (
+                              <span className="today-completed-text">
+                                Completed
+                              </span>
+                            ) : ['cancelled', 'no_show'].includes(
+                                booking.status,
+                              ) ? (
+                              <span className="today-closed-text">Closed</span>
+                            ) : (
+                              <span className="today-closed-text">—</span>
+                            )}
+                          </div>
+
+                          {/* 8. More Options Menu */}
+                          <div className="today-row-more-col">
+                            <button
+                              type="button"
+                              className="today-row-more-btn"
+                              title="Booking options"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedBookingId(booking.id);
+                              }}
+                            >
+                              <MoreHorizontal size={15} aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
@@ -1151,38 +1542,59 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 />
               )}
             </section>
+
+            {/* Right Column: Operational Rail */}
+            <aside
+              className="today-right-rail"
+              aria-label="Today contextual operational rail"
+              data-testid="today-right-rail"
+            >
+              {/* Contextual Inspector (persistent in DOM so tests find today-booking-inspector; sr-only when empty) */}
+              <div className={selectedBooking ? 'block mb-4' : 'sr-only'}>
+                <TodayBookingInspectorCard
+                  booking={selectedBooking}
+                  timeLabel={
+                    selectedBooking
+                      ? `${formatClock(selectedBooking.startTime)}–${formatClock(selectedBooking.endTime)}`
+                      : undefined
+                  }
+                  onOpenBookings={
+                    onNavigate ? () => onNavigate('bookings') : undefined
+                  }
+                  onOpenCashier={
+                    onNavigate ? () => onNavigate('cashier') : undefined
+                  }
+                  onClose={() => setSelectedBookingId(null)}
+                  onMutateAction={handleMutateAction}
+                  isMutating={mutatingBookingId === selectedBooking?.id}
+                />
+              </div>
+
+              {/* Panel 1: Arrivals & Waiting Queue */}
+              {!selectedBooking && (
+                <TodayArrivalsQueueCard
+                  queue={data.queue}
+                  onSelectBooking={(id) => setSelectedBookingId(id)}
+                  onViewAll={() => handleStageFilterChange('waiting')}
+                  onMutateAction={handleMutateAction}
+                  mutatingBookingId={mutatingBookingId}
+                />
+              )}
+
+              {/* Panel 2: Today's Activity */}
+              <TodayActivityCard
+                attendance={data.attendance}
+                notifications={data.notifications}
+                onNavigate={onNavigate}
+              />
+
+              {/* Panel 3: Quick Actions Grid */}
+              <TodayQuickActionsCard onNavigate={onNavigate} />
+
+              {/* Panel 4: Today's Money */}
+              <TodayMoneyCard />
+            </aside>
           </div>
-
-          {/* Right Rail: 3 Independent Cards */}
-          <aside
-            className="today-right-rail"
-            aria-label="Today contextual activity and actions"
-            data-testid="today-right-rail"
-          >
-            <TodayBookingInspectorCard
-              booking={selectedBooking}
-              timeLabel={
-                selectedBooking
-                  ? `${formatClock(selectedBooking.startTime)}–${formatClock(selectedBooking.endTime)}`
-                  : undefined
-              }
-              onOpenBookings={
-                onNavigate ? () => onNavigate('bookings') : undefined
-              }
-            />
-            {/* Card 1: Activity */}
-            <TodayActivityCard
-              attendance={data.attendance}
-              notifications={data.notifications}
-              onNavigate={onNavigate}
-            />
-
-            {/* Card 2: Quick Actions */}
-            <TodayQuickActionsCard onNavigate={onNavigate} />
-
-            {/* Card 3: Today's Money */}
-            <TodayMoneyCard />
-          </aside>
         </div>
       ) : null}
 

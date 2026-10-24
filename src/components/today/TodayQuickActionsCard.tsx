@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-  BookmarkCheck,
+  CalendarDays,
   CalendarRange,
-  ChevronRight,
+  CreditCard,
+  Fingerprint,
   Truck,
-  UserCheck,
   Users,
 } from 'lucide-react';
 import type { NavModuleId } from '../../types/auth';
@@ -25,116 +25,101 @@ export const TodayQuickActionsCard: React.FC<TodayQuickActionsCardProps> = ({
         <h3 className="today-right-card-title">Quick Actions</h3>
       </div>
 
-      <div className="today-quick-actions-list">
+      <div className="today-quick-actions-grid">
+        {/* 1. View Bookings */}
         <button
           type="button"
-          className="today-quick-action-item"
+          className="today-qa-tile"
           onClick={() => onNavigate?.('bookings')}
           data-testid="quick-action-bookings"
         >
-          <div className="today-quick-action-icon-box">
-            <BookmarkCheck size={16} aria-hidden="true" />
+          <div className="today-qa-icon-box bg-blue-50 text-blue-600">
+            <CalendarDays size={18} aria-hidden="true" />
           </div>
-          <div className="today-quick-action-text">
-            <strong className="today-quick-action-label">View Bookings</strong>
-            <span className="today-quick-action-desc">
-              Search all branch bookings
-            </span>
+          <div className="today-qa-text">
+            <strong className="today-qa-label">View Bookings</strong>
+            <span className="today-qa-desc">Search and manage</span>
           </div>
-          <ChevronRight
-            size={14}
-            className="today-quick-action-chevron"
-            aria-hidden="true"
-          />
         </button>
+
+        {/* 2. View Customers */}
         <button
           type="button"
-          className="today-quick-action-item"
+          className="today-qa-tile"
           onClick={() => onNavigate?.('customers')}
           data-testid="quick-action-customers"
         >
-          <div className="today-quick-action-icon-box">
-            <Users size={16} aria-hidden="true" />
+          <div className="today-qa-icon-box bg-amber-50 text-amber-600">
+            <Users size={18} aria-hidden="true" />
           </div>
-          <div className="today-quick-action-text">
-            <strong className="today-quick-action-label">View Customers</strong>
-            <span className="today-quick-action-desc">
-              Customer records & follow-up
-            </span>
+          <div className="today-qa-text">
+            <strong className="today-qa-label">View Customers</strong>
+            <span className="today-qa-desc">Customer records</span>
           </div>
-          <ChevronRight
-            size={14}
-            className="today-quick-action-chevron"
-            aria-hidden="true"
-          />
         </button>
 
+        {/* 3. Check Schedule */}
         <button
           type="button"
-          className="today-quick-action-item"
+          className="today-qa-tile"
           onClick={() => onNavigate?.('schedule')}
           data-testid="quick-action-schedule"
         >
-          <div className="today-quick-action-icon-box">
-            <CalendarRange size={16} aria-hidden="true" />
+          <div className="today-qa-icon-box bg-emerald-50 text-emerald-600">
+            <CalendarRange size={18} aria-hidden="true" />
           </div>
-          <div className="today-quick-action-text">
-            <strong className="today-quick-action-label">Check Schedule</strong>
-            <span className="today-quick-action-desc">
-              Review staff and rooms
-            </span>
+          <div className="today-qa-text">
+            <strong className="today-qa-label">Check Schedule</strong>
+            <span className="today-qa-desc">Staff and rooms</span>
           </div>
-          <ChevronRight
-            size={14}
-            className="today-quick-action-chevron"
-            aria-hidden="true"
-          />
         </button>
 
+        {/* 4. View Attendance */}
         <button
           type="button"
-          className="today-quick-action-item"
+          className="today-qa-tile"
           onClick={() => onNavigate?.('attendance')}
           data-testid="quick-action-attendance"
         >
-          <div className="today-quick-action-icon-box">
-            <UserCheck size={16} aria-hidden="true" />
+          <div className="today-qa-icon-box bg-teal-50 text-teal-600">
+            <Fingerprint size={18} aria-hidden="true" />
           </div>
-          <div className="today-quick-action-text">
-            <strong className="today-quick-action-label">
-              View Attendance
-            </strong>
-            <span className="today-quick-action-desc">
-              Staff presence & scan review
-            </span>
+          <div className="today-qa-text">
+            <strong className="today-qa-label">View Attendance</strong>
+            <span className="today-qa-desc">Staff presence</span>
           </div>
-          <ChevronRight
-            size={14}
-            className="today-quick-action-chevron"
-            aria-hidden="true"
-          />
         </button>
 
+        {/* 5. Open Cashier */}
         <button
           type="button"
-          className="today-quick-action-item"
+          className="today-qa-tile"
+          onClick={() => onNavigate?.('cashier')}
+          data-testid="quick-action-cashier"
+        >
+          <div className="today-qa-icon-box bg-orange-50 text-orange-600">
+            <CreditCard size={18} aria-hidden="true" />
+          </div>
+          <div className="today-qa-text">
+            <strong className="today-qa-label">Open Cashier</strong>
+            <span className="today-qa-desc">Payments and expenses</span>
+          </div>
+        </button>
+
+        {/* 6. Home Service */}
+        <button
+          type="button"
+          className="today-qa-tile"
           onClick={() => onNavigate?.('home-service')}
           data-testid="quick-action-home-service"
         >
-          <div className="today-quick-action-icon-box">
-            <Truck size={16} aria-hidden="true" />
+          <div className="today-qa-icon-box bg-blue-50 text-blue-600">
+            <Truck size={18} aria-hidden="true" />
           </div>
-          <div className="today-quick-action-text">
-            <strong className="today-quick-action-label">Home Service</strong>
-            <span className="today-quick-action-desc">
-              Open dispatch workspace
-            </span>
+          <div className="today-qa-text">
+            <strong className="today-qa-label">Home Service</strong>
+            <span className="today-qa-desc">Dispatch workspace</span>
           </div>
-          <ChevronRight
-            size={14}
-            className="today-quick-action-chevron"
-            aria-hidden="true"
-          />
         </button>
       </div>
     </div>
