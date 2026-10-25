@@ -9857,7 +9857,8 @@ button.bookings-kpi-cell:focus-visible {
   flex-direction: column;
   height: 100%;
   padding: 14px 20px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
 }
 
@@ -10048,7 +10049,7 @@ button.bookings-kpi-cell:focus-visible {
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  flex: 1;
+  flex: none;
   min-height: 0;
 }
 
@@ -10057,11 +10058,11 @@ button.bookings-kpi-cell:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 290px;
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
   width: 100%;
-  flex: 1;
+  flex: none;
   min-height: 0;
-  height: 100%;
+  height: auto;
 }
 
 .today-main-col {
@@ -10321,11 +10322,11 @@ button.bookings-kpi-cell:focus-visible {
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  padding: 14px 18px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  flex: 1;
+  flex: none;
   min-height: 0;
   min-width: 0;
 }
@@ -10449,32 +10450,19 @@ button.bookings-kpi-cell:focus-visible {
   color: #ffffff;
 }
 
-.today-view-more-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+.today-view-mode-btn:disabled {
   color: #64748b;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.today-view-more-btn:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
 }
 
 /* Timeline Rows & Schedule Content */
 .today-schedule-content,
 .today-table-container {
-  flex: 1;
+  flex: none;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: auto;
+  overflow: visible;
   border: 1px solid #f1f5f9;
   border-radius: 10px;
   padding: 4px;
@@ -10496,14 +10484,69 @@ button.bookings-kpi-cell:focus-visible {
   gap: 6px;
 }
 
+.today-list-view {
+  gap: 10px;
+}
+
+.today-list-view .today-timeline-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 38%);
+  grid-template-areas:
+    'customer status'
+    'service time'
+    'therapist resource'
+    'action details';
+  align-items: start;
+  gap: 8px 12px;
+  padding: 12px;
+}
+
+.today-list-view .today-row-customer-col {
+  grid-area: customer;
+}
+.today-list-view .today-row-status-col {
+  grid-area: status;
+}
+.today-list-view .today-row-service-col {
+  grid-area: service;
+}
+.today-list-view .today-row-time-col {
+  grid-area: time;
+}
+.today-list-view .today-row-therapist-col {
+  grid-area: therapist;
+}
+.today-list-view .today-row-room-col {
+  grid-area: resource;
+  display: block;
+}
+.today-list-view .today-row-action-col {
+  grid-area: action;
+}
+.today-list-view .today-row-more-col {
+  grid-area: details;
+  justify-content: flex-end;
+}
+
+.today-list-view .today-row-room-col {
+  overflow-wrap: anywhere;
+}
+
+.today-list-view .today-customer-name,
+.today-list-view .today-service-name,
+.today-list-view .today-therapist-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .today-timeline-row {
   display: grid;
   grid-template-columns:
-    82px 96px minmax(130px, 1.2fr) minmax(120px, 1fr)
-    120px 65px 105px 28px;
+    minmax(58px, 0.55fr) minmax(76px, 0.7fr) minmax(0, 1.25fr)
+    minmax(0, 1.1fr) minmax(0, 0.95fr) minmax(0, 0.65fr)
+    minmax(96px, 1fr) 24px;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 8px;
   background: #ffffff;
   border: 1px solid #f1f5f9;
   border-radius: 10px;
@@ -10818,9 +10861,31 @@ button.bookings-kpi-cell:focus-visible {
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  height: 100%;
+  height: auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
+}
+
+.today-timeline-row > * {
+  min-width: 0;
+}
+
+.today-row-action-col .today-timeline-action-btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .today-timeline-row {
+    grid-template-columns:
+      minmax(58px, 0.5fr) minmax(76px, 0.7fr) minmax(0, 1.35fr)
+      minmax(0, 1fr) minmax(0, 0.9fr) minmax(96px, 1fr) 24px;
+  }
+
+  .today-row-room-col {
+    display: none;
+  }
 }
 
 /* Arrivals & Waiting Queue Card */
@@ -11582,7 +11647,7 @@ button.bookings-kpi-cell:focus-visible {
 }
 
 /* Responsive Breakpoints */
-@media (max-width: 1024px) {
+@media (max-width: 1050px) {
   .today-workspace-content {
     overflow-y: auto;
     overflow-x: hidden;
@@ -11620,13 +11685,13 @@ button.bookings-kpi-cell:focus-visible {
   .today-workflow-card,
   .today-schedule-card {
     height: auto;
-    min-height: 420px;
+    min-height: 0;
   }
 
   .today-schedule-content,
   .today-table-container {
-    overflow-x: auto;
-    min-height: 240px;
+    overflow: visible;
+    min-height: 0;
   }
 
   .today-action-strip {

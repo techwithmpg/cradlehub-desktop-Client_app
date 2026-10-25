@@ -28,6 +28,15 @@ function isCashierOverviewData(value: unknown): value is CashierOverviewData {
     typeof value.businessDate === 'string' &&
     isRecord(value.kpis) &&
     typeof value.kpis.totalCollected === 'number' &&
+    typeof value.kpis.totalTransactions === 'number' &&
+    typeof value.kpis.pendingAmount === 'number' &&
+    typeof value.kpis.pendingBookingsCount === 'number' &&
+    typeof value.kpis.cashAmount === 'number' &&
+    typeof value.kpis.cashCount === 'number' &&
+    typeof value.kpis.digitalAmount === 'number' &&
+    typeof value.kpis.digitalCount === 'number' &&
+    typeof value.kpis.expenseAmount === 'number' &&
+    typeof value.kpis.expenseCount === 'number' &&
     Array.isArray(value.paymentMix)
   );
 }
@@ -50,6 +59,8 @@ function isCashierLedgerData(
   if (!isRecord(value)) return false;
   return (
     isRecord(value.kpis) &&
+    typeof value.kpis.inflow === 'number' &&
+    typeof value.kpis.outflow === 'number' &&
     typeof value.kpis.netFlow === 'number' &&
     Array.isArray(value.records) &&
     typeof value.totalRecords === 'number'

@@ -232,6 +232,68 @@ describe('TodayView Component Suite', () => {
     ).toBeGreaterThanOrEqual(1);
   });
 
+  it('switches to a distinct list layout while preserving selection, filters, and actions', async () => {
+    mockedFetchToday.mockResolvedValue(
+      createTodayData({
+        queue: [
+          createQueueItem(),
+          createQueueItem({
+            id: 'booking-02',
+            customerName: 'Ben Cruz',
+            status: 'completed',
+            stage: 'completed',
+          }),
+        ],
+      }),
+    );
+    renderTodayView();
+    await waitFor(() =>
+      expect(screen.getByTestId('today-timeline-view')).toBeDefined(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }));
+    expect(screen.getByTestId('today-list-view')).toBeDefined();
+    expect(screen.getByTestId('today-list-view').classList).toContain(
+      'today-list-view',
+    );
+    expect(screen.getByTestId('action-mark_arrived-booking-01')).toBeDefined();
+    fireEvent.click(screen.getByTestId('select-booking-booking-01'));
+    expect(screen.getByTestId('today-booking-inspector').textContent).toContain(
+      'Aromatherapy Massage',
+    );
+
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Filter by Status' }),
+      {
+        target: { value: 'completed' },
+      },
+    );
+    expect(screen.queryByTestId('today-row-booking-01')).toBeNull();
+    expect(screen.getByTestId('today-row-booking-02')).toBeDefined();
+    expect(screen.getByTestId('today-list-view')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Timeline' }));
+    expect(screen.getByTestId('today-timeline-view')).toBeDefined();
+    expect(mockedFetchToday).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Rooms unavailable and gives Retry a separate, truthful control', async () => {
+    mockedFetchToday.mockResolvedValue(createTodayData());
+    renderTodayView();
+    await waitFor(() =>
+      expect(screen.getByTestId('today-timeline-view')).toBeDefined(),
+    );
+
+    const rooms = screen.getByRole('button', {
+      name: /Rooms view unavailable/,
+    });
+    expect(rooms.hasAttribute('disabled')).toBe(true);
+    expect(rooms.getAttribute('title')).toContain('room occupancy data');
+    expect(screen.queryByTitle('More actions')).toBeNull();
+    expect(screen.getByTestId('today-refresh-button')).toBeDefined();
+    expect(screen.getByTestId('today-timeline-view')).toBeDefined();
+  });
+
   it('renders fatal error banner and retries on click', async () => {
     mockedFetchToday.mockRejectedValueOnce(
       new Error('Network connection failed'),

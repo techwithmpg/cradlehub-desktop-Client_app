@@ -11,6 +11,68 @@
   padding-bottom: 2rem;
 }
 
+.ops-workspace-container .bookings-main-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 30%);
+}
+
+.ops-workspace-container .bookings-scope-tab-btn {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+
+.ops-workspace-container .bookings-scope-tabs-container {
+  gap: 2px;
+  padding: 6px;
+}
+
+.ops-workspace-container .bookings-datagrid-wrapper {
+  overflow-x: auto;
+}
+
+.ops-table {
+  table-layout: fixed;
+  min-width: 0;
+}
+
+.ops-table th,
+.ops-table td {
+  overflow-wrap: anywhere;
+}
+
+.ops-table th:last-child,
+.ops-table td:last-child {
+  width: 90px;
+}
+
+.ops-issues-table th:first-child,
+.ops-issues-table td:first-child,
+.ops-scans-table th:first-child,
+.ops-scans-table td:first-child {
+  width: 94px;
+}
+
+.ops-scans-table th:nth-child(2),
+.ops-scans-table td:nth-child(2) {
+  width: 145px;
+}
+
+.ops-row-meta {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.ops-workspace-container .booking-inspector-card.empty {
+  min-height: 0;
+}
+
+.ops-workspace-container .inspector-empty-container {
+  padding: 24px 16px;
+}
+
 /* Badges */
 .ops-badge {
   display: inline-flex;
@@ -312,8 +374,8 @@
 }
 
 /* Responsiveness at 1024x768 and compact windows */
-@media (max-width: 1024px) {
-  .bookings-main-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 1050px) {
+  .ops-workspace-container .bookings-main-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -50,6 +50,7 @@ export function FinancialLedgerTab({
   const [page, setPage] = useState<number>(1);
   const pageSize = 15;
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadLedger = async (targetPage = page) => {
     setIsLoading(true);
@@ -63,9 +64,13 @@ export function FinancialLedgerTab({
         pageSize,
       });
       setLedgerData(result);
+      setLoadError(null);
       setPage(targetPage);
-    } catch {
-      // Retain existing state on failure
+    } catch (error) {
+      setLedgerData(null);
+      setLoadError(
+        error instanceof Error ? error.message : 'Ledger is unavailable.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -73,13 +78,6 @@ export function FinancialLedgerTab({
 
   const handleApplyFilter = () => {
     loadLedger(1);
-  };
-
-  const kpis = ledgerData?.kpis ?? {
-    inflow: 0,
-    outflow: 0,
-    netFlow: 0,
-    unreconciledText: 'All reconciled',
   };
 
   const records = ledgerData?.records ?? [];
@@ -134,6 +132,24 @@ export function FinancialLedgerTab({
         return <span className="badge-voided">{status}</span>;
     }
   };
+
+  if (!ledgerData) {
+    return (
+      <div className="cashier-card p-8 text-sm text-slate-600" role="status">
+        <p>{loadError ?? 'Ledger data is unavailable.'}</p>
+        <button
+          type="button"
+          className="cashier-btn-secondary mt-3"
+          onClick={() => void loadLedger(1)}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Checking...' : 'Retry ledger'}
+        </button>
+      </div>
+    );
+  }
+
+  const kpis = ledgerData.kpis;
 
   return (
     <div className="space-y-5">

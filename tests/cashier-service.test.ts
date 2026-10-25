@@ -87,6 +87,35 @@ describe('Cashier Service (Desktop API Client)', () => {
       }
     });
 
+    it('keeps a non-JSON Cashier 404 service-specific without exposing its body', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('secret diagnostic body', {
+          status: 404,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      );
+      await expect(
+        fetchCashierOverview(
+          createMockSupabaseClient(),
+          mockFetch as unknown as typeof fetch,
+        ),
+      ).rejects.toMatchObject({
+        code: 'HOSTED_API_NON_JSON_RESPONSE',
+        status: 404,
+        message: expect.stringContaining('Cashier service endpoint'),
+      });
+      try {
+        await fetchCashierOverview(
+          createMockSupabaseClient(),
+          mockFetch as unknown as typeof fetch,
+        );
+      } catch (error) {
+        expect((error as Error).message).not.toContain(
+          'secret diagnostic body',
+        );
+      }
+    });
+
     it('marks 5xx server errors as ambiguous', async () => {
       const mockClient = createMockSupabaseClient();
       const mockFetch = vi.fn().mockResolvedValue(
@@ -149,6 +178,24 @@ describe('Cashier Service (Desktop API Client)', () => {
   });
 
   describe('fetchCashierOverview', () => {
+    it('rejects a partial KPI contract instead of treating missing money as zero', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        mockJsonResponse({
+          branchId: 'branch-1',
+          branchName: 'Main Branch',
+          businessDate: '2026-10-25',
+          kpis: { totalCollected: 0 },
+          paymentMix: [],
+        }),
+      );
+      await expect(
+        fetchCashierOverview(
+          createMockSupabaseClient(),
+          mockFetch as unknown as typeof fetch,
+        ),
+      ).rejects.toMatchObject({ code: 'HOSTED_RESPONSE_CONTRACT_ERROR' });
+    });
+
     it('fetches and validates overview data successfully', async () => {
       const mockClient = createMockSupabaseClient();
       const validOverview = {
@@ -157,11 +204,15 @@ describe('Cashier Service (Desktop API Client)', () => {
         businessDate: '2026-10-23',
         kpis: {
           totalCollected: 25400,
-          pendingPaymentsCount: 3,
-          pendingPaymentsAmount: 4500,
-          totalExpenses: 1200,
-          netCashFlow: 24200,
-          activeDrawerCash: 8000,
+          totalTransactions: 17,
+          pendingAmount: 4500,
+          pendingBookingsCount: 3,
+          cashAmount: 15400,
+          cashCount: 12,
+          digitalAmount: 10000,
+          digitalCount: 5,
+          expenseAmount: 1200,
+          expenseCount: 2,
         },
         paymentMix: [
           {
@@ -281,7 +332,12 @@ describe('Cashier Service (Desktop API Client)', () => {
       const mockClient = createMockSupabaseClient();
       const mockFetch = vi.fn().mockResolvedValue(
         mockJsonResponse({
-          kpis: { totalInflows: 1000, totalOutflows: 200, netFlow: 800 },
+          kpis: {
+            inflow: 1000,
+            outflow: 200,
+            netFlow: 800,
+            unreconciledText: 'None',
+          },
           records: [],
           totalRecords: 0,
           page: 1,

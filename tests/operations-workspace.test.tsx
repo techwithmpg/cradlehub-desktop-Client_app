@@ -317,5 +317,23 @@ describe('Operations Center Workspace Component', () => {
         ),
       ).toBeDefined();
     });
+    expect(screen.getByTestId('kpi-attendance').textContent).toContain(
+      'Unavailable',
+    );
+    expect(screen.getByTestId('kpi-critical').textContent).toContain(
+      'Unavailable',
+    );
+  });
+
+  it('does not show zero diagnostics or a clear queue when the hosted read fails', async () => {
+    vi.mocked(operationsService.fetchOperationsCenterData).mockRejectedValue(
+      new Error('Operations Center endpoint unavailable'),
+    );
+    renderOperationsWorkspace();
+    await waitFor(() =>
+      expect(screen.getByTestId('ops-error-banner')).toBeDefined(),
+    );
+    expect(screen.queryByTestId('ops-summary-card')).toBeNull();
+    expect(screen.queryByText(/All operational checks passed/)).toBeNull();
   });
 });

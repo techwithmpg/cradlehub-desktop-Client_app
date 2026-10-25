@@ -4,13 +4,16 @@ import hooks from 'eslint-plugin-react-hooks';
 import refresh from 'eslint-plugin-react-refresh';
 import globals from 'globals';
 export default tseslint.config(
-  { ignores: ['dist/**', 'src-tauri/**', 'node_modules/**'] },
+  { ignores: ['dist/**', 'src-tauri/**', 'node_modules/**', '.worktrees/**'] },
   { files: ['**/*.{js,mjs}'], languageOptions: { globals: globals.node } },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
-    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
+    },
     plugins: { 'react-hooks': hooks, 'react-refresh': refresh },
     rules: {
       ...hooks.configs.recommended.rules,

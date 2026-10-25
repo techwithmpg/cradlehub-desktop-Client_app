@@ -3,5 +3,6 @@ src-tauri/target/
 src-tauri/gen/
 dist/
 node_modules/
+.worktrees/
 docs/99-archive/
 bootstrap-manifest.json

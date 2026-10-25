@@ -19,7 +19,6 @@ import {
   Eye,
   GanttChart,
   List,
-  MoreHorizontal,
   Play,
   Plus,
   RefreshCw,
@@ -67,7 +66,7 @@ export interface TodayViewProps {
 type StageScopeFilter =
   'all' | 'waiting' | 'in_service' | 'ready_to_pay' | 'completed';
 
-type ViewMode = 'timeline' | 'list' | 'rooms';
+type ViewMode = 'timeline' | 'list';
 
 function formatClock(value: string | null | undefined): string {
   if (!value) return '—';
@@ -83,7 +82,7 @@ function formatClock(value: string | null | undefined): string {
 }
 
 function formatDateHeader(dateString?: string): string {
-  if (!dateString) return 'Thu, Oct 23, 2026';
+  if (!dateString) return 'Date unavailable';
   const date = new Date(`${dateString}T00:00:00`);
   return Number.isNaN(date.getTime())
     ? dateString
@@ -1234,6 +1233,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     className={`today-view-mode-btn ${viewMode === 'timeline' ? 'active' : ''}`}
                     onClick={() => setViewMode('timeline')}
                     title="Timeline View"
+                    aria-pressed={viewMode === 'timeline'}
                   >
                     <GanttChart size={14} aria-hidden="true" />
                     <span>Timeline</span>
@@ -1243,26 +1243,20 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     className={`today-view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
                     onClick={() => setViewMode('list')}
                     title="List View"
+                    aria-pressed={viewMode === 'list'}
                   >
                     <List size={14} aria-hidden="true" />
                     <span>List</span>
                   </button>
                   <button
                     type="button"
-                    className={`today-view-mode-btn ${viewMode === 'rooms' ? 'active' : ''}`}
-                    onClick={() => setViewMode('rooms')}
-                    title="Room Occupancy (Contract view)"
+                    className="today-view-mode-btn"
+                    disabled
+                    aria-label="Rooms view unavailable: room occupancy data is not provided by Today"
+                    title="Rooms view unavailable: room occupancy data is not provided by Today"
                   >
                     <DoorClosed size={14} aria-hidden="true" />
-                    <span>Rooms</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="today-view-more-btn"
-                    title="More actions"
-                    onClick={handleRetry}
-                  >
-                    <MoreHorizontal size={14} aria-hidden="true" />
+                    <span>Rooms unavailable</span>
                   </button>
                 </div>
               </div>
@@ -1304,7 +1298,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     </Button>
                   </div>
                 ) : (
-                  <div className="today-timeline-list">
+                  <div
+                    className={`today-timeline-list ${viewMode === 'list' ? 'today-list-view' : ''}`}
+                    data-testid={`today-${viewMode}-view`}
+                  >
                     {paginatedQueue.map((booking) => {
                       const isSelected = selectedBookingId === booking.id;
                       const isMutating = mutatingBookingId === booking.id;
@@ -1479,18 +1476,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
                             )}
                           </div>
 
-                          {/* 8. More Options Menu */}
+                          {/* 8. Booking inspector shortcut */}
                           <div className="today-row-more-col">
                             <button
                               type="button"
                               className="today-row-more-btn"
-                              title="Booking options"
+                              title="View booking details"
+                              aria-label={`View details for ${booking.customerName || 'customer'}`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedBookingId(booking.id);
                               }}
                             >
-                              <MoreHorizontal size={15} aria-hidden="true" />
+                              <Eye size={15} aria-hidden="true" />
                             </button>
                           </div>
                         </div>

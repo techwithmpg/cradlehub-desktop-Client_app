@@ -62,6 +62,33 @@ describe('hosted-json-response', () => {
       expect(parseNonJsonErrorMessage(308)).toContain('redirected');
       expect(parseNonJsonErrorMessage(502)).toContain('HTTP 502');
     });
+
+    it('names the requesting service and classifies authorization and deployment failures', () => {
+      expect(parseNonJsonErrorMessage(404, 'Cashier service')).toContain(
+        'Cashier service endpoint',
+      );
+      expect(parseNonJsonErrorMessage(404, 'Operations Center')).toContain(
+        'Operations Center endpoint',
+      );
+      expect(parseNonJsonErrorMessage(404, 'Customer service')).toContain(
+        'Customer service endpoint',
+      );
+      expect(parseNonJsonErrorMessage(401, 'Cashier service')).toContain(
+        'access was denied',
+      );
+      expect(parseNonJsonErrorMessage(403, 'Operations Center')).toContain(
+        'HTTP 403',
+      );
+      expect(parseNonJsonErrorMessage(504, 'Cashier service')).toContain(
+        'HTTP 504',
+      );
+      expect(parseNonJsonErrorMessage(200, 'Cashier service')).toContain(
+        'instead of JSON',
+      );
+      expect(parseNonJsonErrorMessage(404, 'Operations Center')).not.toContain(
+        'Customers',
+      );
+    });
   });
 
   describe('readResponseBodyText', () => {

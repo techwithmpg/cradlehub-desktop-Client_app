@@ -197,6 +197,41 @@ describe('Operations Center Service', () => {
         ),
       ).rejects.toThrow('Branch staff authorization missing');
     });
+
+    it('classifies a non-JSON Operations Center 404 without leaking the response', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('private server content', {
+          status: 404,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      );
+      await expect(
+        fetchOperationsCenterData(
+          createMockSupabaseClient(),
+          mockFetch as unknown as typeof fetch,
+        ),
+      ).rejects.toMatchObject({
+        code: 'HOSTED_API_NON_JSON_RESPONSE',
+        status: 404,
+        message: expect.stringContaining('Operations Center endpoint'),
+      });
+    });
+
+    it('classifies network timeouts without exposing the transport error', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockRejectedValue(new Error('token=private timeout'));
+      await expect(
+        fetchOperationsCenterData(
+          createMockSupabaseClient(),
+          mockFetch as unknown as typeof fetch,
+        ),
+      ).rejects.toMatchObject({
+        isNetworkError: true,
+        isAmbiguous: true,
+        message: expect.stringContaining('requires a connection'),
+      });
+    });
   });
 
   describe('assignServiceProvider mutation', () => {

@@ -102,6 +102,9 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
       setDrawersData(drawersRes);
       setErrorMessage(null);
     } catch (err: unknown) {
+      setOverview(null);
+      setPayableData(null);
+      setDrawersData(null);
       const msg =
         err instanceof Error
           ? err.message
@@ -123,16 +126,19 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
           case 'ledger': {
             const result = await fetchCashierLedger();
             setLedgerData(result);
+            setErrorMessage(null);
             break;
           }
           case 'drawers': {
             const result = await fetchCashierDrawers();
             setDrawersData(result);
+            setErrorMessage(null);
             break;
           }
           case 'day-close': {
             const result = await fetchDayClose();
             setDayCloseData(result);
+            setErrorMessage(null);
             break;
           }
           case 'history': {
@@ -140,6 +146,7 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
             try {
               const result = await fetchCashierHistory();
               setHistoryData(result);
+              setErrorMessage(null);
             } catch (err: unknown) {
               const msg =
                 err instanceof Error
@@ -153,6 +160,9 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
           }
         }
       } catch (err: unknown) {
+        if (tab === 'ledger') setLedgerData(null);
+        if (tab === 'drawers') setDrawersData(null);
+        if (tab === 'day-close') setDayCloseData(null);
         const msg =
           err instanceof Error ? err.message : 'Failed to load tab data.';
         setErrorMessage(msg);
@@ -178,12 +188,17 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
   // Load tab data on switch
   const handleTabChange = (nextTab: CashierTab) => {
     setActiveTab(nextTab);
+    setErrorMessage(null);
     void loadTabData(nextTab);
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([loadTodayData(), loadTabData(activeTab)]);
+    if (activeTab === 'today') {
+      await loadTodayData();
+    } else {
+      await Promise.all([loadTodayData(), loadTabData(activeTab)]);
+    }
     setIsRefreshing(false);
   };
 
@@ -195,8 +210,8 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
     ]);
   };
 
-  const businessDate =
-    overview?.businessDate ?? new Date().toISOString().split('T')[0];
+  const businessDate = overview?.businessDate ?? '';
+  const displayedBusinessDate = overview?.businessDate ?? 'Unavailable';
   const activeSession =
     drawersData?.activeSessions?.[0] ?? overview?.activeDrawerSession ?? null;
   const availableDrawers =
@@ -204,6 +219,16 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
     payableData?.accounts.filter((a) => a.accountType === 'cash_drawer') ??
     [];
   const staffOptions = drawersData?.staffOptions ?? [];
+  const activeTabAvailable =
+    activeTab === 'today'
+      ? Boolean(overview && payableData)
+      : activeTab === 'ledger'
+        ? Boolean(ledgerData)
+        : activeTab === 'drawers'
+          ? Boolean(drawersData)
+          : activeTab === 'day-close'
+            ? Boolean(dayCloseData)
+            : true;
 
   return (
     <ModuleWorkspace
@@ -222,7 +247,7 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
               title="Authoritative Business Date"
             >
               <Calendar size={13} className="text-emerald-800" />
-              <span>{businessDate}</span>
+              <span>{displayedBusinessDate}</span>
             </div>
             <div
               className="bookings-header-meta-badge"
@@ -267,7 +292,18 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
           </div>
         ) : (
           <>
-            {activeTab === 'today' && (
+            {!activeTabAvailable && (
+              <div
+                className="cashier-card p-8 text-sm text-slate-600"
+                role="status"
+              >
+                {errorMessage
+                  ? 'Cashier data is unavailable. Refresh to check the hosted service.'
+                  : 'Loading Cashier data...'}
+              </div>
+            )}
+
+            {activeTab === 'today' && overview && payableData && (
               <CashierTodayTab
                 overview={overview}
                 payableData={payableData}
@@ -278,14 +314,14 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
               />
             )}
 
-            {activeTab === 'ledger' && (
+            {activeTab === 'ledger' && ledgerData && (
               <FinancialLedgerTab
                 branchName={authContext.branchName}
                 initialLedger={ledgerData}
               />
             )}
 
-            {activeTab === 'drawers' && (
+            {activeTab === 'drawers' && drawersData && (
               <CashDrawerTab
                 activeSession={activeSession}
                 availableDrawers={availableDrawers}
@@ -298,7 +334,7 @@ export function CashierWorkspace({ authContext }: CashierWorkspaceProps) {
               />
             )}
 
-            {activeTab === 'day-close' && (
+            {activeTab === 'day-close' && dayCloseData && (
               <DayCloseTab
                 dayCloseData={dayCloseData}
                 onNavigateToDrawers={() => handleTabChange('drawers')}

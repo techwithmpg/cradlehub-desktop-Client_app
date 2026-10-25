@@ -125,6 +125,7 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
       const result = await fetchOperationsCenterData();
       setData(result);
     } catch (err: unknown) {
+      setData(null);
       const msg =
         err instanceof Error
           ? err.message
@@ -207,16 +208,30 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
     );
   }
 
-  const counts = data?.counts ?? {
-    critical: 0,
-    warning: 0,
-    info: 0,
-    attendance: 0,
-    staff: 0,
-    configuration: 0,
-    unresolvedScans: 0,
-    totalIssues: 0,
-  };
+  if (!data) {
+    return (
+      <ModuleWorkspace
+        ariaLabel="Operations Center Workspace"
+        className="ops-workspace-container"
+      >
+        <ModuleHeader
+          title="Operations Center"
+          subtitle="Diagnostics unavailable"
+        />
+        <ModuleErrorBanner
+          message={errorMessage ?? 'Operations Center is unavailable.'}
+          testId="ops-error-banner"
+          onRetry={() => void loadData()}
+        />
+      </ModuleWorkspace>
+    );
+  }
+
+  const counts = data.counts;
+  const diagnosticsComplete =
+    data.attendanceAvailable &&
+    data.configurationAvailable &&
+    data.staffAvailable;
 
   const operatorRole = data?.operatorRole ?? authContext.canonicalRole;
   const canPerformMutations = data?.canPerformMutations ?? false;
@@ -243,13 +258,13 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
             <div className="flex items-center gap-2">
               <span
                 className={`ops-readiness-pill ${
-                  counts.critical === 0
+                  diagnosticsComplete && counts.critical === 0
                     ? 'ops-readiness-ready'
                     : 'ops-readiness-attention'
                 }`}
                 title="Branch readiness classification"
               >
-                {counts.critical === 0 ? (
+                {diagnosticsComplete && counts.critical === 0 ? (
                   <CheckCircle2 size={13} />
                 ) : (
                   <AlertTriangle size={13} />
@@ -303,8 +318,12 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
         <ModuleKpiGrid>
           <ModuleKpiCell
             label="Critical Issues"
-            count={counts.critical}
-            subtext="Immediate fix required"
+            count={diagnosticsComplete ? counts.critical : 'Unavailable'}
+            subtext={
+              diagnosticsComplete
+                ? 'Immediate fix required'
+                : 'Checks incomplete'
+            }
             accentClass={
               counts.critical > 0 ? 'text-rose-600' : 'text-slate-700'
             }
@@ -324,8 +343,12 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
           />
           <ModuleKpiCell
             label="Warnings"
-            count={counts.warning}
-            subtext="Degradations detected"
+            count={diagnosticsComplete ? counts.warning : 'Unavailable'}
+            subtext={
+              diagnosticsComplete
+                ? 'Degradations detected'
+                : 'Checks incomplete'
+            }
             accentClass={
               counts.warning > 0 ? 'text-amber-600' : 'text-slate-700'
             }
@@ -345,8 +368,12 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
           />
           <ModuleKpiCell
             label="Attendance Issues"
-            count={counts.attendance}
-            subtext="Scan failures & limits"
+            count={data.attendanceAvailable ? counts.attendance : 'Unavailable'}
+            subtext={
+              data.attendanceAvailable
+                ? 'Scan failures & limits'
+                : 'Source unavailable'
+            }
             accentClass="text-slate-800"
             icon={<Clock size={18} className="text-blue-500" />}
             onClick={() => {
@@ -357,8 +384,14 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
           />
           <ModuleKpiCell
             label="Service Readiness"
-            count={counts.configuration}
-            subtext="Missing providers"
+            count={
+              data.configurationAvailable ? counts.configuration : 'Unavailable'
+            }
+            subtext={
+              data.configurationAvailable
+                ? 'Missing providers'
+                : 'Source unavailable'
+            }
             accentClass="text-slate-800"
             icon={<Wrench size={18} className="text-emerald-600" />}
             onClick={() => {
@@ -369,8 +402,10 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
           />
           <ModuleKpiCell
             label="Staff & Identity"
-            count={counts.staff}
-            subtext="Duplicate checks"
+            count={data.staffAvailable ? counts.staff : 'Unavailable'}
+            subtext={
+              data.staffAvailable ? 'Duplicate checks' : 'Source unavailable'
+            }
             accentClass="text-slate-800"
             icon={<Users size={18} className="text-indigo-500" />}
             onClick={() => {
@@ -381,8 +416,14 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
           />
           <ModuleKpiCell
             label="Failed Scans Today"
-            count={counts.unresolvedScans}
-            subtext="Phone/kiosk rejections"
+            count={
+              data.attendanceAvailable ? counts.unresolvedScans : 'Unavailable'
+            }
+            subtext={
+              data.attendanceAvailable
+                ? 'Phone/kiosk rejections'
+                : 'Source unavailable'
+            }
             accentClass={
               counts.unresolvedScans > 0 ? 'text-rose-600' : 'text-slate-700'
             }
@@ -512,38 +553,38 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
 
                 {/* Counter */}
                 <span className="text-xs font-semibold text-slate-500 ml-auto whitespace-nowrap">
-                  {activeTab === 'scans'
-                    ? `${filteredScans.length} logged scans`
-                    : `${filteredIssues.length} issues requiring action`}
+                  {!diagnosticsComplete
+                    ? 'Diagnostics incomplete'
+                    : activeTab === 'scans'
+                      ? `${filteredScans.length} logged scans`
+                      : `${filteredIssues.length} issues requiring action`}
                 </span>
               </div>
             </ModuleToolbar>
 
             {/* Table / DataGrid */}
-            <ModuleDataGridFrame testId="ops-datagrid-frame">
+            <ModuleDataGridFrame testId="ops-datagrid-frame" naturalHeight>
               {activeTab === 'scans' ? (
                 /* Unsuccessful Scans Table */
-                <ModuleTable>
+                <ModuleTable className="ops-table ops-scans-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '100px' }}>Status</th>
-                      <th style={{ width: '180px' }}>Staff Member</th>
+                      <th>Status</th>
+                      <th>Staff Member</th>
                       <th>Failure Reason & Message</th>
-                      <th style={{ width: '130px' }}>Occurred At</th>
-                      <th style={{ width: '90px' }}>Suffix</th>
-                      <th style={{ width: '110px', textAlign: 'right' }}>
-                        Action
-                      </th>
+                      <th style={{ textAlign: 'right' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredScans.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={4}
                           className="text-center py-8 text-sm text-slate-500"
                         >
-                          No scan failures recorded for this branch today.
+                          {data.attendanceAvailable
+                            ? 'No scan failures recorded for this branch today.'
+                            : 'Scan diagnostics are unavailable.'}
                         </td>
                       </tr>
                     ) : (
@@ -584,19 +625,17 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
                               <div className="text-xs text-slate-600 truncate max-w-md">
                                 {scan.message}
                               </div>
-                            </td>
-                            <td className="text-xs text-slate-600 whitespace-nowrap">
-                              {new Date(scan.occurredAt).toLocaleTimeString(
-                                [],
-                                {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  second: '2-digit',
-                                },
-                              )}
-                            </td>
-                            <td className="font-mono text-xs text-slate-500">
-                              #{scan.scanIdSuffix}
+                              <div className="ops-row-meta">
+                                {new Date(scan.occurredAt).toLocaleTimeString(
+                                  [],
+                                  {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                  },
+                                )}{' '}
+                                · Scan <span>#{scan.scanIdSuffix}</span>
+                              </div>
                             </td>
                             <td style={{ textAlign: 'right' }}>
                               <button
@@ -619,29 +658,26 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
                 </ModuleTable>
               ) : (
                 /* Operations Issues Table */
-                <ModuleTable>
+                <ModuleTable className="ops-table ops-issues-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '90px' }}>Severity</th>
-                      <th style={{ minWidth: '220px' }}>Operational Problem</th>
-                      <th style={{ width: '130px' }}>Area</th>
-                      <th style={{ width: '110px' }}>State</th>
-                      <th style={{ width: '160px' }}>Impacted Entity</th>
-                      <th style={{ width: '110px', textAlign: 'right' }}>
-                        Resolution
-                      </th>
+                      <th>Severity</th>
+                      <th>Operational Problem</th>
+                      <th style={{ textAlign: 'right' }}>Resolution</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredIssues.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={3}
                           className="text-center py-8 text-sm text-slate-500"
                         >
-                          {data?.issues.length === 0
-                            ? 'All operational checks passed. No issues detected for this branch.'
-                            : 'No operational issues match the active filter criteria.'}
+                          {!diagnosticsComplete
+                            ? 'Diagnostics are incomplete. Some checks are unavailable.'
+                            : data.issues.length === 0
+                              ? 'All operational checks passed. No issues detected for this branch.'
+                              : 'No operational issues match the active filter criteria.'}
                         </td>
                       </tr>
                     ) : (
@@ -680,35 +716,19 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
                               <div className="text-xs text-slate-500 truncate max-w-sm mt-0.5">
                                 {issue.description}
                               </div>
-                            </td>
-                            <td>
-                              <span className="ops-badge ops-badge-domain">
-                                {issue.area === 'attendance' && 'Attendance'}
-                                {issue.area === 'configuration' && 'Readiness'}
-                                {issue.area === 'staff_identity' && 'Staff'}
-                              </span>
-                            </td>
-                            <td>
-                              <span className="ops-badge ops-badge-state">
+                              <div className="ops-row-meta">
+                                {issue.area === 'attendance'
+                                  ? 'Attendance'
+                                  : issue.area === 'configuration'
+                                    ? 'Readiness'
+                                    : 'Staff'}
+                                {' · '}
                                 {issue.resolutionState.replace('_', ' ')}
-                              </span>
-                            </td>
-                            <td>
-                              {issue.serviceName && (
-                                <div className="text-xs font-medium text-slate-800 truncate">
-                                  Service: {issue.serviceName}
-                                </div>
-                              )}
-                              {issue.staffName && (
-                                <div className="text-xs font-medium text-slate-800 truncate">
-                                  Staff: {issue.staffName}
-                                </div>
-                              )}
-                              {!issue.serviceName && !issue.staffName && (
-                                <span className="text-xs text-slate-400">
-                                  Branch Wide
-                                </span>
-                              )}
+                                {issue.serviceName &&
+                                  ` · Service: ${issue.serviceName}`}
+                                {issue.staffName &&
+                                  ` · Staff: ${issue.staffName}`}
+                              </div>
                             </td>
                             <td style={{ textAlign: 'right' }}>
                               <button

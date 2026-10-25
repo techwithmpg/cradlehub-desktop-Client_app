@@ -353,7 +353,7 @@ describe('customer lookup hosted API boundary', () => {
     await expect(
       searchBranchCustomers('branch-1', 'Maria', fakeClient, customFetch404),
     ).rejects.toThrow(
-      /The hosted Customers endpoint is not available on the current deployment/,
+      /Customer search service endpoint is not available on the current deployment/,
     );
   });
 });

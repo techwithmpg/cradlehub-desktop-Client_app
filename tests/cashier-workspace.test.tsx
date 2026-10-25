@@ -311,6 +311,47 @@ describe('CashierWorkspace Component', () => {
     });
   });
 
+  it('shows unavailable instead of zero totals or Queue Clear after a failed read', async () => {
+    vi.mocked(cashierService.fetchCashierOverview).mockRejectedValue(
+      new Error('Cashier endpoint unavailable'),
+    );
+    await renderCashierWorkspace();
+    expect(screen.getByText(/Cashier data is unavailable/)).toBeDefined();
+    expect(screen.queryByText('Queue Clear')).toBeNull();
+    expect(screen.queryByTestId('cashier-kpi-total-collected')).toBeNull();
+  });
+
+  it.each([
+    ['ledger', 'Ledger', 'fetchCashierLedger'],
+    ['drawers', 'Cash Drawer', 'fetchCashierDrawers'],
+    ['day-close', 'Day Close', 'fetchDayClose'],
+    ['history', 'History', 'fetchCashierHistory'],
+  ] as const)(
+    'keeps %s unavailable when its authoritative read fails',
+    async (tab, label, service) => {
+      const user = userEvent.setup();
+      await renderCashierWorkspace();
+      vi.mocked(cashierService[service]).mockRejectedValueOnce(
+        new Error(`${label} endpoint unavailable`),
+      );
+      await user.click(screen.getByRole('tab', { name: label }));
+      await waitFor(() =>
+        expect(
+          screen.getAllByText(new RegExp(`${label} endpoint unavailable`))
+            .length,
+        ).toBeGreaterThan(0),
+      );
+      if (tab === 'history') {
+        expect(
+          screen.getByTestId('cashier-kpi-history-days').textContent,
+        ).toContain('Unavailable');
+      } else {
+        expect(screen.getByText(/Cashier data is unavailable/)).toBeDefined();
+      }
+      expect(screen.queryByText('₱0')).toBeNull();
+    },
+  );
+
   it('renders header, title, badges, and tab strip', async () => {
     await renderCashierWorkspace();
 

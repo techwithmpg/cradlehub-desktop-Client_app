@@ -18,24 +18,14 @@ export function parseNonJsonErrorMessage(
   status: number,
   serviceName: string = 'Customer service',
 ): string {
-  if (serviceName === 'Staff service' || serviceName === 'Booking service') {
-    if (status === 404)
-      return `${serviceName} endpoint is not available on the current deployment.`;
-    if (status >= 500)
-      return `${serviceName} returned an unexpected server response (HTTP ${status}).`;
-    if (status >= 300 && status < 400)
-      return `${serviceName} endpoint redirected unexpectedly.`;
-    return `${serviceName} returned an unexpected HTTP ${status} response instead of JSON.`;
-  }
-  if (status === 404) {
-    return 'The hosted Customers endpoint is not available on the current deployment.';
-  }
-  if (status === 500) {
-    return 'The hosted Customers service returned an unexpected server response.';
-  }
-  if (status >= 300 && status < 400) {
-    return 'The hosted Customers endpoint redirected unexpectedly.';
-  }
+  if (status === 401 || status === 403)
+    return `${serviceName} access was denied (HTTP ${status}). Sign in again or ask an administrator to check your access.`;
+  if (status === 404)
+    return `${serviceName} endpoint is not available on the current deployment (HTTP 404).`;
+  if (status >= 500)
+    return `${serviceName} returned an unexpected server response (HTTP ${status}).`;
+  if (status >= 300 && status < 400)
+    return `${serviceName} endpoint redirected unexpectedly (HTTP ${status}).`;
   return `${serviceName} returned an unexpected HTTP ${status} response instead of JSON.`;
 }
 

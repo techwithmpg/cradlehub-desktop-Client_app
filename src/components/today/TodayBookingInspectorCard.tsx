@@ -123,6 +123,18 @@ export function TodayBookingInspectorCard({
                 <dd>{booking.resourceName}</dd>
               </div>
             )}
+            {booking.isHomeService && (
+              <div>
+                <dt>Dispatch</dt>
+                <dd>
+                  {booking.dispatchContextAvailable === false
+                    ? 'Dispatch details unavailable'
+                    : booking.driverName
+                      ? `Driver: ${booking.driverName}`
+                      : 'No driver assigned'}
+                </dd>
+              </div>
+            )}
             <div>
               <dt>
                 <span>Status</span>

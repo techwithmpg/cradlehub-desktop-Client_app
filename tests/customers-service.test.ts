@@ -539,7 +539,7 @@ describe('customers-service', () => {
       if (!res.ok) {
         expect(res.code).toBe('HOSTED_API_NON_JSON_RESPONSE');
         expect(res.message).toBe(
-          'The hosted Customers endpoint is not available on the current deployment.',
+          'Customer service endpoint is not available on the current deployment (HTTP 404).',
         );
         expect(res.message).not.toContain('<html>');
         expect(res.message).not.toContain('test-token');
