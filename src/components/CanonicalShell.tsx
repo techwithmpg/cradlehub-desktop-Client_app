@@ -19,6 +19,7 @@ import {
   UserCog,
   Banknote,
   Settings,
+  Wrench,
   Bell,
   ChevronDown,
   type LucideIcon,
@@ -56,6 +57,7 @@ const ICON_MAP: Record<NavModuleId, LucideIcon> = {
   'home-service': Truck,
   staff: UserCog,
   cashier: Banknote,
+  operations: Wrench,
   settings: Settings,
 };
 

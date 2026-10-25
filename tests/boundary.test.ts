@@ -121,9 +121,9 @@ describe('Stage 01/02 authority and security boundaries', () => {
     expect(envExample).toMatch(/^VITE_CRADLEHUB_API_URL=\r?\n?$/m);
   });
 
-  it('contains exactly the nine authorized navigation items and excludes dormant modules', () => {
+  it('contains exactly the ten authorized navigation items and excludes dormant modules', () => {
     const navIds = AUTHORIZED_NAV_ITEMS.map((item) => item.id);
-    expect(navIds).toHaveLength(9);
+    expect(navIds).toHaveLength(10);
     expect(navIds).toEqual([
       'today',
       'bookings',
@@ -133,6 +133,7 @@ describe('Stage 01/02 authority and security boundaries', () => {
       'home-service',
       'staff',
       'cashier',
+      'operations',
       'settings',
     ]);
 

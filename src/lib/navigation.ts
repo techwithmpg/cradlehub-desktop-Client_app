@@ -8,6 +8,7 @@ import {
   UserCog,
   Settings,
   Banknote,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import type { NavModuleId } from '../types/auth';
@@ -71,6 +72,13 @@ export const AUTHORIZED_NAV_ITEMS: readonly NavItemConfig[] = [
     icon: Banknote,
     description:
       'Payments, expenses, cash drawer, and financial reconciliation.',
+  },
+  {
+    id: 'operations',
+    label: 'Operations Center',
+    icon: Wrench,
+    description:
+      'Operational diagnostics, issue inbox, attendance scans, and service readiness.',
   },
   {
     id: 'settings',

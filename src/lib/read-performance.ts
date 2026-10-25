@@ -26,6 +26,7 @@ export const READ_OPERATION_NAMES = [
   'cashier.fetchDrawers',
   'cashier.fetchDayClose',
   'cashier.fetchHistory',
+  'operations.fetchOverview',
 ] as const;
 
 export type ReadOperationName = (typeof READ_OPERATION_NAMES)[number];
